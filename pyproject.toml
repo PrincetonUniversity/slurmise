@@ -1,0 +1,72 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "slurmise"
+dynamic = ["version"]
+description = 'Simple slurm resource estimation'
+readme = "README.md"
+requires-python = ">=3.8"
+license = "MIT"
+keywords = []
+authors = [
+  { name = "Troy Comi", email = "tcomi@princeton.edu" },
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+]
+dependencies = [
+  "click",
+  "numpy",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest",
+]
+
+[project.urls]
+Documentation = "https://github.com/PrincetonUniversity/slurmise#readme"
+Issues = "https://github.com/PrincetonUniversity/slurmise/issues"
+Source = "https://github.com/PrincetonUniversity/slurmise"
+
+[project.scripts]
+slurmise = "slurmise.__main__:main"
+
+[tool.hatch.version]
+path = "src/slurmise/__about__.py"
+
+[tool.hatch.envs.types]
+extra-dependencies = [
+  "mypy>=1.0.0",
+]
+[tool.hatch.envs.types.scripts]
+check = "mypy --install-types --non-interactive {args:src/slurmise tests}"
+
+[tool.coverage.run]
+source_pkgs = ["slurmise", "tests"]
+branch = true
+parallel = true
+omit = [
+  "src/slurmise/__about__.py",
+]
+
+[tool.coverage.paths]
+slurmise = ["src/slurmise", "*/slurmise/src/slurmise"]
+tests = ["tests", "*/slurmise/tests"]
+
+[tool.coverage.report]
+exclude_lines = [
+  "no cov",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+]
