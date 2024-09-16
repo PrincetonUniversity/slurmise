@@ -1,11 +1,12 @@
 from typing import Any, Optional
-import tinydb
+import h5py
 import contextlib
+import numpy as np
 
 
 class JobDatabase():
     def __init__(self, db_file):
-        self.db = tinydb.TinyDB(db_file)
+        self.db = h5py.File(db_file, "a")
 
     def _close(self):
         self.db.close()
@@ -24,21 +25,29 @@ class JobDatabase():
         job_name: str,
         variables: dict[str, Any],
         params: Optional[dict[str, Any]] = None,
-    ) -> int:
+        slurm_id: Optional[str] = None,
+    ) -> None:
         """
         variables: {"runtime":number of minutes,
                     "memory": number of MBs}
         """
-        table = self.db.table(job_name)
-        commit = table.insert(variables)
-        return commit
+        table_name = "/".join([job_name, slurm_id])
+        table = self.db.require_group(name=table_name)
+        for var, value in variables.items():
+            val = np.asarray(value)
+            _ = table.create_dataset(name=var, shape=val.shape, data=val)
+
+        return
 
     def query(
         self, job_name: str, params: Optional[dict[str, Any]] = None
     ) -> list[dict[str, Any]]:
-        table = self.db.table(job_name)
-        values = table.all()
-        return values
+        job_group = self.db[job_name]
+        result = []
+        for _, slurm_data in job_group.items():
+            result.append({key: value[()] for key, value in slurm_data.items()})
+
+        return result
 
     # def delete(self, **kwargs):
     #     pass
