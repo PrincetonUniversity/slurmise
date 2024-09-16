@@ -27,6 +27,7 @@ classifiers = [
 dependencies = [
   "click",
   "numpy",
+  "tinydb",
 ]
 
 [project.optional-dependencies]
