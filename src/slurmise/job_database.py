@@ -2,6 +2,7 @@ from typing import Any, Optional
 import h5py
 import contextlib
 import numpy as np
+from slurmise.job_data import JobData
 
 
 class JobDatabase():
@@ -44,8 +45,8 @@ class JobDatabase():
     ) -> list[dict[str, Any]]:
         job_group = self.db.get(job_name, default={})
         result = []
-        for _, slurm_data in job_group.items():
-            result.append({key: value[()] for key, value in slurm_data.items()})
+        for slurm_id, slurm_data in job_group.items():
+            result.append(JobData.from_dataset(job_name, slurm_id, slurm_data))
 
         return result
 

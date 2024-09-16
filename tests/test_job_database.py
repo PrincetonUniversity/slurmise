@@ -3,6 +3,7 @@ import pytest
 import h5py
 import numpy as np
 from slurmise.job_database import JobDatabase
+from slurmise.job_data import JobData
 
 from .utils import print_hdf5
 
@@ -35,13 +36,15 @@ def test_rqd(empty_h5py_file):
         # print_hdf5(db.db)
 
         excepted_results = [
-            {"runtime": 5, "memory": 100},
-            {"runtime": 6, "memory": 128, "filesizes": np.array([123, 512, 128])},
+            JobData(job_name='test_job', slurm_id="1", runtime=5, memory=100),
+            JobData(job_name='test_job', slurm_id="2", runtime=6, memory=128,
+                    numerical={"filesizes": np.array([123, 512, 128])}),
         ]
 
         query_result = db.query(job_name="test_job")
 
-        np.testing.assert_equal(query_result, excepted_results)
+        assert query_result == excepted_results
+
         db.record(
             job_name="test_job2",
             variables={"runtime": 6, "memory": 128, "filesizes": [123, 512, 128]},
@@ -52,10 +55,12 @@ def test_rqd(empty_h5py_file):
         assert query_result == []
         query_result = db.query(job_name="test_job2")
         excepted_results = [
-            {
-                "runtime": 6,
-                "memory": 128,
-                "filesizes": np.array([123, 512, 128]),
-            }
+            JobData(
+                slurm_id="2",
+                job_name='test_job2',
+                runtime=6,
+                memory=128,
+                numerical={"filesizes": np.array([123, 512, 128])},
+            )
         ]
         np.testing.assert_equal(query_result, excepted_results)
