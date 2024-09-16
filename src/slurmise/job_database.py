@@ -1,3 +1,4 @@
+from typing import Any, Optional
 import tinydb
 import contextlib
 
@@ -18,11 +19,26 @@ class JobDatabase():
         finally:
             db._close()
 
-    def record(self, job_name, **params, **variables):
-        pass
+    def record(
+        self,
+        job_name: str,
+        variables: dict[str, Any],
+        params: Optional[dict[str, Any]] = None,
+    ) -> int:
+        """
+        variables: {"runtime":number of minutes,
+                    "memory": number of MBs}
+        """
+        table = self.db.table(job_name)
+        commit = table.insert(variables)
+        return commit
 
-    def query(self, job_name, **params):
-        pass
+    def query(
+        self, job_name: str, params: Optional[dict[str, Any]] = None
+    ) -> list[dict[str, Any]]:
+        table = self.db.table(job_name)
+        values = table.all()
+        return values
 
     # def delete(self, **kwargs):
     #     pass
