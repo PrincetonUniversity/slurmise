@@ -42,15 +42,24 @@ class JobDatabase():
     def query(
         self, job_name: str, params: Optional[dict[str, Any]] = None
     ) -> list[dict[str, Any]]:
-        job_group = self.db[job_name]
+        job_group = self.db.get(job_name, default={})
         result = []
         for _, slurm_data in job_group.items():
             result.append({key: value[()] for key, value in slurm_data.items()})
 
         return result
 
-    # def delete(self, **kwargs):
-    #     pass
+    def update(self, **kargs):
+        raise NotImplementedError("Later feature")
+
+    def delete(
+        self, job_name: Optional[str] = None, params: Optional[dict[str, Any]] = None
+    ) -> None:
+        if job_name is None:
+            raise NotImplementedError("Empting the DB is not yet supported")
+        else:
+            del self.db[job_name]
+
     #
     # def clear(**kwargs):
     #     pass
