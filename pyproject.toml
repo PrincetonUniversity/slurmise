@@ -27,6 +27,7 @@ classifiers = [
 dependencies = [
   "click",
   "numpy",
+  "h5py",
 ]
 
 [project.optional-dependencies]
