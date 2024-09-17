@@ -6,7 +6,7 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = 'Slurmise Documentation'
+project = 'Slurmise'
 copyright = '2024, Troy Comi, David Turner, Giannis Paraskevakos, Rob Bierman'
 author = 'Troy Comi, David Turner, Giannis Paraskevakos, Rob Bierman'
 release = '0.0.1'

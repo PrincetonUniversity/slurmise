@@ -1,7 +1,7 @@
-slurmise
-========
+src
+===
 
 .. toctree::
    :maxdepth: 4
 
-   tests
+   slurmise
