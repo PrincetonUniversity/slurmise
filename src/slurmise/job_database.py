@@ -21,48 +21,71 @@ class JobDatabase():
         finally:
             db._close()
 
-    def record(
-        self,
-        job_name: str,
-        variables: dict[str, Any],
-        params: Optional[dict[str, Any]] = None,
-        slurm_id: Optional[str] = None,
-    ) -> None:
+    def record(self, job_data: JobData) -> None:
         """
         variables: {"runtime":number of minutes,
                     "memory": number of MBs}
         """
-        table_name = "/".join([job_name, slurm_id])
+        table_name = f"/{job_data.job_name}"
+        for key in sorted(job_data.categorical.keys()):
+            table_name += f"/{key}={job_data.categorical[key]}"
+        table_name += f"/{job_data.slurm_id}"
         table = self.db.require_group(name=table_name)
-        for var, value in variables.items():
+
+        if job_data.memory is not None:
+            val = np.asarray(job_data.memory)
+            _ = table.create_dataset(name='memory', shape=val.shape, data=val)
+
+        if job_data.runtime is not None:
+            val = np.asarray(job_data.runtime)
+            _ = table.create_dataset(name='runtime', shape=val.shape, data=val)
+
+        for var, value in job_data.numerical.items():
             val = np.asarray(value)
             _ = table.create_dataset(name=var, shape=val.shape, data=val)
 
         return
 
-    def query(
-        self, job_name: str, params: Optional[dict[str, Any]] = None
-    ) -> list[dict[str, Any]]:
-        job_group = self.db.get(job_name, default={})
+    def query(self, job_data: JobData) -> list[JobData]:
+        # TODO add categorical hierarchy
+        group_name = f"/{job_data.job_name}"
+        for key in sorted(job_data.categorical.keys()):
+            group_name += f"/{key}={job_data.categorical[key]}"
+
+        job_group = self.db.get(group_name, default={})
         result = []
         for slurm_id, slurm_data in job_group.items():
-            result.append(JobData.from_dataset(job_name, slurm_id, slurm_data))
+            if JobDatabase.is_slurm_job(slurm_data):
+                result.append(JobData.from_dataset(
+                    job_name=job_data.job_name,
+                    slurm_id=slurm_id,
+                    categorical=job_data.categorical,
+                    dataset=slurm_data,
+                ))
 
         return result
 
     def update(self, **kargs):
         raise NotImplementedError("Later feature")
 
-    def delete(
-        self, job_name: Optional[str] = None, params: Optional[dict[str, Any]] = None
-    ) -> None:
-        if job_name is None:
-            raise NotImplementedError("Empting the DB is not yet supported")
-        else:
-            del self.db[job_name]
+    def delete(self, job_data: JobData) -> None:
+        del self.db[job_data.job_name]
+
+    @staticmethod
+    def is_dataset(f):
+        return type(f) == h5py._hl.dataset.Dataset
+
+    @staticmethod
+    def is_slurm_job(f):
+        if len(f) == 0:  # group contains no values
+            return True
+        first_element = f[list(f.keys())[0]]
+        # group contains a dataset
+        return JobDatabase.is_dataset(first_element)
 
     #
-    # def clear(**kwargs):
+    # def clear(self):
+        # raise NotImplementedError("Empting the DB is not yet supported")
     #     pass
     #
     # def cache_fit(ResourceFit):

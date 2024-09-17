@@ -32,26 +32,32 @@ def dc_eq(dc1, dc2) -> bool:
 @dataclass(eq=False)
 class JobData:
     job_name: str
-    slurm_id: str
+    slurm_id: str | None = None
     categorical: dict = field(default_factory=lambda: {})
     numerical: dict = field(default_factory=lambda: {})
-    memory: int | None = None
-    runtime: int | None = None
+    memory: int | None = None  # in MBs
+    runtime: int | None = None  # in minutes
 
     @staticmethod
-    def from_dataset(job_name, slurm_id, dataset):
-        runtime = dataset.get('runtime', None)[()]
-        memory = dataset.get('memory', None)[()]
+    def from_dataset(job_name, slurm_id, dataset, categorical):
+        runtime = dataset.get('runtime', None)
+        if runtime is not None:
+            runtime = runtime[()]
+        memory = dataset.get('memory', None)
+        if memory is not None:
+            memory = memory[()]
         numerical = {
             key: value[()]
             for key, value in dataset.items()
             if key not in ('runtime', 'memory')
         }
+        categorical = dict(**categorical)
 
         return JobData(
             job_name=job_name,
             slurm_id=slurm_id,
             numerical=numerical,
+            categorical=categorical,
             memory=memory,
             runtime=runtime,
         )
