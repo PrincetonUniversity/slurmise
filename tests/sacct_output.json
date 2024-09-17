@@ -1,0 +1,579 @@
+{
+   "jobs": [
+     {
+       "account": "pli",
+       "comment": {
+         "administrator": "",
+         "job": "",
+         "system": ""
+       },
+       "allocation_nodes": 1,
+       "array": {
+         "job_id": 0,
+         "limits": {
+           "max": {
+             "running": {
+               "tasks": 0
+             }
+           }
+         },
+         "task_id": {
+           "set": false,
+           "infinite": false,
+           "number": 0
+         },
+         "task": ""
+       },
+       "association": {
+         "account": "pli",
+         "cluster": "della",
+         "partition": "",
+         "user": "juhyunp",
+         "id": 4223
+       },
+       "block": "",
+       "cluster": "della",
+       "constraints": "",
+       "container": "",
+       "derived_exit_code": {
+         "status": [
+           "SUCCESS"
+         ],
+         "return_code": {
+           "set": true,
+           "infinite": false,
+           "number": 0
+         },
+         "signal": {
+           "id": {
+             "set": false,
+             "infinite": false,
+             "number": 0
+           },
+           "name": ""
+         }
+       },
+       "time": {
+         "elapsed": 97201,
+         "eligible": 1726475984,
+         "end": 0,
+         "planned": {
+           "set": true,
+           "infinite": false,
+           "number": 8913
+         },
+         "start": 1726484897,
+         "submission": 1726456224,
+         "suspended": 0,
+         "system": {
+           "seconds": 0,
+           "microseconds": 0
+         },
+         "limit": {
+           "set": true,
+           "infinite": false,
+           "number": 2280
+         },
+         "total": {
+           "seconds": 0,
+           "microseconds": 0
+         },
+         "user": {
+           "seconds": 0,
+           "microseconds": 0
+         }
+       },
+       "exit_code": {
+         "status": [
+           "SUCCESS"
+         ],
+         "return_code": {
+           "set": true,
+           "infinite": false,
+           "number": 0
+         },
+         "signal": {
+           "id": {
+             "set": false,
+             "infinite": false,
+             "number": 0
+           },
+           "name": ""
+         }
+       },
+       "extra": "",
+       "failed_node": "",
+       "flags": [
+         "STARTED_ON_BACKFILL",
+         "START_RECEIVED"
+       ],
+       "group": "cs",
+       "het": {
+         "job_id": 0,
+         "job_offset": {
+           "set": false,
+           "infinite": false,
+           "number": 0
+         }
+       },
+       "job_id": 58976578,
+       "name": "finetune_vicuna_7b",
+       "licenses": "",
+       "mcs": {
+         "label": ""
+       },
+       "nodes": "della-k15g1",
+       "partition": "pli-c",
+       "hold": false,
+       "priority": {
+         "set": true,
+         "infinite": false,
+         "number": 2897
+       },
+       "qos": "pli-medium",
+       "required": {
+         "CPUs": 96,
+         "memory_per_cpu": {
+           "set": false,
+           "infinite": false,
+           "number": 0
+         },
+         "memory_per_node": {
+           "set": true,
+           "infinite": false,
+           "number": 729088
+         }
+       },
+       "kill_request_user": "",
+       "reservation": {
+         "id": 0,
+         "name": ""
+       },
+       "script": "",
+       "stdin_expanded": "\/dev\/null",
+       "stdout_expanded": "\/scratch\/gpfs\/yc6206\/vlm\/EAGLE\/logs\/finetune_vicuna_7b-58976578-4294967294.out",
+       "stderr_expanded": "",
+       "stdout": "\/scratch\/gpfs\/yc6206\/vlm\/EAGLE\/logs\/%x-%j-%a.out",
+       "stderr": "",
+       "stdin": "\/dev\/null",
+       "state": {
+         "current": [
+           "RUNNING"
+         ],
+         "reason": "Dependency"
+       },
+       "steps": [
+         {
+           "time": {
+             "elapsed": 97201,
+             "end": {
+               "set": true,
+               "infinite": false,
+               "number": 0
+             },
+             "start": {
+               "set": true,
+               "infinite": false,
+               "number": 1726484897
+             },
+             "suspended": 0,
+             "system": {
+               "seconds": 0,
+               "microseconds": 0
+             },
+             "total": {
+               "seconds": 0,
+               "microseconds": 0
+             },
+             "user": {
+               "seconds": 0,
+               "microseconds": 0
+             }
+           },
+           "exit_code": {
+             "status": [
+               "SUCCESS"
+             ],
+             "return_code": {
+               "set": true,
+               "infinite": false,
+               "number": 0
+             },
+             "signal": {
+               "id": {
+                 "set": false,
+                 "infinite": false,
+                 "number": 0
+               },
+               "name": ""
+             }
+           },
+           "nodes": {
+             "count": 1,
+             "range": "della-k15g1",
+             "list": [
+               "della-k15g1"
+             ]
+           },
+           "tasks": {
+             "count": 1
+           },
+           "pid": "",
+           "CPU": {
+             "requested_frequency": {
+               "min": {
+                 "set": true,
+                 "infinite": false,
+                 "number": 0
+               },
+               "max": {
+                 "set": true,
+                 "infinite": false,
+                 "number": 0
+               }
+             },
+             "governor": "0"
+           },
+           "kill_request_user": "",
+           "state": [
+             "RUNNING"
+           ],
+           "statistics": {
+             "CPU": {
+               "actual_frequency": 0
+             },
+             "energy": {
+               "consumed": {
+                 "set": true,
+                 "infinite": false,
+                 "number": 0
+               }
+             }
+           },
+           "step": {
+             "id": "58976578.batch",
+             "name": "batch"
+           },
+           "task": {
+             "distribution": "Unknown"
+           },
+           "tres": {
+             "requested": {
+               "max": [
+               ],
+               "min": [
+               ],
+               "average": [
+               ],
+               "total": [
+               ]
+             },
+             "consumed": {
+               "max": [
+               ],
+               "min": [
+               ],
+               "average": [
+               ],
+               "total": [
+               ]
+             },
+             "allocated": [
+               {
+                 "type": "cpu",
+                 "name": "",
+                 "id": 1,
+                 "count": 96
+               },
+               {
+                 "type": "mem",
+                 "name": "",
+                 "id": 2,
+                 "count": 729088
+               },
+               {
+                 "type": "node",
+                 "name": "",
+                 "id": 4,
+                 "count": 1
+               },
+               {
+                 "type": "gres",
+                 "name": "gpu",
+                 "id": 1001,
+                 "count": 8
+               }
+             ]
+           }
+         },
+         {
+           "time": {
+             "elapsed": 97201,
+             "end": {
+               "set": true,
+               "infinite": false,
+               "number": 0
+             },
+             "start": {
+               "set": true,
+               "infinite": false,
+               "number": 1726484897
+             },
+             "suspended": 0,
+             "system": {
+               "seconds": 0,
+               "microseconds": 0
+             },
+             "total": {
+               "seconds": 0,
+               "microseconds": 0
+             },
+             "user": {
+               "seconds": 0,
+               "microseconds": 0
+             }
+           },
+           "exit_code": {
+             "status": [
+               "SUCCESS"
+             ],
+             "return_code": {
+               "set": true,
+               "infinite": false,
+               "number": 0
+             },
+             "signal": {
+               "id": {
+                 "set": false,
+                 "infinite": false,
+                 "number": 0
+               },
+               "name": ""
+             }
+           },
+           "nodes": {
+             "count": 1,
+             "range": "della-k15g1",
+             "list": [
+               "della-k15g1"
+             ]
+           },
+           "tasks": {
+             "count": 1
+           },
+           "pid": "",
+           "CPU": {
+             "requested_frequency": {
+               "min": {
+                 "set": true,
+                 "infinite": false,
+                 "number": 0
+               },
+               "max": {
+                 "set": true,
+                 "infinite": false,
+                 "number": 0
+               }
+             },
+             "governor": "0"
+           },
+           "kill_request_user": "",
+           "state": [
+             "RUNNING"
+           ],
+           "statistics": {
+             "CPU": {
+               "actual_frequency": 0
+             },
+             "energy": {
+               "consumed": {
+                 "set": true,
+                 "infinite": false,
+                 "number": 0
+               }
+             }
+           },
+           "step": {
+             "id": "58976578.extern",
+             "name": "extern"
+           },
+           "task": {
+             "distribution": "Unknown"
+           },
+           "tres": {
+             "requested": {
+               "max": [
+               ],
+               "min": [
+               ],
+               "average": [
+               ],
+               "total": [
+               ]
+             },
+             "consumed": {
+               "max": [
+               ],
+               "min": [
+               ],
+               "average": [
+               ],
+               "total": [
+               ]
+             },
+             "allocated": [
+               {
+                 "type": "cpu",
+                 "name": "",
+                 "id": 1,
+                 "count": 96
+               },
+               {
+                 "type": "mem",
+                 "name": "",
+                 "id": 2,
+                 "count": 729088
+               },
+               {
+                 "type": "energy",
+                 "name": "",
+                 "id": 3,
+                 "count": -2
+               },
+               {
+                 "type": "node",
+                 "name": "",
+                 "id": 4,
+                 "count": 1
+               },
+               {
+                 "type": "billing",
+                 "name": "",
+                 "id": 5,
+                 "count": 96
+               },
+               {
+                 "type": "gres",
+                 "name": "gpu",
+                 "id": 1001,
+                 "count": 8
+               }
+             ]
+           }
+         }
+       ],
+       "submit_line": "sbatch \/scratch\/gpfs\/yc6206\/vlm\/EAGLE\/scripts\/finetune-eagle-x2-vicuna-7b-1.8m.sh",
+       "tres": {
+         "allocated": [
+           {
+             "type": "cpu",
+             "name": "",
+             "id": 1,
+             "count": 96
+           },
+           {
+             "type": "mem",
+             "name": "",
+             "id": 2,
+             "count": 729088
+           },
+           {
+             "type": "energy",
+             "name": "",
+             "id": 3,
+             "count": -2
+           },
+           {
+             "type": "node",
+             "name": "",
+             "id": 4,
+             "count": 1
+           },
+           {
+             "type": "billing",
+             "name": "",
+             "id": 5,
+             "count": 96
+           },
+           {
+             "type": "gres",
+             "name": "gpu",
+             "id": 1001,
+             "count": 8
+           }
+         ],
+         "requested": [
+           {
+             "type": "cpu",
+             "name": "",
+             "id": 1,
+             "count": 96
+           },
+           {
+             "type": "mem",
+             "name": "",
+             "id": 2,
+             "count": 729088
+           },
+           {
+             "type": "node",
+             "name": "",
+             "id": 4,
+             "count": 1
+           },
+           {
+             "type": "billing",
+             "name": "",
+             "id": 5,
+             "count": 96
+           },
+           {
+             "type": "gres",
+             "name": "gpu",
+             "id": 1001,
+             "count": 8
+           }
+         ]
+       },
+       "used_gres": "",
+       "user": "juhyunp",
+       "wckey": {
+         "wckey": "",
+         "flags": [
+         ]
+       },
+       "working_directory": "\/scratch\/gpfs\/yc6206\/vlm\/EAGLE"
+     }
+   ],
+   "meta": {
+     "plugin": {
+       "type": "",
+       "name": "",
+       "data_parser": "data_parser\/v0.0.41",
+       "accounting_storage": "accounting_storage\/slurmdbd"
+     },
+     "client": {
+       "source": "\/dev\/pts\/320",
+       "user": "dmturner",
+       "group": "cses"
+     },
+     "command": [
+       "sacct",
+       "-j",
+       "58976578"
+     ],
+     "slurm": {
+       "version": {
+         "major": "24",
+         "micro": "3",
+         "minor": "05"
+       },
+       "release": "24.05.3",
+       "cluster": "della"
+     }
+   },
+   "errors": [
+   ],
+   "warnings": [
+   ]
+ }

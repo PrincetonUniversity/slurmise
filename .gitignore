@@ -1,3 +1,8 @@
+# Slurm generated files
+slurm*.out
+*.swp
+.vscode
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
