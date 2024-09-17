@@ -28,6 +28,8 @@ dependencies = [
   "click",
   "numpy",
   "h5py",
+  "pandas",
+  "scikit-learn",
 ]
 
 [project.optional-dependencies]
