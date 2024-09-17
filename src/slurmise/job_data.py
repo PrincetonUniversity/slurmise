@@ -58,6 +58,7 @@ class JobData:
     numerical: dict = field(default_factory=lambda: {})
     memory: int | None = None  # in MBs
     runtime: int | None = None  # in minutes
+    cmd: str | None = None
 
     @staticmethod
     def from_dataset(

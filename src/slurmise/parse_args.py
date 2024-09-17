@@ -59,6 +59,34 @@ def process_slurmise_record_args(parsed_args: dict) -> dict:
 
     - Identify file paths and record metadata about the files
     - Convert argument values to appropriate types based on user configuration or type inference
+
+    cmd
+    `slurmise record --schema --name myjob --numerics n:3,q:17.4 --categories c:cat1,cat2 --flags --verbose`
+
+    For example, the following parsed_args:
+    {
+        "cmd": ["sort", "-k", "2" "tests/sacct_output.json"],
+        "positional": ["sort", "tests/sacct_output.json"],
+        "options": {"-k": "2"},
+        "flags": {},
+    },
+
+    would be processed into:
+    [
+        {
+            "name": "sort",
+            "arg_type": "positional",
+            "type": "string",
+            "value": "sort",
+        },
+        {
+            "name": "tests/sacct_output.json",
+            "arg_type": "positional",
+            "type": "file",
+            "size": 13398,
+        },
+        {"name": "-k", "arg_type": "option", "type": "string", "value": "-k"},
+    ]
     """
 
     def process_value(value: str) -> dict:
