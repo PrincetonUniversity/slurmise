@@ -25,24 +25,25 @@ def parse_slurmise_record_args(args: list[str]) -> dict:
         if arg.startswith('-'):
             break
         parsed_args['positional'].append(arg)
+    else:
+        i += 1
 
     args = args[i:]
 
     #Handle the flags and options
     prev_flag = None
-    breakpoint()
-    print(args)
     for i,arg in enumerate(args):
         if not arg.startswith('-'):
-            parsed_args['options'][args[i-1]] = arg
-            if arg in parsed_args['flags']:
-                del parsed_args['flags'][arg]
+            parsed_args['options'][prev_flag] = arg
+            if prev_flag in parsed_args['flags']:
+                del parsed_args['flags'][prev_flag]
         else:
             if '=' in arg:
                 flag, value = arg.split('=') #NOTE assumes only 1 equals sign
                 parsed_args['options'][flag] = value
             else:
                 parsed_args['flags'][arg] = True
+                prev_flag = arg
 
 
     return parsed_args    
