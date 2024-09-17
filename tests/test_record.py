@@ -26,6 +26,9 @@ def test_record_subcommand(args, monkeypatch):
 @pytest.mark.parametrize("args,exp", [
     (["sleep", "2"], {"cmd": ["sleep", "2"], "positional": ["sleep", "2"], "options": {}, "flags": {}}),
     (["sort", "-k", "2"], {"cmd": ["sort", "-k", "2"], "positional": ["sort"], "options": {"-k": "2"}, "flags": {}}),
+    (["time", "-l", "-p", "2", "--dog"], {"cmd": ["time", "-l", "-p", "2", "--dog"], "positional": ["time"], "options": {"-p": "2"}, "flags": {"-l": True, "--dog": True}}),
+    (["samtools", "view", "chr:1-100", "-b", "-o", "output.bam"], {"cmd": ["samtools", "view", "chr:1-100", "-b", "-o", "output.bam"], "positional": ["samtools", "view", "chr:1-100"], "options": {"-o": "output.bam"}, "flags": {"-b": True}}),
+    (['grep', '--color=auto', '-i', 'hello world'], {"cmd": ['grep', '--color=auto', '-i', 'hello world'], "positional": ['grep'], "options": {"--color": "auto", "-i": "hello world"}, "flags": {}})
 ])
 def test_parse_record_args(args, exp):
     assert utils.parse_slurmise_record_args(args) == exp
