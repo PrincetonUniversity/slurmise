@@ -75,11 +75,13 @@ def small_db(empty_h5py_file):
 
 
 def test_close(empty_h5py_file):
+    """Test opening and closing an empty database."""
     with JobDatabase.get_database(empty_h5py_file):
         pass
 
 
 def test_rqd_flat(empty_h5py_file):
+    """Test record, query and delete on jobs without categorical values."""
     with JobDatabase.get_database(empty_h5py_file) as db:
         db.record(
             JobData(
@@ -235,6 +237,7 @@ def test_rqd_with_categories(empty_h5py_file):
 
 
 def test_rqd_with_emptydb(empty_h5py_file):
+    """Test record, query and delete on empty database."""
     with JobDatabase.get_database(empty_h5py_file) as db:
 
         query_result = db.query(
@@ -254,16 +257,16 @@ def test_rqd_with_emptydb(empty_h5py_file):
         )
         assert query_result == []
 
-        db.delete(JobData(job_name="test_job3"), delete_all=False)
+        # no errors
+        db.delete(JobData(job_name="test_job3"), delete_all_children=False)
         db.delete(
             JobData(job_name="test_job3", categorical={"option1": "value1"}),
-            delete_all=False,
+            delete_all_children=False,
         )
 
 
 def test_delete(small_db):
-    # print_hdf5(small_db.db)
-
+    """Test deletion of jobs with categorical where delete_all_children is False."""
     expected_result = [
         JobData(
             job_name="test_job",
@@ -288,7 +291,7 @@ def test_delete(small_db):
     query_result = small_db.query(simple_query)
     assert query_result == expected_result
 
-    small_db.delete(simple_query, delete_all=False)
+    small_db.delete(simple_query, delete_all_children=False)
 
     query_result = small_db.query(simple_query)
     assert query_result == []
@@ -310,46 +313,32 @@ def test_delete(small_db):
         ),
     ]
 
-    query_result = small_db.query(
-        JobData(
-            job_name="test_job", categorical={"option1": "value1", "option2": "value2"}
-        )
+    query = JobData(
+        job_name="test_job",
+        categorical={"option1": "value1", "option2": "value2"},
     )
+    query_result = small_db.query(query)
 
     assert query_result == excepted_results
 
     # Missing category values results to noop delete
     small_db.delete(
         JobData(job_name="test_job", categorical={"option1": "value1"}),
-        delete_all=False,
+        delete_all_children=False,
     )
 
-    query_result = small_db.query(
-        JobData(
-            job_name="test_job", categorical={"option1": "value1", "option2": "value2"}
-        )
-    )
+    query_result = small_db.query(query)
 
     assert query_result == excepted_results
 
-    small_db.delete(
-        JobData(
-            job_name="test_job", categorical={"option1": "value1", "option2": "value2"}
-        ),
-        delete_all=False,
-    )
+    small_db.delete(query, delete_all_children=False)
 
-    query_result = small_db.query(
-        JobData(
-            job_name="test_job", categorical={"option1": "value1", "option2": "value2"}
-        )
-    )
+    query_result = small_db.query(query)
 
     assert query_result == []
 
 
-def test_delete_all(small_db):
-
+def test_delete_all_children(small_db):
     query_result = small_db.query(
         JobData(
             job_name="test_job", categorical={"option1": "value1", "option2": "value2"}
@@ -358,7 +347,7 @@ def test_delete_all(small_db):
     assert len(query_result)
 
     small_db.delete(
-        JobData(job_name="test_job", categorical={"option1": "value1"}), delete_all=True
+        JobData(job_name="test_job", categorical={"option1": "value1"}), delete_all_children=True
     )
 
     query_result = small_db.query(
@@ -375,7 +364,7 @@ def test_delete_all(small_db):
         JobData(job_name="test_job", categorical={"option1": "value2"})
     )
     assert len(query_result)
-    small_db.delete(JobData(job_name="test_job"), delete_all=True)
+    small_db.delete(JobData(job_name="test_job"), delete_all_children=True)
 
     query_result = small_db.query(JobData(job_name="test_job"))
     assert query_result == []

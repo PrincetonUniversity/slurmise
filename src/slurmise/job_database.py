@@ -10,7 +10,7 @@ class JobDatabase():
     This class creates the database to store job information.
     It saves the database in HDF5 file.
     """
-    def __init__(self, db_file):
+    def __init__(self, db_file: str):
         """
         The DB file is and HDF5 file.
         Use **get_database** and a context manager to have the file automatically
@@ -23,7 +23,16 @@ class JobDatabase():
 
     @staticmethod
     @contextlib.contextmanager
-    def get_database(db_file):
+    def get_database(db_file: str) -> "JobDatabase":
+        """
+        Use in context manager to automatically open and close db file.
+        Parameters:
+            - db_file: HDF5 file to use as database
+        Yields:
+            JobDatabase with opened db file
+        Finally:
+            Closes h5py database
+        """
         db = JobDatabase(db_file)
         try:
             yield db
@@ -54,7 +63,8 @@ class JobDatabase():
             val = np.asarray(value)
             _ = table.create_dataset(name=var, shape=val.shape, data=val)
 
-        return
+    def update(self, **kargs):
+        raise NotImplementedError("Later feature")
 
     def query(self, job_data: JobData) -> list[JobData]:
         """
@@ -62,7 +72,6 @@ class JobDatabase():
         The returned jobs match the query JobData's job name and categoricals.
 
         Note: It does not decent into all child categories, only the highest matching leaves
-
         """
         group_name = f"/{job_data.job_name}"
         for key in sorted(job_data.categorical.keys()):
@@ -81,17 +90,21 @@ class JobDatabase():
 
         return result
 
-    def update(self, **kargs):
-        raise NotImplementedError("Later feature")
-
-    def delete(self, job_data: JobData, delete_all: bool = False) -> None:
-
+    def delete(self, job_data: JobData, delete_all_children: bool = False) -> None:
+        """
+        Delete jobs with matching job name and categoricals.
+        Parameters:
+            - job_data: JobData object with name and categorical which should
+                        be removed.
+            - delete_all_children: When true, will delete recursively any
+                        matching jobs
+        """
         group_name = f"/{job_data.job_name}"
         for key in sorted(job_data.categorical.keys()):
             group_name += f"/{key}={job_data.categorical[key]}"
 
         if group_name in self.db:
-            if delete_all:
+            if delete_all_children:
                 del self.db[group_name]
             else:
                 # Traverse and delete only Datasets
@@ -100,23 +113,32 @@ class JobDatabase():
                     if JobDatabase.is_slurm_job(slurm_data):
                         del job_group[slurm_id]
 
+    def clear(self):
+        raise NotImplementedError("Empting the DB is not yet supported")
+
+    def record_fit(self, fit):
+        raise NotImplementedError("Storing fits is not supported yet")
+
+    def query_fit(self, fit):
+        raise NotImplementedError("Storing fits is not supported yet")
+
     @staticmethod
-    def is_dataset(f):
+    def is_dataset(f: Any) -> bool:
+        """
+        Test if object is an h5py Dataset
+        """
         return type(f) == h5py._hl.dataset.Dataset
 
     @staticmethod
-    def is_slurm_job(f):
+    def is_slurm_job(f: Any) -> bool:
+        """
+        Test if object is non-empty or its first element is a Dataset.
+        This is consistent with a slurm job
+        """
         if len(f) == 0:  # group contains no values
             return True
         first_element = f[list(f.keys())[0]]
         # group contains a dataset
         return JobDatabase.is_dataset(first_element)
 
-    #
-    # def clear(self):
-    # raise NotImplementedError("Empting the DB is not yet supported")
-    #     pass
-    #
-    # def cache_fit(ResourceFit):
-    #     pass
-    #
+
