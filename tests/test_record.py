@@ -34,4 +34,4 @@ def test_record_subcommand(args, monkeypatch):
     (['grep', '--color=auto', '-i', 'hello world'], {"cmd": ['grep', '--color=auto', '-i', 'hello world'], "positional": ['grep'], "options": {"--color": "auto", "-i": "hello world"}, "flags": {}})
 ])
 def test_parse_record_args(args, exp):
-    assert utils.parse_slurmise_record_args(args) == exp
+    assert parse_args.parse_slurmise_record_args(args) == exp
