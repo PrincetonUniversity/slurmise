@@ -50,3 +50,9 @@ def raw_record(ctx, job_name, slurm_id, numerical, categorical, cmd):
     with job_database.JobDatabase.get_database(ctx.obj['database']) as db:
         db.record(jd)
 
+
+@main.command()
+@click.pass_context
+def print(ctx):
+    with job_database.JobDatabase.get_database(ctx.obj['database']) as db:
+        db.print()
