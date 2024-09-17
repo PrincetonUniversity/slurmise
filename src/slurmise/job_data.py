@@ -4,8 +4,11 @@ import numpy as np
 
 
 def array_safe_eq(a, b) -> bool:
-    """Check if a and b are equal, even if they are numpy arrays.
-    When a and be are dictionaries call recursively for all key, value pairs."""
+    """
+    Check if a and b are equal, even if they are numpy arrays.
+    When a and be are dictionaries call recursively for all key, value pairs.
+    """
+
     if a is b:
         return True
     if isinstance(a, np.ndarray) and isinstance(b, np.ndarray):
@@ -21,7 +24,10 @@ def array_safe_eq(a, b) -> bool:
 
 
 def dc_eq(dc1, dc2) -> bool:
-    """checks if two dataclasses which hold numpy arrays are equal"""
+    """
+    Checks if two dataclasses which hold numpy arrays are equal
+    """
+
     if dc1 is dc2:
         return True
     if dc1.__class__ is not dc2.__class__:
@@ -36,15 +42,14 @@ class JobData:
     """
     Jobdata class holds the information of a unique slurm job.
     Parameters:
-        - job_name: The unique command name to execute under slurm.
-        - slurm_id: The slurm job id assigned by the sceduler for a job run.
-        - categorical: the CLI parameters of this job. This has parameter that
-                       affect the performance of the job and are fit seperately.
-        - numerical: These are parameters that are used as the free variables
-                     for fits, such input size, number of iterations etc.
-        - memory: The maximum amount of memory in MBs this job used.
-        - runtime: The time this job needed to complete in minutes.
+    - job_name: The unique command name to execute under slurm.
+    - slurm_id: The slurm job id assigned by the sceduler for a job run.
+    - categorical: the CLI parameters of this job. This has parameter that affect the performance of the job and are fit seperately.
+    - numerical: These are parameters that are used as the free variables for fits, such input size, number of iterations etc.
+    - memory: The maximum amount of memory in MBs this job used.
+    - runtime: The time this job needed to complete in minutes.
     """
+
     job_name: str
     slurm_id: str | None = None
     categorical: dict = field(default_factory=lambda: {})
@@ -57,14 +62,13 @@ class JobData:
         job_name: str, slurm_id: str, dataset: h5py.Dataset, categorical: dict
     ) -> "JobData":
         """
-        This method creates a JobData object from a HDF5 dataset that describes
-        a job.
+        This method creates a JobData object from a HDF5 dataset that describes a job.
         Parameters:
-            - job_name: The unique command name to execute under slurm.
-            - slurm_id: The slurm job id assigned by the sceduler for a job run.
-            - dataset: The HDF5 dataset used to populate numerical, memory and
-                       runtime information of the job.
+        - job_name: The unique command name to execute under slurm.
+        - slurm_id: The slurm job id assigned by the sceduler for a job run.
+        - dataset: The HDF5 dataset used to populate numerical, memory and runtime information of the job.
         """
+
         runtime = dataset.get('runtime', None)
         if runtime is not None:
             runtime = runtime[()]
