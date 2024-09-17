@@ -27,12 +27,18 @@ class JobDatabase():
     def get_database(db_file: str) -> "JobDatabase":
         """
         Use in context manager to automatically open and close db file.
-        Parameters:
-        - db_file: HDF5 file to use as database
-        Yields:
-        JobDatabase with opened db file
-        Finally:
-        Closes h5py database
+
+        :arguments:
+
+            :db_file: HDF5 file to use as database
+
+        :yields:
+
+            JobDatabase with opened db file
+
+        :finally:
+
+            Closes h5py database
         """
 
         db = JobDatabase(db_file)
@@ -97,9 +103,11 @@ class JobDatabase():
     def delete(self, job_data: JobData, delete_all_children: bool = False) -> None:
         """
         Delete jobs with matching job name and categoricals.
-        Parameters:
-        - job_data: JobData object with name and categorical which should be removed.
-        - delete_all_children: When true, will delete recursively any matching jobs
+
+        :arguments:
+
+            :job_data: JobData object with name and categorical which should be removed.
+            :delete_all_children: When true, will delete recursively any matching jobs
         """
 
         group_name = f"/{job_data.job_name}"

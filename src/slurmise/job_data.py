@@ -41,13 +41,15 @@ def dc_eq(dc1, dc2) -> bool:
 class JobData:
     """
     Jobdata class holds the information of a unique slurm job.
-    Parameters:
-    - job_name: The unique command name to execute under slurm.
-    - slurm_id: The slurm job id assigned by the sceduler for a job run.
-    - categorical: the CLI parameters of this job. This has parameter that affect the performance of the job and are fit seperately.
-    - numerical: These are parameters that are used as the free variables for fits, such input size, number of iterations etc.
-    - memory: The maximum amount of memory in MBs this job used.
-    - runtime: The time this job needed to complete in minutes.
+
+    :arguments:
+
+        :job_name: The unique command name to execute under slurm.
+        :slurm_id: The slurm job id assigned by the sceduler for a job run.
+        :categorical: the CLI parameters of this job. This has parameter that affect the performance of the job and are fit seperately.
+        :numerical: These are parameters that are used as the free variables for fits, such input size, number of iterations etc.
+        :memory: The maximum amount of memory in MBs this job used.
+        :runtime: The time this job needed to complete in minutes.
     """
 
     job_name: str
@@ -63,10 +65,11 @@ class JobData:
     ) -> "JobData":
         """
         This method creates a JobData object from a HDF5 dataset that describes a job.
-        Parameters:
-        - job_name: The unique command name to execute under slurm.
-        - slurm_id: The slurm job id assigned by the sceduler for a job run.
-        - dataset: The HDF5 dataset used to populate numerical, memory and runtime information of the job.
+        :arguments:
+
+            :job_name: The unique command name to execute under slurm.
+            :slurm_id: The slurm job id assigned by the sceduler for a job run.
+            :dataset: The HDF5 dataset used to populate numerical, memory and runtime information of the job.
         """
 
         runtime = dataset.get('runtime', None)
