@@ -1,7 +1,9 @@
 from slurmise.__main__ import main
-from slurmise import utils, slurm
+from slurmise import parse_args, slurm
 
 from click.testing import CliRunner
+
+import json
 import pytest
 
 @pytest.mark.parametrize("args", [
@@ -10,7 +12,8 @@ import pytest
 def test_record_subcommand(args, monkeypatch):
     """Use click test runner to ensure record subcommand exits with errorcode 0."""
     def mock_get_slurm_job_sacct():
-        return {"jobs": [{"time": {"elapsed": "2"}}]}
+        with open("tests/sacct_output.json") as f:
+            return json.load(f)
 
     def mock_get_slurm_job_sstat():
         return {}
