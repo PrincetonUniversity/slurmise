@@ -61,7 +61,7 @@ def process_slurmise_record_args(parsed_args: dict) -> dict:
     def process_value(value: str) -> dict:
         
         if os.path.exists(value):
-            file_size = os.path.getsize(arg)
+            file_size = os.path.getsize(value)
             return {"type": "file", "size": file_size}
         
         # Try to convert to a numeric type (int, then float, then str)
@@ -77,7 +77,7 @@ def process_slurmise_record_args(parsed_args: dict) -> dict:
     # Loop through any positional arguments
     positional = [{"name": arg, "arg_type": "positional", **process_value(arg)} for arg in parsed_args['positional']]
     options = [{"name": arg, "arg_type": "option", **process_value(arg)} for arg in parsed_args['options']]
-    flags = [{"name": arg, "arg_type": "flag"} for arg in parsed_args['flags']]
+    flags = [{"name": arg, "arg_type": "flag", 'value': True} for arg in parsed_args['flags']]
 
     return positional + options + flags
 
