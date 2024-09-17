@@ -6,7 +6,16 @@ from slurmise.job_data import JobData
 
 
 class JobDatabase():
+    """
+    This class creates the database to store job information.
+    It saves the database in HDF5 file.
+    """
     def __init__(self, db_file):
+        """
+        The DB file is and HDF5 file.
+        Use **get_database** and a context manager to have the file automatically
+        closed.
+        """
         self.db = h5py.File(db_file, "a")
 
     def _close(self):
@@ -23,8 +32,9 @@ class JobDatabase():
 
     def record(self, job_data: JobData) -> None:
         """
-        variables: {"runtime":number of minutes,
-                    "memory": number of MBs}
+        It records JobData information in the database. A tree is created based
+        on the job name, categorical values and slurm id. The leaves of the tree
+        are the memory, runtime and numericals of the JobData.
         """
         table_name = f"/{job_data.job_name}"
         for key in sorted(job_data.categorical.keys()):
@@ -47,7 +57,13 @@ class JobDatabase():
         return
 
     def query(self, job_data: JobData) -> list[JobData]:
-        # TODO add categorical hierarchy
+        """
+        Query returns a list of JobData objects based on the requested JobData.
+        The returned jobs match the query JobData's job name and categoricals.
+
+        Note: It does not decent into all child categories, only the highest matching leaves
+
+        """
         group_name = f"/{job_data.job_name}"
         for key in sorted(job_data.categorical.keys()):
             group_name += f"/{key}={job_data.categorical[key]}"
@@ -68,8 +84,21 @@ class JobDatabase():
     def update(self, **kargs):
         raise NotImplementedError("Later feature")
 
-    def delete(self, job_data: JobData) -> None:
-        del self.db[job_data.job_name]
+    def delete(self, job_data: JobData, delete_all: bool = False) -> None:
+
+        group_name = f"/{job_data.job_name}"
+        for key in sorted(job_data.categorical.keys()):
+            group_name += f"/{key}={job_data.categorical[key]}"
+
+        if group_name in self.db:
+            if delete_all:
+                del self.db[group_name]
+            else:
+                # Traverse and delete only Datasets
+                job_group = self.db.get(group_name, default={})
+                for slurm_id, slurm_data in job_group.items():
+                    if JobDatabase.is_slurm_job(slurm_data):
+                        del job_group[slurm_id]
 
     @staticmethod
     def is_dataset(f):
@@ -85,7 +114,7 @@ class JobDatabase():
 
     #
     # def clear(self):
-        # raise NotImplementedError("Empting the DB is not yet supported")
+    # raise NotImplementedError("Empting the DB is not yet supported")
     #     pass
     #
     # def cache_fit(ResourceFit):
