@@ -4,6 +4,8 @@ import os
 import contextlib
 import numpy as np
 from slurmise.job_data import JobData
+from slurmise import slurm
+import dataclasses
 
 
 class JobDatabase():
@@ -79,10 +81,11 @@ class JobDatabase():
     def update(self, **kargs):
         raise NotImplementedError("Later feature")
 
-    def query(self, job_data: JobData) -> list[JobData]:
+    def query(self, job_data: JobData, update_missing: bool = False) -> list[JobData]:
         """
         Query returns a list of JobData objects based on the requested JobData.
         The returned jobs match the query JobData's job name and categoricals.
+        `update_missing` will try to get maxRSS and elapsed from sacct if not found in the DB.
 
         Note: It does not decent into all child categories, only the highest matching leaves
         """
@@ -99,7 +102,11 @@ class JobDatabase():
                     dataset=slurm_data,
                 ))
 
+        if update_missing:
+            result = self.update_missing_data(result)
+
         return result
+
 
     def delete(self, job_data: JobData, delete_all_children: bool = False) -> None:
         """
@@ -130,6 +137,39 @@ class JobDatabase():
 
     def query_fit(self, fit):
         raise NotImplementedError("Storing fits is not supported yet")
+
+    def update_missing_data(self, jobs: list[JobData]) -> list[JobData]:
+        """
+        Update missing mem and runtime for jobs with incomplete data in the db.
+        Takes a list of JobData which was queried from the db, updates the db, and returns the updated job list.
+
+        TODO: gather slurm_ids of jobs that need updating and do it in one call
+        """
+        updated_jobs = []
+        for job in jobs:
+            if job.memory is None or job.runtime is None:
+                job_info = slurm.parse_slurm_job_metadata(job.slurm_id)
+
+                # job dataclass is immutable, so this creates a new object with the updated values
+                # ternary's are to avoid updating if the value is already present which causes a "dataset already exists" error
+                self.record(
+                    dataclasses.replace(
+                        job, 
+                        memory = job_info['max_rss'] if job.memory is None else None,
+                        runtime = job_info['elapsed_seconds'] if job.runtime is None else None,
+                        numerical = {},
+                    )
+                )
+
+                job = dataclasses.replace(
+                    job,
+                    memory = job_info['max_rss'] if job.memory is None else job.memory,
+                    runtime = job_info['elapsed_seconds'] if job.runtime is None else job.runtime,
+                )
+
+            updated_jobs.append(job)
+
+        return updated_jobs
 
     @staticmethod
     def get_table_name(job_data: JobData) -> str:
