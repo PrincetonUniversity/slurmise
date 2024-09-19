@@ -1,8 +1,11 @@
 from typing import Any, Optional
 import h5py
+import os
 import contextlib
 import numpy as np
 from slurmise.job_data import JobData
+from slurmise import slurm
+import dataclasses
 
 
 class JobDatabase():
@@ -47,17 +50,16 @@ class JobDatabase():
         finally:
             db._close()
 
-    def record(self, job_data: JobData) -> None:
+    def record(self, job_data: JobData, ignore_existing_job: bool = False) -> None:
         """
         It records JobData information in the database. A tree is created based
         on the job name, categorical values and slurm id. The leaves of the tree
         are the memory, runtime and numericals of the JobData.
         """
+        table_name = JobDatabase.get_table_name(job_data)
+        if ignore_existing_job and self.job_exists(job_data):
+            return
 
-        table_name = f"/{job_data.job_name}"
-        for key in sorted(job_data.categorical.keys()):
-            table_name += f"/{key}={job_data.categorical[key]}"
-        table_name += f"/{job_data.slurm_id}"
         table = self.db.require_group(name=table_name)
 
         if job_data.memory is not None:
@@ -72,20 +74,22 @@ class JobDatabase():
             val = np.asarray(value)
             _ = table.create_dataset(name=var, shape=val.shape, data=val)
 
+    def job_exists(self, job_data: JobData) -> bool:
+        table_name = JobDatabase.get_table_name(job_data)
+        return table_name in self.db
+
     def update(self, **kargs):
         raise NotImplementedError("Later feature")
 
-    def query(self, job_data: JobData) -> list[JobData]:
+    def query(self, job_data: JobData, update_missing: bool = False) -> list[JobData]:
         """
         Query returns a list of JobData objects based on the requested JobData.
         The returned jobs match the query JobData's job name and categoricals.
+        `update_missing` will try to get maxRSS and elapsed from sacct if not found in the DB.
 
         Note: It does not decent into all child categories, only the highest matching leaves
         """
-
-        group_name = f"/{job_data.job_name}"
-        for key in sorted(job_data.categorical.keys()):
-            group_name += f"/{key}={job_data.categorical[key]}"
+        group_name = JobDatabase.get_group_name(job_data)
 
         job_group = self.db.get(group_name, default={})
         result = []
@@ -98,7 +102,11 @@ class JobDatabase():
                     dataset=slurm_data,
                 ))
 
+        if update_missing:
+            result = self.update_missing_data(result)
+
         return result
+
 
     def delete(self, job_data: JobData, delete_all_children: bool = False) -> None:
         """
@@ -109,10 +117,7 @@ class JobDatabase():
             :job_data: JobData object with name and categorical which should be removed.
             :delete_all_children: When true, will delete recursively any matching jobs
         """
-
-        group_name = f"/{job_data.job_name}"
-        for key in sorted(job_data.categorical.keys()):
-            group_name += f"/{key}={job_data.categorical[key]}"
+        group_name = JobDatabase.get_group_name(job_data)
 
         if group_name in self.db:
             if delete_all_children:
@@ -133,6 +138,52 @@ class JobDatabase():
     def query_fit(self, fit):
         raise NotImplementedError("Storing fits is not supported yet")
 
+    def update_missing_data(self, jobs: list[JobData]) -> list[JobData]:
+        """
+        Update missing mem and runtime for jobs with incomplete data in the db.
+        Takes a list of JobData which was queried from the db, updates the db, and returns the updated job list.
+
+        TODO: gather slurm_ids of jobs that need updating and do it in one call
+        """
+        updated_jobs = []
+        for job in jobs:
+            if job.memory is None or job.runtime is None:
+                job_info = slurm.parse_slurm_job_metadata(job.slurm_id)
+
+                # job dataclass is immutable, so this creates a new object with the updated values
+                # ternary's are to avoid updating if the value is already present which causes a "dataset already exists" error
+                self.record(
+                    dataclasses.replace(
+                        job, 
+                        memory = job_info['max_rss'] if job.memory is None else None,
+                        runtime = job_info['elapsed_seconds'] if job.runtime is None else None,
+                        numerical = {},
+                    )
+                )
+
+                job = dataclasses.replace(
+                    job,
+                    memory = job_info['max_rss'] if job.memory is None else job.memory,
+                    runtime = job_info['elapsed_seconds'] if job.runtime is None else job.runtime,
+                )
+
+            updated_jobs.append(job)
+
+        return updated_jobs
+
+    @staticmethod
+    def get_table_name(job_data: JobData) -> str:
+        table_name = JobDatabase.get_group_name(job_data)
+        table_name += f"/{job_data.slurm_id}"
+        return table_name
+
+    @staticmethod
+    def get_group_name(job_data: JobData) -> str:
+        group_name = f"/{job_data.job_name}"
+        for key in sorted(job_data.categorical.keys()):
+            group_name += f"/{key}={job_data.categorical[key]}"
+        return group_name
+
     @staticmethod
     def is_dataset(f: Any) -> bool:
         """
@@ -152,3 +203,67 @@ class JobDatabase():
         first_element = f[list(f.keys())[0]]
         # group contains a dataset
         return JobDatabase.is_dataset(first_element)
+
+    def print(self):
+        JobDatabase.print_hdf5(self.db)
+
+    @staticmethod
+    def print_hdf5(
+        h5py_obj, level=-1, print_full_name: bool = False, print_attrs: bool = True
+    ) -> None:
+        """Prints the name and shape of datasets in a H5py HDF5 file.
+
+        Parameters
+        ----------
+        h5py_obj: [h5py.File, h5py.Group]
+            the h5py.File or h5py.Group object
+        level: int
+            What level of the file tree you are in
+        print_full_name
+            If True, the full tree will be printed as the name, e.g. /group0/group1/group2/dataset: ...
+            If False, only the current node will be printed, e.g. dataset:
+        print_attrs
+            If True: print all attributes in the file
+        Returns
+        -------
+        None
+
+        """
+
+        def is_group(f):
+            return type(f) == h5py._hl.group.Group
+
+        def is_dataset(f):
+            return type(f) == h5py._hl.dataset.Dataset
+
+        def print_level(level, n_spaces=5) -> str:
+            if level == -1:
+                return ""
+            prepend = "|" + " " * (n_spaces - 1)
+            prepend *= level
+            tree = "|" + "-" * (n_spaces - 2) + " "
+            return prepend + tree
+
+        for key in h5py_obj.keys():
+            entry = h5py_obj[key]
+            name = entry.name if print_full_name else os.path.basename(entry.name)
+            if is_group(entry):
+                print("{}{}".format(print_level(level), name))
+                JobDatabase.print_hdf5(entry, level + 1, print_full_name=print_full_name)
+            elif is_dataset(entry):
+                shape = entry.shape
+                dtype = entry.dtype
+                print(
+                    "{}{}: {} {} {}".format(
+                        print_level(level),
+                        name,
+                        shape,
+                        dtype,
+                        entry[()],
+                    )
+                )
+        if level == -1:
+            if print_attrs:
+                print("attrs: ")
+                for key, value in h5py_obj.attrs.items():
+                    print(" {}: {}".format(key, value))
