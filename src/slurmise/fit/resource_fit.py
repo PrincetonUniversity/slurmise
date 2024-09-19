@@ -17,6 +17,10 @@ class ResourceFit:
     path: Optional[str] = None
 
     def save(self):
+        """This method saves the basic information of the model, such as its query,
+        when it was last fit, the dataset size of the latest fit, and the type of
+        the model.
+        """
         hash_info = {"job_name": self.query.job_name}
         hash_info.update(self.query.categorical)
         hash_val = hash(hash_info)
@@ -28,7 +32,14 @@ class ResourceFit:
             json.dump(save_file, info)
 
     @staticmethod
-    def load(self) -> "ResourceFit":
+    def load(self, query: JobData) -> "ResourceFit":
+        """This method loads a ResourceFit.
+
+        :param query: The query of the model
+        :type query: JobData
+        :return: Returns the basic information of the fit.
+        :rtype: ResourceFit
+        """
         if self.path is None:
             hash_info = {"job_name": self.query.job_name}
             hash_info.update(self.query.categorical)
