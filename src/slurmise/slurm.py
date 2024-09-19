@@ -2,6 +2,7 @@ import os
 import json
 import subprocess
 
+
 def parse_slurm_job_metadata() -> dict:
     """Return a dictionary of metadata for the current SLURM job."""
     sacct_json = get_slurm_job_sacct()
@@ -29,6 +30,7 @@ def parse_slurm_job_metadata() -> dict:
     }
     return metadata
 
+
 def get_slurm_job_sacct() -> dict:
     """Return the JSON output of the sacct command for the current SLURM job."""
     if 'SLURM_JOBID' not in os.environ:
@@ -50,7 +52,6 @@ def get_slurm_job_sstat() -> dict:
             ])
     except subprocess.CalledProcessError as e:
         raise ValueError(f"Error running sstat cmd: {e}") from e
-    
-    #print(rss_out) #TODO RSS is empty, need to figure out how to get it
-    return {}
 
+    # print(rss_out) #TODO RSS is empty, need to figure out how to get it
+    return {}

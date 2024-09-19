@@ -28,6 +28,8 @@ dependencies = [
   "click",
   "numpy",
   "h5py",
+  "sphinx",
+  "sphinx-rtd-theme"
 ]
 
 [project.optional-dependencies]

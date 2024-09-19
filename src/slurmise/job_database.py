@@ -16,6 +16,7 @@ class JobDatabase():
         Use **get_database** and a context manager to have the file automatically
         closed.
         """
+
         self.db = h5py.File(db_file, "a")
 
     def _close(self):
@@ -26,13 +27,20 @@ class JobDatabase():
     def get_database(db_file: str) -> "JobDatabase":
         """
         Use in context manager to automatically open and close db file.
-        Parameters:
-            - db_file: HDF5 file to use as database
-        Yields:
+
+        :arguments:
+
+            :db_file: HDF5 file to use as database
+
+        :yields:
+
             JobDatabase with opened db file
-        Finally:
+
+        :finally:
+
             Closes h5py database
         """
+
         db = JobDatabase(db_file)
         try:
             yield db
@@ -45,6 +53,7 @@ class JobDatabase():
         on the job name, categorical values and slurm id. The leaves of the tree
         are the memory, runtime and numericals of the JobData.
         """
+
         table_name = f"/{job_data.job_name}"
         for key in sorted(job_data.categorical.keys()):
             table_name += f"/{key}={job_data.categorical[key]}"
@@ -73,6 +82,7 @@ class JobDatabase():
 
         Note: It does not decent into all child categories, only the highest matching leaves
         """
+
         group_name = f"/{job_data.job_name}"
         for key in sorted(job_data.categorical.keys()):
             group_name += f"/{key}={job_data.categorical[key]}"
@@ -93,12 +103,13 @@ class JobDatabase():
     def delete(self, job_data: JobData, delete_all_children: bool = False) -> None:
         """
         Delete jobs with matching job name and categoricals.
-        Parameters:
-            - job_data: JobData object with name and categorical which should
-                        be removed.
-            - delete_all_children: When true, will delete recursively any
-                        matching jobs
+
+        :arguments:
+
+            :job_data: JobData object with name and categorical which should be removed.
+            :delete_all_children: When true, will delete recursively any matching jobs
         """
+
         group_name = f"/{job_data.job_name}"
         for key in sorted(job_data.categorical.keys()):
             group_name += f"/{key}={job_data.categorical[key]}"
@@ -135,10 +146,9 @@ class JobDatabase():
         Test if object is non-empty or its first element is a Dataset.
         This is consistent with a slurm job
         """
+
         if len(f) == 0:  # group contains no values
             return True
         first_element = f[list(f.keys())[0]]
         # group contains a dataset
         return JobDatabase.is_dataset(first_element)
-
-
