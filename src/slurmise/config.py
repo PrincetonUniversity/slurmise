@@ -4,7 +4,16 @@ from pathlib import Path
 from slurmise import job_data
 import re
 
-JOB_SPEC_REGEX = re.compile(r"{(?P<name>[^:]+):(?P<kind>[^}]+)}")
+
+# matches tokens like {threads:numeric}
+JOB_SPEC_REGEX = re.compile(r"{(?:(?P<name>[^:]+):)?(?P<kind>[^}]+)}")
+KIND_TO_REGEX = {
+    'file': '.+?',
+    'numeric': '[-0-9.]+',
+    'category': '.+',
+    'ignore': '.+',
+}
+
 
 class SlurmiseConfiguration:
     """SlurmiseConfiguration class parses and stores TOML configuration files for slurmise."""
@@ -39,19 +48,24 @@ class JobSpec:
         """Parse a job spec string into a regex with named capture groups."""
         self.job_spec_str = job_spec
 
-        kind_to_regex = {
-            'file': '.+?',
-            'numeric': '[-0-9.]+',
-            'category': '.+'
-        }
 
         self.token_kinds = {}
 
         while match := JOB_SPEC_REGEX.search(job_spec):
-            name = match.group('name')
             kind = match.group('kind')
-            self.token_kinds[name] = kind
-            job_spec = job_spec.replace(match.group(0), f'(?P<{name}>{kind_to_regex[kind]})')
+            name = match.group('name')
+
+            if kind not in KIND_TO_REGEX:
+                raise ValueError(f"Token kind {kind} is unknown.")
+
+            if kind == 'ignore':
+                job_spec = job_spec.replace(match.group(0), f'{KIND_TO_REGEX[kind]}')
+
+            else:
+                if name is None:
+                    raise ValueError(f"Token {match.group(0)} has no name.")
+                self.token_kinds[name] = kind
+                job_spec = job_spec.replace(match.group(0), f'(?P<{name}>{KIND_TO_REGEX[kind]})')
 
         self.job_regex = job_spec
 
@@ -71,7 +85,6 @@ class JobSpec:
                 #TODO open file and read specific data from it
                 #TODO deal with gzip files(?)
 
-                #TODO ADD "IGNORE" kind which will ignore the parameter
                 #TODO ADD "numeric_list" kind(?) and "category_list" kind(?)
             else:
                 raise ValueError(f"Unknown kind {kind}.")
