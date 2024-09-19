@@ -48,17 +48,16 @@ class JobDatabase():
         finally:
             db._close()
 
-    def record(self, job_data: JobData) -> None:
+    def record(self, job_data: JobData, ignore_existing_job: bool = False) -> None:
         """
         It records JobData information in the database. A tree is created based
         on the job name, categorical values and slurm id. The leaves of the tree
         are the memory, runtime and numericals of the JobData.
         """
+        table_name = JobDatabase.get_table_name(job_data)
+        if ignore_existing_job and self.job_exists(job_data):
+            return
 
-        table_name = f"/{job_data.job_name}"
-        for key in sorted(job_data.categorical.keys()):
-            table_name += f"/{key}={job_data.categorical[key]}"
-        table_name += f"/{job_data.slurm_id}"
         table = self.db.require_group(name=table_name)
 
         if job_data.memory is not None:
@@ -73,6 +72,10 @@ class JobDatabase():
             val = np.asarray(value)
             _ = table.create_dataset(name=var, shape=val.shape, data=val)
 
+    def job_exists(self, job_data: JobData) -> bool:
+        table_name = JobDatabase.get_table_name(job_data)
+        return table_name in self.db
+
     def update(self, **kargs):
         raise NotImplementedError("Later feature")
 
@@ -83,10 +86,7 @@ class JobDatabase():
 
         Note: It does not decent into all child categories, only the highest matching leaves
         """
-
-        group_name = f"/{job_data.job_name}"
-        for key in sorted(job_data.categorical.keys()):
-            group_name += f"/{key}={job_data.categorical[key]}"
+        group_name = JobDatabase.get_group_name(job_data)
 
         job_group = self.db.get(group_name, default={})
         result = []
@@ -110,10 +110,7 @@ class JobDatabase():
             :job_data: JobData object with name and categorical which should be removed.
             :delete_all_children: When true, will delete recursively any matching jobs
         """
-
-        group_name = f"/{job_data.job_name}"
-        for key in sorted(job_data.categorical.keys()):
-            group_name += f"/{key}={job_data.categorical[key]}"
+        group_name = JobDatabase.get_group_name(job_data)
 
         if group_name in self.db:
             if delete_all_children:
@@ -133,6 +130,19 @@ class JobDatabase():
 
     def query_fit(self, fit):
         raise NotImplementedError("Storing fits is not supported yet")
+
+    @staticmethod
+    def get_table_name(job_data: JobData) -> str:
+        table_name = JobDatabase.get_group_name(job_data)
+        table_name += f"/{job_data.slurm_id}"
+        return table_name
+
+    @staticmethod
+    def get_group_name(job_data: JobData) -> str:
+        group_name = f"/{job_data.job_name}"
+        for key in sorted(job_data.categorical.keys()):
+            group_name += f"/{key}={job_data.categorical[key]}"
+        return group_name
 
     @staticmethod
     def is_dataset(f: Any) -> bool:

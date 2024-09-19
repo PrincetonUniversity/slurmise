@@ -6,11 +6,11 @@ def parse_slurm_job_metadata(slurm_id: str|None = None) -> dict:
     """Return a dictionary of metadata for the current SLURM job."""
     sacct_json = get_slurm_job_sacct(slurm_id)
     # sstat_out = get_slurm_job_sstat(slurm_id)
-    # TODO: make sure job completed!
 
     try:
         job_id = sacct_json["jobs"][0]["job_id"]
         job_name = sacct_json["jobs"][0]["name"]
+        state = sacct_json["jobs"][0]["state"]["current"][0]
         partition = sacct_json["jobs"][0]["partition"]
         CPUs = sacct_json["jobs"][0]["required"]['CPUs']
         memory_per_cpu = sacct_json["jobs"][0]["required"]['memory_per_cpu']
@@ -26,6 +26,7 @@ def parse_slurm_job_metadata(slurm_id: str|None = None) -> dict:
     metadata = {
         "slurm_id": job_id,
         "job_name": job_name,
+        "state": state,
         "partition": partition,
         "elapsed_seconds": elapsed_seconds,
         "CPUs": CPUs,
