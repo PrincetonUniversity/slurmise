@@ -373,3 +373,96 @@ def test_delete_all_children(small_db):
         JobData(job_name="test_job", categorical={"option1": "value2"})
     )
     assert query_result == []
+
+
+def test_update_missing_mem_elapsed(empty_h5py_file, monkeypatch):
+    def mock_parse_slurm_job_metadata(slurm_id):
+        return {
+            "max_rss": 101,
+            "elapsed_seconds": 100,
+        }
+    
+    monkeypatch.setattr("slurmise.job_database.slurm.parse_slurm_job_metadata", mock_parse_slurm_job_metadata)
+
+    with JobDatabase.get_database(empty_h5py_file) as db:
+        db.record(
+            JobData(
+                job_name="test_job",
+                slurm_id="1",
+                categorical={"option1": "value1", "option2": "value2"},
+                numerical={"filesizes": [123, 512, 128]},
+            )
+        )
+
+        db.record(
+            JobData(
+                job_name="test_job",
+                slurm_id="2",
+                memory=128,
+                categorical={"option1": "value1", "option2": "value2"},
+                numerical={"filesizes": [123, 512, 128]},
+            )
+        )
+
+        db.record(
+            JobData(
+                job_name="test_job",
+                slurm_id="3",
+                runtime=111,
+                categorical={"option1": "value1", "option2": "value2"},
+                numerical={"filesizes": [123, 512, 128]},
+            )
+        )
+
+        db.record(
+            JobData(
+                job_name="test_job",
+                slurm_id="4",
+                memory=138,
+                runtime=222,
+                categorical={"option1": "value1", "option2": "value2"},
+                numerical={"filesizes": [123, 512, 128]},
+            )
+        )
+
+        expected_output = [
+            JobData(
+                job_name="test_job",
+                slurm_id="1",
+                memory=101,
+                runtime=100,
+                categorical={"option1": "value1", "option2": "value2"},
+                numerical={"filesizes": np.array([123, 512, 128])},
+            ),
+            JobData(
+                job_name="test_job",
+                slurm_id="2",
+                memory=128,
+                runtime=100,
+                categorical={"option1": "value1", "option2": "value2"},
+                numerical={"filesizes": np.array([123, 512, 128])},
+            ),
+            JobData(
+                job_name="test_job",
+                slurm_id="3",
+                runtime=111,
+                memory=101,
+                categorical={"option1": "value1", "option2": "value2"},
+                numerical={"filesizes": np.array([123, 512, 128])},
+            ),
+            JobData(
+                job_name="test_job",
+                slurm_id="4",
+                memory=138,
+                runtime=222,
+                categorical={"option1": "value1", "option2": "value2"},
+                numerical={"filesizes": np.array([123, 512, 128])},
+            ),
+        ]
+
+        results = db.query(JobData(job_name="test_job", categorical={"option1": "value1", "option2": "value2"}), update_missing=True)
+        assert results == expected_output
+
+        results = db.query(JobData(job_name="test_job", categorical={"option1": "value1", "option2": "value2"}), update_missing=False)
+        assert results == expected_output
+
