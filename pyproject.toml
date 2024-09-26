@@ -30,6 +30,7 @@ dependencies = [
   "h5py",
   "pandas",
   "scikit-learn",
+  "joblib",
   "sphinx",
   "sphinx-rtd-theme"
 ]

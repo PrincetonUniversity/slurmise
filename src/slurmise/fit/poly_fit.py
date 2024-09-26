@@ -1,58 +1,62 @@
 import pandas as pd
 import numpy as np
+import joblib
+
 from typing import Optional
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, InitVar
 
 # Generate a polynomial fit for the runtime data using sklearn
-from sklearn.externals import joblib as sk_joblib
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.linear_model import LinearRegression
 from sklearn.pipeline import Pipeline
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.impute import SimpleImputer
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error
+
 
 from .resource_fit import ResourceFit
 from ..job_data import JobData
 
 
-@dataclass
+@dataclass(kw_only=True)
 class PolynomialFit(ResourceFit):
-    model: Optional[Pipeline] = None
     degree: int
-
+    runtime_model: InitVar[Pipeline | None] = None
+    memory_model: InitVar[Pipeline | None] = None
+    
+    def __post_init__(self, runtime_model, memory_model):
+        self.runtime_model = runtime_model
+        self.memory_model = memory_model
+        
+        super().__post_init__()
+       
     def save(self):
         super().save()
-        if self.model is not None:
-            modelpath = self.path / "model.pkl"
-            sk_joblib.dump(self.model, str(modelpath))
+        if self.runtime_model is not None:
+            modelpath = self.path / "runtime_model.pkl"
+            joblib.dump(self.runtime_model, str(modelpath))
+        if self.memory_model is not None:
+            modelpath = self.path / "memory_model.pkl"
+            joblib.dump(self.memory_model, str(modelpath))
 
-    def fit(self, jobs: list[JobData], **kargs):
+    @classmethod
+    def load(cls, query: JobData | None = None, path: str | None = None):
+        
+        if path is not None:
+            fit_obj = super().load(path=path)
+        elif query is not None:
+            fit_obj = super().load(query=query)
+        else:
+            raise ValueError("Either query or path must be provided")
 
-        df = pd.json_normalize([asdict(job) for job in jobs])
+        fit_obj.runtime_model = joblib.load(str(fit_obj.path / "runtime_model.pkl"))
+        fit_obj.memory_model = joblib.load(str(fit_obj.path / "memory_model.pkl"))
 
-        # Convert categorical columns to category type
-        for col in df.columns:
-            if col.startswith("categorical."):
-                df[col] = df[col].astype("category")
+        return fit_obj
 
-        # Rename the categorical columns, drop .categorical prefix
-        df.columns = [col.replace("categorical.", "") for col in df.columns]
-
-        # Do the same for numerical columns
-        df.columns = [col.replace("numerical.", "") for col in df.columns]
-
-        # Get the numerical columns
-        X = df.drop(columns=["job_name", "slurm_id", "memory", "runtime"])
-
-        # Transform features
-        categorical_features = [
-            name for name in X.columns if X[name].dtype == "category"
-        ]
-        numerical_features = [
-            name for name in X.columns if name not in categorical_features
-        ]
-
+    def _make_model(self, categorical_features, numerical_features):
         categorical_transformer = Pipeline(
             steps=[
                 ("encoder", OneHotEncoder(handle_unknown="infrequent_if_exist")),
@@ -80,4 +84,46 @@ class PolynomialFit(ResourceFit):
             [("preprocessor", preprocessor), ("poly", poly), ("model", model)]
         )
 
-        self.model = pipeline.fit(X)
+        return pipeline
+
+    def fit(self, jobs: list[JobData], random_state: np.random.RandomState | None, **kwargs):
+
+        X, categorical_features, numerical_features = ResourceFit.jobs_to_pandas(jobs)
+
+        Y = X[['runtime', 'memory']]
+        
+        # Drop the runtime and memory columns
+        X = X.drop(columns=["runtime", "memory"])
+
+        # Split test and train data
+        X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.2, random_state=random_state)
+        
+        self.runtime_model = self._make_model(categorical_features, numerical_features)
+        self.memory_model = self._make_model(categorical_features, numerical_features)
+
+        self.runtime_model.fit(X_train, y_train['runtime'])
+        self.memory_model.fit(X_train, y_train['memory'])
+
+        # Evaluate the model on test
+        Y_pred_runtime = self.runtime_model.predict(X_test)
+        Y_pred_memory = self.memory_model.predict(X_test)
+
+        def mean_percent_error(y_true, y_pred):
+            return np.mean(np.abs((y_true - y_pred) / y_true)) * 100
+
+        self.model_metrics = {
+            'runtime': {
+                'mpe': mean_percent_error(y_test['runtime'], Y_pred_runtime).item(),
+                'mse': mean_squared_error(y_test['runtime'], Y_pred_runtime).item()
+            },
+            'memory': {
+                'mpe': mean_percent_error(y_test['memory'], Y_pred_memory).item(),
+                'mse': mean_squared_error(y_test['memory'], Y_pred_memory).item()
+            }
+        }
+   
+    def predict(self, job: JobData) -> tuple[float, float]:
+        
+        X, _, _ = ResourceFit.jobs_to_pandas([job])
+
+        return self.runtime_model.predict(X)[0], self.memory_model.predict(X)[0]

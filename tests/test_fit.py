@@ -1,92 +1,86 @@
+from slurmise.job_database import JobDatabase
 from slurmise.job_data import JobData
+from slurmise.fit.resource_fit import ResourceFit
+from slurmise.fit.poly_fit import PolynomialFit
 
+from pathlib import Path
+
+import pytest
 import numpy as np
 
-rng = np.random.default_rng(42)
 
-NUM_JOBS = 20
-jobs = []
-for i in range(NUM_JOBS):
-    
-    if i % 2 == 0:
-        mode = "1"
-        factor = 1
+@pytest.fixture(autouse=True)
+def monkey_patch_basepath(tmp_path, monkeypatch):
+    """
+    Monkey patch the BASEMODEL_PATH to the tmp_path, don't want to write to the actual
+    path during testing (probably is user's home directory or something)
+    """
+    monkeypatch.setattr("slurmise.fit.resource_fit.BASEMODELPATH", tmp_path)
+    yield
+    monkeypatch.undo()
+
+
+@pytest.mark.parametrize("specify_path", [True, False])
+def test_model_path_creation(tmp_path, specify_path):
+    """Test that both default and user-specified model paths are created correctly"""
+    query = JobData(job_name='nupack')
+
+    fit = ResourceFit(
+        query=query, 
+        path=tmp_path if specify_path else None
+        )
+
+    # Check if the auto-generated path contains the class anem and the hash of the query
+    if not specify_path:
+        assert str(Path(fit.__class__.__name__) / Path(fit._get_model_info_hash(query))) in str(fit.path)
     else:
-        mode = "2"
-        factor = 1.1
+        assert tmp_path == fit.path
+
+@pytest.fixture(scope='module')
+def nupack_data():
+    query = JobData(job_name='nupack')
+
+    with JobDatabase.get_database("tests/nupack2.h5") as db:
+        # Get the job data
+        jobs = db.query(job_data=query)
+
+    # Drop jobs with 0 runtime or memory
+    jobs = [job for job in jobs if job.runtime > 0 and job.memory > 0]
+
+    # Only take jobs where sequences is len = 10
+    # jobs = [job for job in jobs if job.numerical['sequences'].shape[0] == 10]
+
+    return query, jobs
+
+@pytest.mark.parametrize('model, kwargs, expected_metrics', 
+    [(PolynomialFit, {'degree': 2},  {'runtime': {'mpe': 28.5158571, 'mse': 27.5574959}, 'memory': {'mpe': 18.0107243, 'mse': 121437.5881779}})])
+def test_fit(nupack_data, model, kwargs, expected_metrics):
+    """Test the fit classes on the nupack data"""
     
-    N = ((i//2)+1)*100
-    
-    # M effects performance very slightly
-    M = (i//2)+1 * 10
-    
-    # Runtime is quadratic in N, with some noise
-    runtime = factor*(N**2 + rng.normal(0, 0.1*N**2)) + M*rng.normal(0, 0.1)
-    memory = N*10 + rng.normal(0, 0.1)
+    query, jobs = nupack_data
+   
+    poly_fit = model(query=query, **kwargs)
 
-    job = JobData(job_name=f"fake_job", slurm_id=f"{i}", categorical={"--mode": mode}, numerical={"-N": N, "-M": M}, memory=memory, runtime=runtime)
+    random_state = np.random.RandomState(42)
+    poly_fit.fit(jobs, random_state=random_state)
 
-    jobs.append(job)
+    # Predict the runtime and memory of a job
+    job = jobs[0]
+    runtime, memory = poly_fit.predict(job)
 
-# for job in jobs:
-#     print(job)
+    # Save the model
+    poly_fit.save()
 
-# Now build a pandas DataFrame from the list of JobData dataclass objects
-import pandas as pd
-from dataclasses import asdict    
-df = pd.json_normalize([asdict(job) for job in jobs])
+    # Load the model
+    poly_fit_loaded = PolynomialFit.load(query=query)
+    runtime2, memory2 = poly_fit_loaded.predict(job)
 
-# Convert categorical columns to category type
-for col in df.columns:
-    if col.startswith("categorical."):
-        df[col] = df[col].astype("category")
+    assert runtime == runtime2
+    assert memory == memory2
 
-# Rename the categorical columns, drop .categorical prefix
-df.columns = [col.replace("categorical.", "") for col in df.columns]
-
-# Do the same for numerical columns
-df.columns = [col.replace("numerical.", "") for col in df.columns]
-
-print(df)
-print(df.dtypes)
-
-# Generate a polynomial fit for the runtime data using sklearn
-from sklearn.preprocessing import PolynomialFeatures
-from sklearn.linear_model import LinearRegression
-from sklearn.pipeline import make_pipeline, Pipeline
-from sklearn.compose import ColumnTransformer
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
-from sklearn.impute import SimpleImputer
-
-# Get the numerical columns
-X = df.drop(columns=["job_name", "slurm_id", "memory", "runtime"])
-
-# Transform features
-categorical_features = [name for name in X.columns if X[name].dtype == "category"]
-numerical_features = [name for name in X.columns if name not in categorical_features]
-
-print(f"Numerical features: {numerical_features}")
-print(f"Categorical features: {categorical_features}")
-
-categorical_transformer = Pipeline(
-    steps=[
-        ("encoder", OneHotEncoder(handle_unknown="infrequent_if_exist")),
-    ]
-)
-numeric_transformer = Pipeline(
-    steps=[("imputer", SimpleImputer(strategy=np.max)), ("scaler", StandardScaler())]
-)
-
-preprocessor = ColumnTransformer(
-    transformers=[
-        ("num", numeric_transformer, numerical_features),
-        ("cat", categorical_transformer, categorical_features),
-    ]
-)
-
-# We are doing polynomial regression, so we need to add polynomial features
-poly = PolynomialFeatures(degree=2, include_bias=False)
-model = LinearRegression()
-
-pipeline = Pipeline([("preprocessor", preprocessor), ("poly", poly), ("model", model)])
-
+    for key in poly_fit.model_metrics.keys():
+        assert key in expected_metrics
+        for metric in poly_fit.model_metrics[key].keys():
+            assert metric in expected_metrics[key]
+            np.testing.assert_allclose(poly_fit.model_metrics[key][metric], expected_metrics[key][metric], rtol=1e-6)
+  
