@@ -1,9 +1,7 @@
-import pandas as pd
 import numpy as np
 import joblib
 
-from typing import Optional
-from dataclasses import dataclass, asdict, InitVar
+from dataclasses import dataclass, InitVar
 
 # Generate a polynomial fit for the runtime data using sklearn
 from sklearn.preprocessing import PolynomialFeatures
@@ -25,13 +23,13 @@ class PolynomialFit(ResourceFit):
     degree: int
     runtime_model: InitVar[Pipeline | None] = None
     memory_model: InitVar[Pipeline | None] = None
-    
+
     def __post_init__(self, runtime_model, memory_model):
         self.runtime_model = runtime_model
         self.memory_model = memory_model
-        
+
         super().__post_init__()
-       
+
     def save(self):
         super().save()
         if self.runtime_model is not None:
@@ -43,7 +41,7 @@ class PolynomialFit(ResourceFit):
 
     @classmethod
     def load(cls, query: JobData | None = None, path: str | None = None):
-        
+
         if path is not None:
             fit_obj = super().load(path=path)
         elif query is not None:
@@ -91,13 +89,13 @@ class PolynomialFit(ResourceFit):
         X, categorical_features, numerical_features = ResourceFit.jobs_to_pandas(jobs)
 
         Y = X[['runtime', 'memory']]
-        
+
         # Drop the runtime and memory columns
         X = X.drop(columns=["runtime", "memory"])
 
         # Split test and train data
         X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.2, random_state=random_state)
-        
+
         self.runtime_model = self._make_model(categorical_features, numerical_features)
         self.memory_model = self._make_model(categorical_features, numerical_features)
 
@@ -121,9 +119,9 @@ class PolynomialFit(ResourceFit):
                 'mse': mean_squared_error(y_test['memory'], Y_pred_memory).item()
             }
         }
-   
+
     def predict(self, job: JobData) -> tuple[float, float]:
-        
+
         X, _, _ = ResourceFit.jobs_to_pandas([job])
 
         return self.runtime_model.predict(X)[0], self.memory_model.predict(X)[0]

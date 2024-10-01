@@ -13,6 +13,7 @@ from datetime import datetime
 
 BASEMODELPATH = pathlib.Path.home() / ".slurmise/models/"
 
+
 @dataclass(kw_only=True)
 class ResourceFit:
     query: JobData
@@ -30,7 +31,7 @@ class ResourceFit:
             self.path = self._make_model_path(query=self.query)
         else:
             raise ValueError("path must be a string or pathlib.Path object")
-  
+
     @classmethod
     def _get_model_info_hash(cls, query: JobData) -> str:
         """
@@ -42,7 +43,7 @@ class ResourceFit:
             **query.categorical,
         }
         hash_info_tuple = tuple(hash_info.items())
-        
+
         # Get and MD5 hash of information
         hash_val = hashlib.md5(str(hash_info_tuple).encode('utf-8')).hexdigest()
 
@@ -52,7 +53,7 @@ class ResourceFit:
     def _make_model_path(cls, query) -> pathlib.Path:
         """
         This method returns the path to the model's directory.
-        
+
         The model's path is a function of the model's type and the hash of its query.
         """
         hash_val = cls._get_model_info_hash(query)
@@ -77,7 +78,7 @@ class ResourceFit:
             json.dump(info, save_file)
 
     @classmethod
-    def load(cls, query: JobData | None = None, path: str | None = None) -> 'ResourceFit':
+    def load(cls, query: JobData | None = None, path: str | None = None) -> "ResourceFit":
         """
         This method loads a model from a file. The model is loaded from the path
         provided, or from the path generated from the query.
@@ -95,7 +96,7 @@ class ResourceFit:
 
         if path is None:
             path = cls._make_model_path(query)
-            
+
         if isinstance(path, str):
             path = pathlib.Path(path)
 
@@ -126,7 +127,7 @@ class ResourceFit:
         :rtype: pd.DataFrame
 
         """
-        
+
         df = pd.json_normalize([asdict(job) for job in jobs])
 
         # Convert categorical columns to category type
@@ -154,7 +155,7 @@ class ResourceFit:
                             # If all the same size, expand each element of the numpy array into a new column
                             col_df = pd.DataFrame(np.vstack([s.flatten() for s in df.loc[0:10, 'numerical.sequences']]))
                             col_df.columns = [f"{new_col_name}_{i}" for i in range(col_df.shape[1])]
-                            
+
                             # Drop the original column and add the new columns
                             df = df.drop(columns=[col])
                             df = pd.concat([df, col_df], axis=1)
@@ -165,8 +166,6 @@ class ResourceFit:
 
                     else:
                         raise ValueError("Numerical columns must be scalars or equal length numpy arrays")
-                    
-
 
         df.columns = [col.replace("numerical.", "") for col in df.columns]
 
@@ -180,7 +179,5 @@ class ResourceFit:
         numerical_features = [
             name for name in df.columns if name not in categorical_features and name not in ["memory", "runtime"]
         ]
-
-
 
         return df, categorical_features, numerical_features
