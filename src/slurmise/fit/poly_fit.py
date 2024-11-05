@@ -16,6 +16,7 @@ from sklearn.metrics import mean_squared_error
 
 from .resource_fit import ResourceFit
 from ..job_data import JobData
+from ..utils import jobs_to_pandas
 
 
 @dataclass(kw_only=True)
@@ -30,24 +31,10 @@ class PolynomialFit(ResourceFit):
 
         super().__post_init__()
 
-    def save(self):
-        super().save()
-        if self.runtime_model is not None:
-            modelpath = self.path / "runtime_model.pkl"
-            joblib.dump(self.runtime_model, str(modelpath))
-        if self.memory_model is not None:
-            modelpath = self.path / "memory_model.pkl"
-            joblib.dump(self.memory_model, str(modelpath))
-
     @classmethod
     def load(cls, query: JobData | None = None, path: str | None = None):
 
-        if path is not None:
-            fit_obj = super().load(path=path)
-        elif query is not None:
-            fit_obj = super().load(query=query)
-        else:
-            raise ValueError("Either query or path must be provided")
+        fit_obj = super().load(query=query, path=path)
 
         fit_obj.runtime_model = joblib.load(str(fit_obj.path / "runtime_model.pkl"))
         fit_obj.memory_model = joblib.load(str(fit_obj.path / "memory_model.pkl"))
@@ -84,23 +71,27 @@ class PolynomialFit(ResourceFit):
 
         return pipeline
 
-    def fit(self, jobs: list[JobData], random_state: np.random.RandomState | None, **kwargs):
+    def fit(
+        self, jobs: list[JobData], random_state: np.random.RandomState | None, **kwargs
+    ):
 
-        X, categorical_features, numerical_features = ResourceFit.jobs_to_pandas(jobs)
+        X, categorical_features, numerical_features = jobs_to_pandas(jobs)
 
-        Y = X[['runtime', 'memory']]
+        Y = X[["runtime", "memory"]]
 
         # Drop the runtime and memory columns
         X = X.drop(columns=["runtime", "memory"])
 
         # Split test and train data
-        X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.2, random_state=random_state)
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, Y, test_size=0.2, random_state=random_state
+        )
 
         self.runtime_model = self._make_model(categorical_features, numerical_features)
         self.memory_model = self._make_model(categorical_features, numerical_features)
 
-        self.runtime_model.fit(X_train, y_train['runtime'])
-        self.memory_model.fit(X_train, y_train['memory'])
+        self.runtime_model.fit(X_train, y_train["runtime"])
+        self.memory_model.fit(X_train, y_train["memory"])
 
         # Evaluate the model on test
         Y_pred_runtime = self.runtime_model.predict(X_test)
@@ -110,18 +101,18 @@ class PolynomialFit(ResourceFit):
             return np.mean(np.abs((y_true - y_pred) / y_true)) * 100
 
         self.model_metrics = {
-            'runtime': {
-                'mpe': mean_percent_error(y_test['runtime'], Y_pred_runtime).item(),
-                'mse': mean_squared_error(y_test['runtime'], Y_pred_runtime).item()
+            "runtime": {
+                "mpe": mean_percent_error(y_test["runtime"], Y_pred_runtime).item(),
+                "mse": mean_squared_error(y_test["runtime"], Y_pred_runtime).item(),
             },
-            'memory': {
-                'mpe': mean_percent_error(y_test['memory'], Y_pred_memory).item(),
-                'mse': mean_squared_error(y_test['memory'], Y_pred_memory).item()
-            }
+            "memory": {
+                "mpe": mean_percent_error(y_test["memory"], Y_pred_memory).item(),
+                "mse": mean_squared_error(y_test["memory"], Y_pred_memory).item(),
+            },
         }
 
     def predict(self, job: JobData) -> tuple[float, float]:
 
-        X, _, _ = ResourceFit.jobs_to_pandas([job])
+        X, _, _ = jobs_to_pandas([job])
 
         return self.runtime_model.predict(X)[0], self.memory_model.predict(X)[0]

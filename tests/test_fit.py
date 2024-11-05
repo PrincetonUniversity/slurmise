@@ -23,22 +23,22 @@ def monkey_patch_basepath(tmp_path, monkeypatch):
 @pytest.mark.parametrize("specify_path", [True, False])
 def test_model_path_creation(tmp_path, specify_path):
     """Test that both default and user-specified model paths are created correctly"""
-    query = JobData(job_name='nupack')
+    query = JobData(job_name="nupack")
 
-    fit = ResourceFit(
-        query=query, 
-        path=tmp_path if specify_path else None
-        )
+    fit = ResourceFit(query=query, path=tmp_path if specify_path else None)
 
     # Check if the auto-generated path contains the class anem and the hash of the query
     if not specify_path:
-        assert str(Path(fit.__class__.__name__) / Path(fit._get_model_info_hash(query))) in str(fit.path)
+        assert str(
+            Path(fit.__class__.__name__) / Path(fit._get_model_info_hash(query))
+        ) in str(fit.path)
     else:
         assert tmp_path == fit.path
 
-@pytest.fixture(scope='module')
+
+@pytest.fixture(scope="module")
 def nupack_data():
-    query = JobData(job_name='nupack')
+    query = JobData(job_name="nupack")
 
     with JobDatabase.get_database("tests/nupack2.h5") as db:
         # Get the job data
@@ -52,13 +52,25 @@ def nupack_data():
 
     return query, jobs
 
-@pytest.mark.parametrize('model, kwargs, expected_metrics', 
-    [(PolynomialFit, {'degree': 2},  {'runtime': {'mpe': 28.5158571, 'mse': 27.5574959}, 'memory': {'mpe': 18.0107243, 'mse': 121437.5881779}})])
+
+@pytest.mark.parametrize(
+    "model, kwargs, expected_metrics",
+    [
+        (
+            PolynomialFit,
+            {"degree": 2},
+            {
+                "runtime": {"mpe": 28.5158571, "mse": 27.5574959},
+                "memory": {"mpe": 18.0107243, "mse": 121437.5881779},
+            },
+        )
+    ],
+)
 def test_fit(nupack_data, model, kwargs, expected_metrics):
     """Test the fit classes on the nupack data"""
-    
+
     query, jobs = nupack_data
-   
+
     poly_fit = model(query=query, **kwargs)
 
     random_state = np.random.RandomState(42)
@@ -82,5 +94,8 @@ def test_fit(nupack_data, model, kwargs, expected_metrics):
         assert key in expected_metrics
         for metric in poly_fit.model_metrics[key].keys():
             assert metric in expected_metrics[key]
-            np.testing.assert_allclose(poly_fit.model_metrics[key][metric], expected_metrics[key][metric], rtol=1e-6)
-  
+            np.testing.assert_allclose(
+                poly_fit.model_metrics[key][metric],
+                expected_metrics[key][metric],
+                rtol=1e-6,
+            )
