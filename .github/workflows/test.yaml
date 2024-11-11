@@ -34,4 +34,4 @@ jobs:
         run: hatch test
 
       - name: Run linter
-        run: hatch fmt --check --lint
+        run: hatch fmt --check --linter
