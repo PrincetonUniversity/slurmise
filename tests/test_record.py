@@ -1,10 +1,7 @@
-import json
 
 import pytest
-from click.testing import CliRunner
 
-from slurmise import parse_args, slurm
-from slurmise.__main__ import main
+from slurmise import parse_args
 
 
 # @pytest.mark.parametrize(

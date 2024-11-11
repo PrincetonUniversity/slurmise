@@ -12,9 +12,9 @@ from sklearn.pipeline import Pipeline
 # Generate a polynomial fit for the runtime data using sklearn
 from sklearn.preprocessing import OneHotEncoder, PolynomialFeatures, StandardScaler
 
-from ..job_data import JobData
-from ..utils import jobs_to_pandas
-from .resource_fit import ResourceFit
+from slurmise.job_data import JobData
+from slurmise.utils import jobs_to_pandas
+from slurmise.fit.resource_fit import ResourceFit
 
 
 @dataclass(kw_only=True)

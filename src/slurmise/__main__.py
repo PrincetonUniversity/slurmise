@@ -20,10 +20,7 @@ def main(ctx, database):
 
 
 @main.command(
-    context_settings=dict(
-        ignore_unknown_options=True,
-        allow_extra_args=True,
-    )
+    context_settings={"ignore_unknown_options": True, "allow_extra_args": True}
 )
 @click.option("-v", "--verbose", is_flag=True, help="Print verbose output")
 @click.pass_context
@@ -32,10 +29,12 @@ def record(ctx, verbose):
     For example: `slurmise record -o 2 -i 3 -m fast`
     """
     parsed_args = parse_args.parse_slurmise_record_args(ctx.args)
-    # print(json.dumps(parsed_args, indent=4))
+    if verbose:
+        print(json.dumps(parsed_args, indent=4))
 
     metadata_json = slurm.parse_slurm_job_metadata()
-    # print("METADATA JSON", metadata_json)
+    if verbose:
+        print("METADATA JSON", metadata_json)
 
 
 @main.command()
