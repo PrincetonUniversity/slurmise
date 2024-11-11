@@ -2,6 +2,7 @@
 
 [![PyPI - Version](https://img.shields.io/pypi/v/slurmise.svg)](https://pypi.org/project/slurmise)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/slurmise.svg)](https://pypi.org/project/slurmise)
+![CI workflow](https://github.com/github/docs/actions/workflows/test.yaml/badge.svg)
 
 -----
 
