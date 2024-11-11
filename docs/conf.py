@@ -6,10 +6,10 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = 'Slurmise'
-copyright = '2024, Troy Comi, David Turner, Giannis Paraskevakos, Rob Bierman'
-author = 'Troy Comi, David Turner, Giannis Paraskevakos, Rob Bierman'
-release = '0.0.1'
+project = "Slurmise"
+copyright = "2024, Troy Comi, David Turner, Giannis Paraskevakos, Rob Bierman"
+author = "Troy Comi, David Turner, Giannis Paraskevakos, Rob Bierman"
+release = "0.0.1"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -35,4 +35,4 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
 html_theme = "sphinx_rtd_theme"
-html_static_path = ['_static']
+html_static_path = ["_static"]

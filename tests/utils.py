@@ -48,9 +48,7 @@ def print_hdf5(
         elif is_dataset(entry):
             shape = entry.shape
             dtype = entry.dtype
-            print(
-                f"{print_level(level)}{name}: {shape} {dtype} {entry[()]}"
-            )
+            print(f"{print_level(level)}{name}: {shape} {dtype} {entry[()]}")
     if level == -1:
         if print_attrs:
             print("attrs: ")

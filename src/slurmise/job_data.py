@@ -74,16 +74,16 @@ class JobData:
             :dataset: The HDF5 dataset used to populate numerical, memory and runtime information of the job.
         """
 
-        runtime = dataset.get('runtime', None)
+        runtime = dataset.get("runtime", None)
         if runtime is not None:
             runtime = runtime[()]
-        memory = dataset.get('memory', None)
+        memory = dataset.get("memory", None)
         if memory is not None:
             memory = memory[()]
         numerical = {
             key: value[()]
             for key, value in dataset.items()
-            if key not in ('runtime', 'memory')
+            if key not in ("runtime", "memory")
         }
         categorical = dict(**categorical)
 

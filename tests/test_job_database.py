@@ -243,7 +243,6 @@ def test_rqd_with_categories(empty_h5py_file):
 def test_rqd_with_emptydb(empty_h5py_file):
     """Test record, query and delete on empty database."""
     with JobDatabase.get_database(empty_h5py_file) as db:
-
         query_result = db.query(
             JobData(
                 job_name="test_job",

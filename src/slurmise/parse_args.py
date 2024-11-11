@@ -23,29 +23,29 @@ def parse_slurmise_record_args(args: list[str]) -> dict:
     """
 
     parsed_args = {
-        'cmd': args,
-        'positional': [],
-        'options': {},
-        'flags': {},
+        "cmd": args,
+        "positional": [],
+        "options": {},
+        "flags": {},
     }
 
     # Handle the flags and options
     prev_flag = None
     for i, arg in enumerate(args):
-        if not arg.startswith('-'):
+        if not arg.startswith("-"):
             if prev_flag:
-                parsed_args['options'][prev_flag] = arg
-                if prev_flag in parsed_args['flags']:
-                    del parsed_args['flags'][prev_flag]
+                parsed_args["options"][prev_flag] = arg
+                if prev_flag in parsed_args["flags"]:
+                    del parsed_args["flags"][prev_flag]
                 prev_flag = None
             else:
-                parsed_args['positional'].append(arg)
+                parsed_args["positional"].append(arg)
 
-        elif '=' in arg:
+        elif "=" in arg:
             flag, value = arg.split("=")  # NOTE assumes only 1 equals sign
-            parsed_args['options'][flag] = value
+            parsed_args["options"][flag] = value
         else:
-            parsed_args['flags'][arg] = True
+            parsed_args["flags"][arg] = True
             prev_flag = arg
 
     return parsed_args
@@ -88,7 +88,6 @@ def process_slurmise_record_args(parsed_args: dict) -> dict:
     """
 
     def process_value(value: str) -> dict:
-
         if os.path.exists(value):
             file_size = os.path.getsize(value)
             return {"type": "file", "size": file_size}
@@ -103,8 +102,16 @@ def process_slurmise_record_args(parsed_args: dict) -> dict:
                 return {"type": "string", "value": value}
 
     # Loop through any positional arguments
-    positional = [{"name": arg, "arg_type": "positional", **process_value(arg)} for arg in parsed_args['positional']]
-    options = [{"name": arg, "arg_type": "option", **process_value(arg)} for arg in parsed_args['options']]
-    flags = [{"name": arg, "arg_type": "flag", 'value': True} for arg in parsed_args['flags']]
+    positional = [
+        {"name": arg, "arg_type": "positional", **process_value(arg)}
+        for arg in parsed_args["positional"]
+    ]
+    options = [
+        {"name": arg, "arg_type": "option", **process_value(arg)}
+        for arg in parsed_args["options"]
+    ]
+    flags = [
+        {"name": arg, "arg_type": "flag", "value": True} for arg in parsed_args["flags"]
+    ]
 
     return positional + options + flags

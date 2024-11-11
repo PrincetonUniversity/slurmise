@@ -34,9 +34,7 @@ def jobs_to_pandas(jobs: list[JobData]):
         new_col_name = col.replace("numerical.", "")
 
         if col.startswith("numerical."):
-
             if df[col].dtype == "object":
-
                 # Check if they are all numpy arrays
                 if all([isinstance(row, np.ndarray) for row in df[col]]):
                     # Check if the column is a numpy array of all the same size

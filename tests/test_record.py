@@ -1,4 +1,3 @@
-
 import pytest
 
 from slurmise import parse_args
