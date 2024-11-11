@@ -1,18 +1,21 @@
-from typing import Any, Optional
-import h5py
-import os
 import contextlib
-import numpy as np
-from slurmise.job_data import JobData
-from slurmise import slurm
 import dataclasses
+import os
+from typing import Any
+
+import h5py
+import numpy as np
+
+from slurmise import slurm
+from slurmise.job_data import JobData
 
 
-class JobDatabase():
+class JobDatabase:
     """
     This class creates the database to store job information.
     It saves the database in HDF5 file.
     """
+
     def __init__(self, db_file: str):
         """
         The DB file is and HDF5 file.
@@ -64,11 +67,11 @@ class JobDatabase():
 
         if job_data.memory is not None:
             val = np.asarray(job_data.memory)
-            _ = table.create_dataset(name='memory', shape=val.shape, data=val)
+            _ = table.create_dataset(name="memory", shape=val.shape, data=val)
 
         if job_data.runtime is not None:
             val = np.asarray(job_data.runtime)
-            _ = table.create_dataset(name='runtime', shape=val.shape, data=val)
+            _ = table.create_dataset(name="runtime", shape=val.shape, data=val)
 
         for var, value in job_data.numerical.items():
             val = np.asarray(value)
@@ -95,18 +98,19 @@ class JobDatabase():
         result = []
         for slurm_id, slurm_data in job_group.items():
             if JobDatabase.is_slurm_job(slurm_data):
-                result.append(JobData.from_dataset(
-                    job_name=job_data.job_name,
-                    slurm_id=slurm_id,
-                    categorical=job_data.categorical,
-                    dataset=slurm_data,
-                ))
+                result.append(
+                    JobData.from_dataset(
+                        job_name=job_data.job_name,
+                        slurm_id=slurm_id,
+                        categorical=job_data.categorical,
+                        dataset=slurm_data,
+                    )
+                )
 
         if update_missing:
             result = self.update_missing_data(result)
 
         return result
-
 
     def delete(self, job_data: JobData, delete_all_children: bool = False) -> None:
         """
@@ -154,17 +158,21 @@ class JobDatabase():
                 # ternary's are to avoid updating if the value is already present which causes a "dataset already exists" error
                 self.record(
                     dataclasses.replace(
-                        job, 
-                        memory = job_info['max_rss'] if job.memory is None else None,
-                        runtime = job_info['elapsed_seconds'] if job.runtime is None else None,
-                        numerical = {},
+                        job,
+                        memory=job_info["max_rss"] if job.memory is None else None,
+                        runtime=job_info["elapsed_seconds"]
+                        if job.runtime is None
+                        else None,
+                        numerical={},
                     )
                 )
 
                 job = dataclasses.replace(
                     job,
-                    memory = job_info['max_rss'] if job.memory is None else job.memory,
-                    runtime = job_info['elapsed_seconds'] if job.runtime is None else job.runtime,
+                    memory=job_info["max_rss"] if job.memory is None else job.memory,
+                    runtime=job_info["elapsed_seconds"]
+                    if job.runtime is None
+                    else job.runtime,
                 )
 
             updated_jobs.append(job)
@@ -248,22 +256,16 @@ class JobDatabase():
             entry = h5py_obj[key]
             name = entry.name if print_full_name else os.path.basename(entry.name)
             if is_group(entry):
-                print("{}{}".format(print_level(level), name))
-                JobDatabase.print_hdf5(entry, level + 1, print_full_name=print_full_name)
+                print(f"{print_level(level)}{name}")
+                JobDatabase.print_hdf5(
+                    entry, level + 1, print_full_name=print_full_name
+                )
             elif is_dataset(entry):
                 shape = entry.shape
                 dtype = entry.dtype
-                print(
-                    "{}{}: {} {} {}".format(
-                        print_level(level),
-                        name,
-                        shape,
-                        dtype,
-                        entry[()],
-                    )
-                )
+                print(f"{print_level(level)}{name}: {shape} {dtype} {entry[()]}")
         if level == -1:
             if print_attrs:
                 print("attrs: ")
                 for key, value in h5py_obj.attrs.items():
-                    print(" {}: {}".format(key, value))
+                    print(f" {key}: {value}")

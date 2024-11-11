@@ -28,6 +28,9 @@ dependencies = [
   "click",
   "numpy",
   "h5py",
+  "pandas",
+  "scikit-learn",
+  "joblib",
   "sphinx",
   "sphinx-rtd-theme"
 ]
@@ -35,6 +38,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
   "pytest",
+  "ruff",
 ]
 
 [project.urls]
@@ -73,3 +77,6 @@ exclude_lines = [
   "if __name__ == .__main__.:",
   "if TYPE_CHECKING:",
 ]
+
+[tool.hatch.envs.hatch-static-analysis]
+config-path = "lint_config.toml"

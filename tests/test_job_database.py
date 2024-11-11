@@ -1,11 +1,8 @@
-import os
-import pytest
-import h5py
 import numpy as np
-from slurmise.job_database import JobDatabase
-from slurmise.job_data import JobData
+import pytest
 
-from .utils import print_hdf5
+from slurmise.job_data import JobData
+from slurmise.job_database import JobDatabase
 
 
 @pytest.fixture
@@ -104,9 +101,14 @@ def test_rqd_flat(empty_h5py_file):
         )
 
         excepted_results = [
-            JobData(job_name='test_job', slurm_id="1", runtime=5, memory=100),
-            JobData(job_name='test_job', slurm_id="2", runtime=6, memory=128,
-                    numerical={"filesizes": np.array([123, 512, 128])}),
+            JobData(job_name="test_job", slurm_id="1", runtime=5, memory=100),
+            JobData(
+                job_name="test_job",
+                slurm_id="2",
+                runtime=6,
+                memory=128,
+                numerical={"filesizes": np.array([123, 512, 128])},
+            ),
         ]
 
         query_result = db.query(JobData(job_name="test_job"))
@@ -129,7 +131,7 @@ def test_rqd_flat(empty_h5py_file):
         excepted_results = [
             JobData(
                 slurm_id="2",
-                job_name='test_job2',
+                job_name="test_job2",
                 runtime=6,
                 memory=128,
                 numerical={"filesizes": np.array([123, 512, 128])},
@@ -146,7 +148,7 @@ def test_rqd_with_categories(empty_h5py_file):
                 slurm_id="1",
                 runtime=5,
                 memory=100,
-                categorical={'option1': 'value1', 'option2': 'value2'}
+                categorical={"option1": "value1", "option2": "value2"},
             )
         )
         # assert commit_value == 1
@@ -156,7 +158,7 @@ def test_rqd_with_categories(empty_h5py_file):
                 job_name="test_job",
                 slurm_id="2",
                 numerical={"filesizes": [123, 512, 128]},
-                categorical={'option1': 'value2'}
+                categorical={"option1": "value2"},
             )
         )
 
@@ -172,12 +174,12 @@ def test_rqd_with_categories(empty_h5py_file):
                 slurm_id="4",
                 runtime=7,
                 memory=100,
-                categorical={'option2': 'value2', 'option1': 'value1'}
+                categorical={"option2": "value2", "option1": "value1"},
             )
         )
 
         excepted_results = [
-            JobData(job_name='test_job', slurm_id="3"),
+            JobData(job_name="test_job", slurm_id="3"),
         ]
 
         query_result = db.query(JobData(job_name="test_job"))
@@ -189,21 +191,23 @@ def test_rqd_with_categories(empty_h5py_file):
                 slurm_id="1",
                 runtime=5,
                 memory=100,
-                categorical={'option1': 'value1', 'option2': 'value2'}
+                categorical={"option1": "value1", "option2": "value2"},
             ),
             JobData(
                 job_name="test_job",
                 slurm_id="4",
                 runtime=7,
                 memory=100,
-                categorical={'option2': 'value2', 'option1': 'value1'}
+                categorical={"option2": "value2", "option1": "value1"},
             ),
         ]
 
-        query_result = db.query(JobData(
-            job_name="test_job",
-            categorical={'option2': 'value2', 'option1': 'value1'},
-        ))
+        query_result = db.query(
+            JobData(
+                job_name="test_job",
+                categorical={"option2": "value2", "option1": "value1"},
+            )
+        )
         assert query_result == excepted_results
 
         query_result = db.query(
@@ -239,7 +243,6 @@ def test_rqd_with_categories(empty_h5py_file):
 def test_rqd_with_emptydb(empty_h5py_file):
     """Test record, query and delete on empty database."""
     with JobDatabase.get_database(empty_h5py_file) as db:
-
         query_result = db.query(
             JobData(
                 job_name="test_job",
@@ -347,7 +350,8 @@ def test_delete_all_children(small_db):
     assert len(query_result)
 
     small_db.delete(
-        JobData(job_name="test_job", categorical={"option1": "value1"}), delete_all_children=True
+        JobData(job_name="test_job", categorical={"option1": "value1"}),
+        delete_all_children=True,
     )
 
     query_result = small_db.query(
@@ -381,8 +385,11 @@ def test_update_missing_mem_elapsed(empty_h5py_file, monkeypatch):
             "max_rss": 101,
             "elapsed_seconds": 100,
         }
-    
-    monkeypatch.setattr("slurmise.job_database.slurm.parse_slurm_job_metadata", mock_parse_slurm_job_metadata)
+
+    monkeypatch.setattr(
+        "slurmise.job_database.slurm.parse_slurm_job_metadata",
+        mock_parse_slurm_job_metadata,
+    )
 
     with JobDatabase.get_database(empty_h5py_file) as db:
         db.record(
@@ -460,9 +467,20 @@ def test_update_missing_mem_elapsed(empty_h5py_file, monkeypatch):
             ),
         ]
 
-        results = db.query(JobData(job_name="test_job", categorical={"option1": "value1", "option2": "value2"}), update_missing=True)
+        results = db.query(
+            JobData(
+                job_name="test_job",
+                categorical={"option1": "value1", "option2": "value2"},
+            ),
+            update_missing=True,
+        )
         assert results == expected_output
 
-        results = db.query(JobData(job_name="test_job", categorical={"option1": "value1", "option2": "value2"}), update_missing=False)
+        results = db.query(
+            JobData(
+                job_name="test_job",
+                categorical={"option1": "value1", "option2": "value2"},
+            ),
+            update_missing=False,
+        )
         assert results == expected_output
-

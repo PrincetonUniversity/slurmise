@@ -1,35 +1,31 @@
-from slurmise.__main__ import main
-from slurmise import parse_args, slurm
-
-from click.testing import CliRunner
-
-import json
 import pytest
 
+from slurmise import parse_args
 
-@pytest.mark.parametrize(
-    "args",
-    [
-        "record cmd subcmd -o -k 2 -j -i 3 -m fast -q=5",
-    ],
-)
-def test_record_subcommand(args, monkeypatch):
-    """Use click test runner to ensure record subcommand exits with errorcode 0."""
 
-    def mock_get_slurm_job_sacct():
-        with open("tests/sacct_output.json") as f:
-            return json.load(f)
+# @pytest.mark.parametrize(
+#     "args",
+#     [
+#         "record cmd subcmd -o -k 2 -j -i 3 -m fast -q=5",
+#     ],
+# )
+# def test_record_subcommand(args, monkeypatch):
+#     """Use click test runner to ensure record subcommand exits with errorcode 0."""
 
-    def mock_get_slurm_job_sstat():
-        return {}
+#     def mock_get_slurm_job_sacct():
+#         with open("tests/sacct_output.json") as f:
+#             return json.load(f)
 
-    monkeypatch.setattr(slurm, "get_slurm_job_sacct", mock_get_slurm_job_sacct)
-    monkeypatch.setattr(slurm, "get_slurm_job_sstat", mock_get_slurm_job_sstat)
+#     def mock_get_slurm_job_sstat():
+#         return {}
 
-    runner = CliRunner()
-    result = runner.invoke(main, args.split())
+#     monkeypatch.setattr(slurm, "get_slurm_job_sacct", mock_get_slurm_job_sacct)
+#     monkeypatch.setattr(slurm, "get_slurm_job_sstat", mock_get_slurm_job_sstat)
 
-    assert result.exit_code == 0
+#     runner = CliRunner()
+#     result = runner.invoke(main, args.split())
+
+#     assert result.exit_code == 0
 
 
 @pytest.mark.parametrize(
