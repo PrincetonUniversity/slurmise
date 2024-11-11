@@ -1,4 +1,5 @@
-from dataclasses import dataclass, field, astuple
+from dataclasses import astuple, dataclass, field
+
 import h5py
 import numpy as np
 
@@ -54,8 +55,8 @@ class JobData:
 
     job_name: str
     slurm_id: str | None = None
-    categorical: dict = field(default_factory=lambda: {})
-    numerical: dict = field(default_factory=lambda: {})
+    categorical: dict = field(default_factory=dict)
+    numerical: dict = field(default_factory=dict)
     memory: int | None = None  # in MBs
     runtime: int | None = None  # in minutes
     cmd: str | None = None  # TODO: NOT STORED OR RETURNED

@@ -1,12 +1,12 @@
-from slurmise.job_database import JobDatabase
-from slurmise.job_data import JobData
-from slurmise.fit.resource_fit import ResourceFit
-from slurmise.fit.poly_fit import PolynomialFit
-
 from pathlib import Path
 
-import pytest
 import numpy as np
+import pytest
+
+from slurmise.fit.poly_fit import PolynomialFit
+from slurmise.fit.resource_fit import ResourceFit
+from slurmise.job_data import JobData
+from slurmise.job_database import JobDatabase
 
 
 @pytest.fixture(autouse=True)

@@ -1,6 +1,7 @@
-import os
 import json
+import os
 import subprocess
+
 
 def parse_slurm_job_metadata(slurm_id: str|None = None) -> dict:
     """Return a dictionary of metadata for the current SLURM job."""

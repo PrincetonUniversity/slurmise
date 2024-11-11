@@ -1,9 +1,8 @@
-import pytest
 import numpy as np
-from slurmise.job_database import JobDatabase
-from slurmise.job_data import JobData
+import pytest
 
-from .utils import print_hdf5
+from slurmise.job_data import JobData
+from slurmise.job_database import JobDatabase
 
 
 @pytest.fixture

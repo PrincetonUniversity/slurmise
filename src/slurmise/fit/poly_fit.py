@@ -1,22 +1,20 @@
-import numpy as np
-import joblib
+from dataclasses import InitVar, dataclass
 
-from dataclasses import dataclass, InitVar
+import joblib
+import numpy as np
+from sklearn.compose import ColumnTransformer
+from sklearn.impute import SimpleImputer
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error
+from sklearn.model_selection import train_test_split
+from sklearn.pipeline import Pipeline
 
 # Generate a polynomial fit for the runtime data using sklearn
-from sklearn.preprocessing import PolynomialFeatures
-from sklearn.linear_model import LinearRegression
-from sklearn.pipeline import Pipeline
-from sklearn.compose import ColumnTransformer
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
-from sklearn.impute import SimpleImputer
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_squared_error
+from sklearn.preprocessing import OneHotEncoder, PolynomialFeatures, StandardScaler
 
-
-from .resource_fit import ResourceFit
 from ..job_data import JobData
 from ..utils import jobs_to_pandas
+from .resource_fit import ResourceFit
 
 
 @dataclass(kw_only=True)
@@ -31,9 +29,17 @@ class PolynomialFit(ResourceFit):
 
         super().__post_init__()
 
+    def save(self):
+        super().save()
+        if self.runtime_model is not None:
+            modelpath = self.path / "runtime_model.pkl"
+            joblib.dump(self.runtime_model, str(modelpath))
+        if self.memory_model is not None:
+            modelpath = self.path / "memory_model.pkl"
+            joblib.dump(self.memory_model, str(modelpath))
+
     @classmethod
     def load(cls, query: JobData | None = None, path: str | None = None):
-
         fit_obj = super().load(query=query, path=path)
 
         fit_obj.runtime_model = joblib.load(str(fit_obj.path / "runtime_model.pkl"))
@@ -74,7 +80,6 @@ class PolynomialFit(ResourceFit):
     def fit(
         self, jobs: list[JobData], random_state: np.random.RandomState | None, **kwargs
     ):
-
         X, categorical_features, numerical_features = jobs_to_pandas(jobs)
 
         Y = X[["runtime", "memory"]]
@@ -112,7 +117,6 @@ class PolynomialFit(ResourceFit):
         }
 
     def predict(self, job: JobData) -> tuple[float, float]:
-
         X, _, _ = jobs_to_pandas([job])
 
         return self.runtime_model.predict(X)[0], self.memory_model.predict(X)[0]

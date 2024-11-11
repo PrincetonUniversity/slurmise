@@ -1,6 +1,7 @@
+from dataclasses import asdict
+
 import numpy as np
 import pandas as pd
-from dataclasses import asdict
 
 from .job_data import JobData
 

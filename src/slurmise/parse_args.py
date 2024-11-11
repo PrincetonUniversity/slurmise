@@ -1,4 +1,3 @@
-import json
 import os
 
 
@@ -42,13 +41,12 @@ def parse_slurmise_record_args(args: list[str]) -> dict:
             else:
                 parsed_args['positional'].append(arg)
 
+        elif '=' in arg:
+            flag, value = arg.split("=")  # NOTE assumes only 1 equals sign
+            parsed_args['options'][flag] = value
         else:
-            if '=' in arg:
-                flag, value = arg.split("=")  # NOTE assumes only 1 equals sign
-                parsed_args['options'][flag] = value
-            else:
-                parsed_args['flags'][arg] = True
-                prev_flag = arg
+            parsed_args['flags'][arg] = True
+            prev_flag = arg
 
     return parsed_args
 
@@ -101,7 +99,7 @@ def process_slurmise_record_args(parsed_args: dict) -> dict:
         except ValueError:
             try:
                 return {"type": "numeric", "value": float(value)}
-            except ValueError:     
+            except ValueError:
                 return {"type": "string", "value": value}
 
     # Loop through any positional arguments

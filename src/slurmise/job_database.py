@@ -1,14 +1,16 @@
-from typing import Any, Optional
-import h5py
-import os
 import contextlib
-import numpy as np
-from slurmise.job_data import JobData
-from slurmise import slurm
 import dataclasses
+import os
+from typing import Any
+
+import h5py
+import numpy as np
+
+from slurmise import slurm
+from slurmise.job_data import JobData
 
 
-class JobDatabase():
+class JobDatabase:
     """
     This class creates the database to store job information.
     It saves the database in HDF5 file.
@@ -154,7 +156,7 @@ class JobDatabase():
                 # ternary's are to avoid updating if the value is already present which causes a "dataset already exists" error
                 self.record(
                     dataclasses.replace(
-                        job, 
+                        job,
                         memory = job_info['max_rss'] if job.memory is None else None,
                         runtime = job_info['elapsed_seconds'] if job.runtime is None else None,
                         numerical = {},
@@ -248,22 +250,16 @@ class JobDatabase():
             entry = h5py_obj[key]
             name = entry.name if print_full_name else os.path.basename(entry.name)
             if is_group(entry):
-                print("{}{}".format(print_level(level), name))
+                print(f"{print_level(level)}{name}")
                 JobDatabase.print_hdf5(entry, level + 1, print_full_name=print_full_name)
             elif is_dataset(entry):
                 shape = entry.shape
                 dtype = entry.dtype
                 print(
-                    "{}{}: {} {} {}".format(
-                        print_level(level),
-                        name,
-                        shape,
-                        dtype,
-                        entry[()],
-                    )
+                    f"{print_level(level)}{name}: {shape} {dtype} {entry[()]}"
                 )
         if level == -1:
             if print_attrs:
                 print("attrs: ")
                 for key, value in h5py_obj.attrs.items():
-                    print(" {}: {}".format(key, value))
+                    print(f" {key}: {value}")

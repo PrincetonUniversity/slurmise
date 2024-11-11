@@ -1,22 +1,43 @@
-from slurmise.__main__ import main
-from slurmise import job_database
-from slurmise.job_data import JobData
-from .utils import print_hdf5
 import pytest
 from click.testing import CliRunner
-from .test_job_database import empty_h5py_file
+
+from slurmise import job_database
+from slurmise.__main__ import main
+from slurmise.job_data import JobData
+
+
+@pytest.fixture
+def empty_h5py_file(tmp_path):
+    d = tmp_path
+    p = d / "slurmise.h5"
+    return p
+
 
 def test_main():
     pass
+
 
 def test_raw_record(empty_h5py_file):
     """Test the raw_record command."""
     runner = CliRunner()
     result = runner.invoke(
         main,
-        ["--database", empty_h5py_file, "raw-record", "--job-name", "test",
-         "--slurm-id", "1234", "--numerical", '"n":3,"q":17.4', "--categorical",
-         '"a":1,"b":2', "--cmd", "sleep 2"])
+        [
+            "--database",
+            empty_h5py_file,
+            "raw-record",
+            "--job-name",
+            "test",
+            "--slurm-id",
+            "1234",
+            "--numerical",
+            '"n":3,"q":17.4',
+            "--categorical",
+            '"a":1,"b":2',
+            "--cmd",
+            "sleep 2",
+        ],
+    )
     assert result.exit_code == 0
 
     # test the job was successfully added
@@ -27,7 +48,7 @@ def test_raw_record(empty_h5py_file):
                 slurm_id="1234",
                 categorical={"a": 1, "b": 2},
                 numerical={"n": 3, "q": 17.4},
-                cmd=None
+                cmd=None,
             ),
         ]
 

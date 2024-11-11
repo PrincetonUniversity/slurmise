@@ -1,14 +1,13 @@
-import pathlib
-import json
 import hashlib
-import joblib
+import json
+import pathlib
+from dataclasses import asdict, dataclass, field
+from datetime import datetime
+from typing import Optional
+
 import numpy as np
 
-from typing import Optional
-from dataclasses import dataclass, asdict, field
 from ..job_data import JobData
-from datetime import datetime
-
 
 BASEMODELPATH = pathlib.Path.home() / ".slurmise/models/"
 
@@ -58,7 +57,7 @@ class ResourceFit:
         hash_val = cls._get_model_info_hash(query)
         return pathlib.Path(BASEMODELPATH) / cls.__name__ / hash_val
 
-    def save(self, model_params: dict = {}, *args):
+    def save(self, model_params: dict = {}):
         """This method saves the basic information of the model, such as its query,
         when it was last fit, the dataset size of the latest fit, and the type of
         the model.
@@ -77,11 +76,6 @@ class ResourceFit:
 
             info.update(model_params)
             json.dump(info, save_file)
-
-        for k in args:
-            if getattr(self, k) is not None:
-                value_path = self.path / f"{k}.pkl"
-                joblib.dump(self.runtime_model, str(value_path))
 
     @classmethod
     def load(
@@ -104,7 +98,7 @@ class ResourceFit:
                 raise ValueError("Either query or path must be provided")
             case (None, _):
                 path = cls._make_model_path(query)
-            case (str, _):
+            case (str(path), _):
                 path = pathlib.Path(path)
 
         with open(str(path / "fits.json")) as load_file:
