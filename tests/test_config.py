@@ -1,6 +1,7 @@
 import pytest
 from io import StringIO
 from slurmise.config import SlurmiseConfiguration, JobSpec
+from slurmise import config
 from slurmise.job_data import JobData
 from pprint import pprint
 
@@ -24,6 +25,16 @@ def basic_toml(tmpdir):
     job_spec = "-T {threads:numeric} -C {complexity:category} -i {ignore}"
     default_mem = 1000
     default_time = 60
+
+    # builtins will include file_size and file_lines
+    # specify custom options here
+    [slurmise.file_parsers.get_epochs]
+    return_type = "numerical"
+    awk_script = "'/^epochs:/ {print $2}'"
+
+    [slurmise.file_parsers.fasta_lengths]
+    return_type = "numerical"
+    awk_file = "/a/path/to/file"
     """
 
     f.write(toml_str)
@@ -93,3 +104,116 @@ def test_job_spec_unknown_kind():
 def test_job_spec_token_with_no_name():
     with pytest.raises(ValueError, match="Token {numeric} has no name."):
         JobSpec('cmd -T {numeric}')
+
+def test_job_spec_with_builtin_parsers(tmp_path):
+    '''
+        [slurmise.job.builtin_files]
+        job_spec = "--input1 {input1:file} --input2 {input2:file}"
+        file_parsers.input1 = "file_lines"
+        file_parsers.input2 = "file_size"
+    '''
+
+    file_parsers = {
+        'file_lines': config.FileLinesParser(),
+        'file_size': config.FileSizeParser(),
+    }
+
+    spec = JobSpec(
+        "--input1 {lines:file} --input2 {filesize:file}",
+        file_parsers={'lines': 'file_lines', 'filesize': 'file_size'},
+        available_parsers=file_parsers,
+    )
+
+    input_file = tmp_path / 'input.txt'
+    input_file.write_text(
+        '''here is
+        some lines
+        of text'''
+    )
+
+    command = f"--input1 {input_file} --input2 {input_file}"
+    jd = spec.parse_job_cmd(
+        JobData(
+            job_name='test',
+            cmd=command,
+            ))
+    assert jd.job_name == 'test'
+    assert jd.numerical == {'lines_file_lines': 3, 'filesize_file_size': 42}
+
+def test_job_spec_with_multiple_builtin_parsers(tmp_path):
+    '''
+        [slurmise.job.builtin_files]
+        job_spec = "--input1 {input1:file}"
+        file_parsers.input1 = "file_lines,file_size"
+    '''
+
+    file_parsers = {
+        'file_lines': config.FileLinesParser(),
+        'file_size': config.FileSizeParser(),
+    }
+
+    spec = JobSpec(
+        "--input1 {input1:file}",
+        file_parsers={'input1': 'file_lines,file_size'},
+        available_parsers=file_parsers,
+    )
+
+    input_file = tmp_path / 'input.txt'
+    input_file.write_text(
+        '''here is
+        some lines
+        of text'''
+    )
+
+    command = f"--input1 {input_file}"
+    jd = spec.parse_job_cmd(
+        JobData(
+            job_name='test',
+            cmd=command,
+            ))
+    assert jd.job_name == 'test'
+    assert jd.numerical == {'input1_file_lines': 3, 'input1_file_size': 42}
+
+def test_job_spec_with_awk_parsers(tmp_path):
+    '''
+        [slurmise.job.builtin_files]
+        job_spec = "--input1 {input1:file}"
+        file_parsers.input1 = "epochs,network"
+
+        [slurmise.file_parsers.epochs]
+        return_type = "numerical"
+        awk_script = "/^epochs:/ {print $2}"
+
+        [slurmise.file_parsers.network]
+        return_type = "categorical"
+        awk_script = "/^network type:/ {print $3}"
+    '''
+
+    file_parsers = {
+        'epochs': config.AwkCommandParser('epochs', 'numerical', '/^epochs:/ {print $2 ; exit}'),
+        'network': config.AwkCommandParser('network', 'categorical', '/^network type:/ {print $3 ; exit}'),
+    }
+
+    spec = JobSpec(
+        "--input1 {input1:file}",
+        file_parsers={'input1': 'epochs,network'},
+        available_parsers=file_parsers,
+    )
+
+    input_file = tmp_path / 'input.txt'
+    input_file.write_text(
+'''epochs: 12
+network type: conv_NN
+network type: IGNORED!
+some more text'''
+    )
+
+    command = f"--input1 {input_file}"
+    jd = spec.parse_job_cmd(
+        JobData(
+            job_name='test',
+            cmd=command,
+            ))
+    assert jd.job_name == 'test'
+    assert jd.categorical == {'input1_network': 'conv_NN'}
+    assert jd.numerical == {'input1_epochs': 12}
