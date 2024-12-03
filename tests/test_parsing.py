@@ -99,6 +99,8 @@ def test_job_spec_with_multiple_builtin_parsers(tmp_path):
 def test_job_spec_with_awk_parsers(tmp_path):
     '''
         [slurmise.job.builtin_files]
+        job_spec = "--input1 {input1:gzip_file}"
+        job_spec = "--input1 {input1:file_list}"
         job_spec = "--input1 {input1:file}"
         file_parsers.input1 = "epochs,network"
 
@@ -112,8 +114,8 @@ def test_job_spec_with_awk_parsers(tmp_path):
     '''
 
     available_parsers = {
-        'epochs': file_parsers.AwkCommandParser('epochs', 'numerical', '/^epochs:/ {print $2 ; exit}'),
-        'network': file_parsers.AwkCommandParser('network', 'categorical', '/^network type:/ {print $3 ; exit}'),
+        'epochs': file_parsers.AwkParser('epochs', 'numerical', '/^epochs:/ {print $2 ; exit}'),
+        'network': file_parsers.AwkParser('network', 'categorical', '/^network type:/ {print $3 ; exit}'),
     }
 
     spec = JobSpec(
@@ -152,7 +154,7 @@ def test_job_spec_with_awk_parsers_multiple_numerics(tmp_path):
     '''
 
     available_parsers = {
-        'layers': file_parsers.AwkCommandParser('layers', 'numerical', '/^layers:/ {$1="" ; print $0}'),
+        'layers': file_parsers.AwkParser('layers', 'numerical', '/^layers:/ {$1="" ; print $0}'),
     }
 
     spec = JobSpec(
@@ -193,7 +195,8 @@ def test_job_spec_with_awk_file(tmp_path):
 
         [slurmise.file_parsers.fasta_script]
         return_type = "numerical"
-        awk_file = "/path/to/awk/file.awk"
+        awk_script = "/path/to/awk/file.awk"
+        script_is_file = True
     '''
 
     awk_script = ''' /^>/ {if (seq) print seq; seq=0} 
@@ -205,10 +208,10 @@ END {if (seq) print seq}
     awk_file.write_text(awk_script)
 
     available_parsers = {
-        'fasta_inline': file_parsers.AwkCommandParser(
+        'fasta_inline': file_parsers.AwkParser(
             'fasta_inline', 'numerical', awk_script),
-        'fasta_script': file_parsers.AwkFileParser(
-            'fasta_script', 'numerical', awk_file),
+        'fasta_script': file_parsers.AwkParser(
+            'fasta_script', 'numerical', awk_file, script_is_file=True),
     }
 
     spec = JobSpec(

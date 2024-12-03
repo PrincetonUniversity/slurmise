@@ -75,13 +75,9 @@ class JobSpec:
                         job.numerical[f"{name}_{parser.name}"] = parser.parse_file(Path(m.group(name)))
                     else:
                         job.categorical[f"{name}_{parser.name}"] = parser.parse_file(Path(m.group(name)))
-                #TODO HANDLE FILE KINDs
-                #TODO open file and read size
-                #TODO if file is a file of filenames, read the files and get their sizes etc
-                #TODO open file and read specific data from it
-                #TODO deal with gzip files(?)
+                # TODO if file is a file of filenames, read the files and get their sizes etc
+                # TODO deal with gzip files(?)
 
-                #TODO ADD "numeric_list" kind(?) and "category_list" kind(?)
             else:
                 raise ValueError(f"Unknown kind {kind}.")
             

@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 import subprocess
 
@@ -15,6 +15,7 @@ class FileParser:
         raise NotImplementedError()
 
 
+@dataclass()
 class FileSizeParser(FileParser):
     def __init__(self):
         super().__init__(name='file_size', return_type=NUMERICAL)
@@ -22,6 +23,7 @@ class FileSizeParser(FileParser):
     def parse_file(self, path: Path):
         return path.stat().st_size  # in bytes
 
+@dataclass()
 class FileLinesParser(FileParser):
     def __init__(self):
         super().__init__(name='file_lines', return_type=NUMERICAL)
@@ -38,37 +40,21 @@ class FileLinesParser(FileParser):
         return lines
 
 
-class AwkCommandParser(FileParser):
-    def __init__(self, name, return_type, script):
+@dataclass()
+class AwkParser(FileParser):
+    args: list[str] = field(default_factory=list)
+
+    def __init__(self, name, return_type, script, script_is_file=False):
         return_type = return_type.upper()
         super().__init__(name=name, return_type=return_type)
-        self.script = script
+        self.args = ['awk', script]
+        if script_is_file:
+            # add file argument to awk
+            self.args.insert(1, '-f')
 
     def parse_file(self, path: Path):
-        result = subprocess.run([
-            'awk',
-            self.script,
-            path,
-        ], capture_output=True, check=True, text=True)
-
-        if self.return_type == NUMERICAL:
-            return [float(token) for token in result.stdout.split()]
-        return result.stdout.strip()
-
-
-class AwkFileParser(FileParser):
-    def __init__(self, name, return_type, script_file):
-        return_type = return_type.upper()
-        super().__init__(name=name, return_type=return_type)
-        self.script_file = script_file
-
-    def parse_file(self, path: Path):
-        result = subprocess.run([
-            'awk',
-            '-f',
-            self.script_file,
-            path,
-        ], capture_output=True, check=True, text=True)
+        result = subprocess.run(self.args + [path],
+                                capture_output=True, check=True, text=True)
 
         if self.return_type == NUMERICAL:
             return [float(token) for token in result.stdout.split()]
