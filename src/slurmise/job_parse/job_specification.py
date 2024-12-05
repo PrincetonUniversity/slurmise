@@ -8,9 +8,10 @@ import re
 JOB_SPEC_REGEX = re.compile(r"{(?:(?P<name>[^:]+):)?(?P<kind>[^}]+)}")
 KIND_TO_REGEX = {
     'file': '.+?',
+    'gzip_file': '.+?',
     'numeric': '[-0-9.]+',
-    'category': '.+',
-    'ignore': '.+',
+    'category': '.+?',
+    'ignore': '.+?',
 }
 CATEGORICAL = "CATEGORICAL"
 NUMERICAL = "NUMERICAL"
@@ -51,7 +52,7 @@ class JobSpec:
                 self.token_kinds[name] = kind
                 job_spec = job_spec.replace(match.group(0), f'(?P<{name}>{KIND_TO_REGEX[kind]})')
 
-                if kind == 'file':
+                if kind in ('file', 'gzip_file', 'file_list'):
                     self.file_parsers[name] = [
                         available_parsers[parser_type]
                         for parser_type in file_parsers[name].split(',')
@@ -69,12 +70,16 @@ class JobSpec:
                 job.numerical[name] = float(m.group(name))
             elif kind == 'category':
                 job.categorical[name] = m.group(name)
-            elif kind == 'file':
+            elif kind in ('file', 'gzip_file', 'file_list'):
                 for parser in self.file_parsers[name]:
+                    if kind == 'file':
+                        file_value = parser.parse_file(Path(m.group(name)))
+                    elif kind == 'gzip_file':
+                        file_value = parser.parse_file(Path(m.group(name)), gzip_file=True)
                     if parser.return_type == NUMERICAL:
-                        job.numerical[f"{name}_{parser.name}"] = parser.parse_file(Path(m.group(name)))
+                        job.numerical[f"{name}_{parser.name}"] = file_value
                     else:
-                        job.categorical[f"{name}_{parser.name}"] = parser.parse_file(Path(m.group(name)))
+                        job.categorical[f"{name}_{parser.name}"] = file_value
                 # TODO if file is a file of filenames, read the files and get their sizes etc
                 # TODO deal with gzip files(?)
 
