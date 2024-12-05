@@ -100,6 +100,47 @@ def test_job_spec_with_builtin_parsers_gzipped(tmp_path):
     assert jd.job_name == 'test'
     assert jd.numerical == {'lines_file_lines': 201, 'filesize_file_size': 99}
 
+def test_job_spec_with_builtin_parsers_file_list(tmp_path):
+    '''
+        [slurmise.job.builtin_files]
+        job_spec = "--input1 {input1:file_list}"
+        file_parsers.input1 = "file_lines,file_size"
+    '''
+
+    available_parsers = {
+        'file_lines': file_parsers.FileLinesParser(),
+        'file_size': file_parsers.FileSizeParser(),
+    }
+
+    spec = JobSpec(
+        "--input1 {lines:file_list}",
+        file_parsers={'lines': 'file_lines,file_size'},
+        available_parsers=available_parsers,
+    )
+
+    file_list = tmp_path / 'listing.txt'
+    with file_list.open('w') as fl:
+        for i in range(5):
+            input_file = tmp_path / f'input_{i}.txt'
+            fl.write(f'{input_file}\n')
+            input_file.write_text(
+                '''here is
+                some lines
+                of text''' * (5*(i+1))
+            )
+
+    command = f"--input1 {file_list}"
+    jd = spec.parse_job_cmd(
+        JobData(
+            job_name='test',
+            cmd=command,
+            ))
+    assert jd.job_name == 'test'
+    assert jd.numerical == {
+        'lines_file_lines': [10*i + 1 for i in range(1, 6)],
+        'lines_file_size': [290*i for i in range(1, 6)],
+    }
+
 def test_job_spec_with_multiple_builtin_parsers(tmp_path):
     '''
         [slurmise.job.builtin_files]

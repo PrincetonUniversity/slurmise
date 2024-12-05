@@ -62,9 +62,6 @@ class AwkParser(FileParser):
 
     def parse_file(self, path: Path, gzip_file: bool=False):
         if gzip_file:
-            # zcat = subprocess.run(('zcat', path), check=True, capture_output=True)
-            # result = subprocess.run(self.args, input=zcat.stdout,
-            #                         capture_output=True, check=True, text=True)
             zcat = subprocess.Popen(('zcat', path), stdout=subprocess.PIPE)
             result = subprocess.check_output(self.args, stdin=zcat.stdout, text=True)
             zcat.wait()

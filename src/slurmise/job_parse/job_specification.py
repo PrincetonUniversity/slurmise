@@ -9,6 +9,7 @@ JOB_SPEC_REGEX = re.compile(r"{(?:(?P<name>[^:]+):)?(?P<kind>[^}]+)}")
 KIND_TO_REGEX = {
     'file': '.+?',
     'gzip_file': '.+?',
+    'file_list': '.+?',
     'numeric': '[-0-9.]+',
     'category': '.+?',
     'ignore': '.+?',
@@ -76,12 +77,16 @@ class JobSpec:
                         file_value = parser.parse_file(Path(m.group(name)))
                     elif kind == 'gzip_file':
                         file_value = parser.parse_file(Path(m.group(name)), gzip_file=True)
+                    elif kind == 'file_list':
+                        file_value = [
+                            parser.parse_file(Path(file.strip()))
+                            for file in open(Path(m.group(name)), 'r')
+                        ]
+
                     if parser.return_type == NUMERICAL:
                         job.numerical[f"{name}_{parser.name}"] = file_value
                     else:
                         job.categorical[f"{name}_{parser.name}"] = file_value
-                # TODO if file is a file of filenames, read the files and get their sizes etc
-                # TODO deal with gzip files(?)
 
             else:
                 raise ValueError(f"Unknown kind {kind}.")
