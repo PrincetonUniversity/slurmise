@@ -73,12 +73,13 @@ class JobSpec:
                 job.categorical[name] = m.group(name)
             elif kind in ('file', 'gzip_file', 'file_list'):
                 for parser in self.file_parsers[name]:
-                    if kind == 'file':
-                        file_value = parser.parse_file(Path(m.group(name)))
-                    elif kind == 'gzip_file':
-                        file_value = parser.parse_file(Path(m.group(name)), gzip_file=True)
-                    elif kind == 'file_list':
-                        file_value = [
+                    match kind:
+                        case 'file':
+                            file_value = parser.parse_file(Path(m.group(name)))
+                        case 'gzip_file':
+                            file_value = parser.parse_file(Path(m.group(name)), gzip_file=True)
+                        case 'file_list':
+                            file_value = [
                             parser.parse_file(Path(file.strip()))
                             for file in open(Path(m.group(name)), 'r')
                         ]
