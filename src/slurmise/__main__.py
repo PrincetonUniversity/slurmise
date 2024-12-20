@@ -2,7 +2,8 @@ import json
 
 import click
 
-from slurmise import job_data, job_database, parse_args, slurm
+from slurmise import job_data, job_database, slurm
+from slurmise.config import SlurmiseConfiguration
 
 
 @click.group()
@@ -13,28 +14,49 @@ from slurmise import job_data, job_database, parse_args, slurm
     default=".slurmise.h5",
     help="Path to the hdf5 database file",
 )
+# TODO: Make this optional with a default config.
+@click.option(
+    "--toml",
+    "-t",
+    type=click.Path(exists=True),
+    required=True,
+    help="Path to the hdf5 database file",
+)
 @click.pass_context
-def main(ctx, database):
+def main(ctx, database, toml):
     ctx.ensure_object(dict)
     ctx.obj["database"] = database
+    ctx.obj["config"] = SlurmiseConfiguration(toml_file=toml)
 
 
-@main.command(
-    context_settings={"ignore_unknown_options": True, "allow_extra_args": True}
-)
+@main.command()
+@click.argument("cmd", nargs=1)
+@click.option("--job-name", type=str, help="Name of the job")
+@click.option("--slurm-id", type=str, help="SLURM id of job")
 @click.option("-v", "--verbose", is_flag=True, help="Print verbose output")
 @click.pass_context
-def record(ctx, verbose):
+# TODO: create a small toml config file and test it until the job data is created and
+# populated with recorded information
+def record(ctx, cmd, job_name, slurm_id, verbose):
     """Command to record a job.
-    For example: `slurmise record -o 2 -i 3 -m fast`
+    For example: `slurmise record "-o 2 -i 3 -m fast"`
     """
-    parsed_args = parse_args.parse_slurmise_record_args(ctx.args)
-    if verbose:
-        print(json.dumps(parsed_args, indent=4))
+    metadata_json = slurm.parse_slurm_job_metadata(slurm_id=slurm_id)  # Pull just the slurm ID.
 
-    metadata_json = slurm.parse_slurm_job_metadata()
+    parsed_jd = ctx.obj["config"].parse_job_cmd(
+        cmd=cmd, job_name=job_name, slurm_id=metadata_json["slurm_id"]
+    )
+
+    if verbose:
+        print(json.dumps(parsed_jd, indent=4))
+
+    parsed_jd.memory = metadata_json["max_rss"]
+    parsed_jd.runtime = metadata_json["elapsed_seconds"]
+
     if verbose:
         print("METADATA JSON", metadata_json)
+    with job_database.JobDatabase.get_database(ctx.obj["database"]) as db:
+        db.record(parsed_jd)
 
 
 @main.command()
