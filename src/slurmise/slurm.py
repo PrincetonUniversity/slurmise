@@ -18,9 +18,11 @@ def parse_slurm_job_metadata(slurm_id: str | None = None) -> dict:
         memory_per_node = sacct_json["jobs"][0]["required"]["memory_per_node"]
         elapsed_seconds = int(sacct_json["jobs"][0]["time"]["elapsed"])
         max_rss = 0
-        for item in sacct_json["jobs"][0]["steps"][0]["tres"]["requested"]["max"]:
-            if item["type"] == "mem":
-                max_rss = item["count"] // (2**20)  # convert to MB
+        # In addition, the max requested memory is updated as slurm steps are completed.
+        for step in sacct_json["jobs"][0]["steps"]:
+            for item in step["tres"]["requested"]["max"]:
+                if item["type"] == "mem":
+                    max_rss = max(max_rss, item["count"] // (2**20))  # convert to MB
     except Exception as e:
         raise ValueError(
             f"Could not parse json from sacct cmd:\n\n {sacct_json}"
