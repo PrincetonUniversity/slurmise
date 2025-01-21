@@ -13,8 +13,57 @@ def empty_h5py_file(tmp_path):
     return p
 
 
-def test_main():
-    pass
+@pytest.fixture
+def simple_toml(tmp_path):
+    d = tmp_path
+    p = d / "slurmise.toml"
+    p.write_text(
+    '''
+    [slurmise]
+    base_dir = "slurmise_dir"
+
+    [slurmise.job.nupack]
+    job_spec = "monomer -T {threads:numeric} -C {complexity:category}"
+    ''')
+    return p
+
+
+def test_record(empty_h5py_file, simple_toml):
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "--database",
+            empty_h5py_file,
+            "--toml",
+            simple_toml,
+            "record",
+            "--slurm-id",
+            "1234",
+            "nupack monomer -T 2 -C simple",
+        ],
+    )
+    assert result.exit_code == 0
+
+    # test the job was successfully added
+    with job_database.JobDatabase.get_database(empty_h5py_file) as db:
+        excepted_results = [
+            JobData(
+                job_name="nupack",
+                slurm_id="1234",
+                categorical={"complexity": 'simple'},
+                numerical={"threads": 2},
+                cmd=None,
+            ),
+        ]
+
+        query = JobData(
+            job_name="nupack",
+            categorical={"complexity": "simple"},
+        )
+        query_result = db.query(query)
+
+        assert query_result == excepted_results
 
 
 def test_raw_record(empty_h5py_file):

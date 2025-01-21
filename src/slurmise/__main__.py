@@ -14,19 +14,22 @@ from slurmise.config import SlurmiseConfiguration
     default=".slurmise.h5",
     help="Path to the hdf5 database file",
 )
-# TODO: Make this optional with a default config.
 @click.option(
     "--toml",
     "-t",
     type=click.Path(exists=True),
-    required=True,
+    required=False,
     help="Path to the hdf5 database file",
 )
 @click.pass_context
 def main(ctx, database, toml):
     ctx.ensure_object(dict)
     ctx.obj["database"] = database
-    ctx.obj["config"] = SlurmiseConfiguration(toml_file=toml)
+    if toml is not None:
+        ctx.obj["config"] = SlurmiseConfiguration(toml_file=toml)
+    else:
+        # TODO: Make this optional with a default config.
+        ctx.obj["config"] = None
 
 
 @main.command()
