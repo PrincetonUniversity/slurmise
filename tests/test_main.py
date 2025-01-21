@@ -28,7 +28,21 @@ def simple_toml(tmp_path):
     return p
 
 
-def test_record(empty_h5py_file, simple_toml):
+def test_record(empty_h5py_file, simple_toml, monkeypatch):
+    mock_metadata = {
+        "slurm_id": "1234",
+        "job_name": "nupack",
+        "state": "COMPLETED",
+        "partition": "",
+        "elapsed_seconds": 97201,
+        "CPUs": 1,
+        "memory_per_cpu": 0,
+        "memory_per_node": 0,
+        "max_rss": 232,
+    }
+    monkeypatch.setattr("slurmise.slurm.parse_slurm_job_metadata", lambda *args,
+                        **kwargs: mock_metadata)
+
     runner = CliRunner()
     result = runner.invoke(
         main,
@@ -51,6 +65,8 @@ def test_record(empty_h5py_file, simple_toml):
             JobData(
                 job_name="nupack",
                 slurm_id="1234",
+                runtime=97201,
+                memory=232,
                 categorical={"complexity": 'simple'},
                 numerical={"threads": 2},
                 cmd=None,
