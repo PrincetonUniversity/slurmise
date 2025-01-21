@@ -18,7 +18,7 @@ def parse_slurm_job_metadata(slurm_id: str | None = None) -> dict:
         memory_per_node = sacct_json["jobs"][0]["required"]["memory_per_node"]
         elapsed_seconds = int(sacct_json["jobs"][0]["time"]["elapsed"])
         max_rss = 0
-        # TODO: Is the max RSS only in the step 0 and is it in MBs or Bs?
+        # In addition, the max requested memory is updated as slurm steps are completed.
         for step in sacct_json["jobs"][0]["steps"]:
             for item in step["tres"]["requested"]["max"]:
                 if item["type"] == "mem":
