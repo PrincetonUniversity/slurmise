@@ -107,12 +107,12 @@ class PolynomialFit(ResourceFit):
 
         self.model_metrics = {
             "runtime": {
-                "mpe": mean_percent_error(y_test["runtime"], Y_pred_runtime).item(),
-                "mse": mean_squared_error(y_test["runtime"], Y_pred_runtime).item(),
+                "mpe": mean_percent_error(y_test["runtime"], Y_pred_runtime),
+                "mse": mean_squared_error(y_test["runtime"], Y_pred_runtime),
             },
             "memory": {
-                "mpe": mean_percent_error(y_test["memory"], Y_pred_memory).item(),
-                "mse": mean_squared_error(y_test["memory"], Y_pred_memory).item(),
+                "mpe": mean_percent_error(y_test["memory"], Y_pred_memory),
+                "mse": mean_squared_error(y_test["memory"], Y_pred_memory),
             },
         }
 
