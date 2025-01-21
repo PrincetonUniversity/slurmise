@@ -115,13 +115,14 @@ class PolynomialFit(ResourceFit):
                 "mse": mean_squared_error(y_test["memory"], Y_pred_memory),
             },
         }
+        self.last_fit_dsize = len(jobs)
 
         # TODO: Warning if model metrics are larger than a threshold.
 
     def predict(self, job: JobData) -> tuple[float | None, float | None, str]:
         # TODO: check if it can be abstracted.
 
-        if self.runtime_model.n_features_in_ < 10:
+        if self.last_fit_dsize < 10:
             return (
                 None,
                 None,

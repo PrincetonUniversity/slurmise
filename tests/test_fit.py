@@ -66,7 +66,7 @@ def nupack_data():
         )
     ],
 )
-def test_fit(nupack_data, model, kwargs, expected_metrics):
+def test_fit_and_predict(nupack_data, model, kwargs, expected_metrics):
     """Test the fit classes on the nupack data"""
 
     query, jobs = nupack_data
@@ -78,15 +78,17 @@ def test_fit(nupack_data, model, kwargs, expected_metrics):
 
     # Predict the runtime and memory of a job
     job = jobs[0]
-    runtime, memory = poly_fit.predict(job)
+    # print(job)
+    # assert False
+    runtime, memory, _ = poly_fit.predict(job)
 
     # Save the model
     poly_fit.save()
 
     # Load the model
     poly_fit_loaded = PolynomialFit.load(query=query)
-    runtime2, memory2 = poly_fit_loaded.predict(job)
-
+    assert poly_fit_loaded.last_fit_dsize == len(jobs)
+    runtime2, memory2, _ = poly_fit_loaded.predict(job)
     assert runtime == runtime2
     assert memory == memory2
 
@@ -94,6 +96,7 @@ def test_fit(nupack_data, model, kwargs, expected_metrics):
         assert key in expected_metrics
         for metric in poly_fit.model_metrics[key].keys():
             assert metric in expected_metrics[key]
+            print(key, metric, expected_metrics[key][metric])
             np.testing.assert_allclose(
                 poly_fit.model_metrics[key][metric],
                 expected_metrics[key][metric],
