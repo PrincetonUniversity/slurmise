@@ -92,6 +92,8 @@ class PolynomialFit(ResourceFit):
             X, Y, test_size=0.2, random_state=random_state
         )
 
+        self.last_fit_dsize = len(X_train)
+
         self.runtime_model = self._make_model(categorical_features, numerical_features)
         self.memory_model = self._make_model(categorical_features, numerical_features)
 
@@ -115,17 +117,15 @@ class PolynomialFit(ResourceFit):
                 "mse": mean_squared_error(y_test["memory"], Y_pred_memory),
             },
         }
-        self.last_fit_dsize = len(jobs)
-
         # TODO: Warning if model metrics are larger than a threshold.
 
-    def predict(self, job: JobData) -> tuple[float | None, float | None, str]:
+    def predict(self, job: JobData) -> tuple[JobData, str]:
         # TODO: check if it can be abstracted.
 
         if self.last_fit_dsize < 10:
+
             return (
-                None,
-                None,
+                job,
                 "Not enough fitting data points in the fits. Returning default values.",
             )
 
@@ -136,17 +136,15 @@ class PolynomialFit(ResourceFit):
                 f"Runtime prediction for job {job.jobid} is not within 10% of actual value. "
                 "Returing default runtime value. "
             )
-            runtime_pred = None
         else:
-            runtime_pred = self.runtime_model.predict(X)[0]
+            job.runtime = self.runtime_model.predict(X)[0]
 
         if self.model_metrics["memory"]["mpe"] < 10:
             warnmsg += (
                 f"Memory prediction for job {job.jobid} is not within 10% of actual value. "
                 "Returing default memory value. "
             )
-            memory_pred = None
         else:
-            memory_pred = self.memory_model.predict(X)[0]
+            job.memory = self.memory_model.predict(X)[0]
 
-        return runtime_pred, memory_pred, warnmsg
+        return job, warnmsg

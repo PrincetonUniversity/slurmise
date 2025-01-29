@@ -70,3 +70,9 @@ class SlurmiseConfiguration:
 
         job_spec = self.jobs[job_name]["job_spec_obj"]
         return job_spec.parse_job_cmd(jd)
+
+    def add_defaults(self, job_data: job_data.JobData) -> job_data.JobData:
+        """Add default values to a job data object."""
+        job_data.memory = 1000
+        job_data.runtime = 60
+        return job_data

@@ -18,12 +18,12 @@ def simple_toml(tmp_path):
     d = tmp_path
     p = d / "slurmise.toml"
     p.write_text(
-    '''
+    f'''
     [slurmise]
-    base_dir = "slurmise_dir"
+    base_dir = "{d/'slurmise_dir'}"
 
     [slurmise.job.nupack]
-    job_spec = "monomer -T {threads:numeric} -C {complexity:category}"
+    job_spec = "monomer -T {{threads:numeric}} -C {{complexity:category}}"
     ''')
     return p
 
@@ -120,6 +120,53 @@ def test_raw_record(empty_h5py_file):
         query = JobData(
             job_name="test",
             categorical={"a": 1, "b": 2},
+        )
+        query_result = db.query(query)
+
+        assert query_result == excepted_results
+
+
+def test_predict(simple_toml):
+    """Test the predict command."""
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [   
+            "--database",
+            "tests/nupack2.h5",
+            "--toml",
+            simple_toml,
+            "update_model",
+            "nupack monomer -T 2 -C simple",
+        ],
+    )
+    assert result.exit_code == 0
+    result = runner.invoke(
+        main,
+        [   "--toml",
+            simple_toml,
+            "predict",
+            "nupack monomer -T 2 -C simple",
+        ],
+    )
+    assert result.exit_code == 0
+    # test the job was successfully added
+    with job_database.JobDatabase.get_database(empty_h5py_file) as db:
+        excepted_results = [
+            JobData(
+                job_name="nupack",
+                slurm_id=None,
+                runtime=None,
+                memory=None,
+                categorical={"complexity": 'simple'},
+                numerical={"threads": 2},
+                cmd=None,
+            ),
+        ]
+
+        query = JobData(
+            job_name="nupack",
+            categorical={"complexity": "simple"},
         )
         query_result = db.query(query)
 
