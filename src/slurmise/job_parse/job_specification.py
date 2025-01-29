@@ -17,6 +17,7 @@ KIND_TO_REGEX = {
 CATEGORICAL = "CATEGORICAL"
 NUMERICAL = "NUMERICAL"
 
+
 class JobSpec:
     def __init__(
             self,

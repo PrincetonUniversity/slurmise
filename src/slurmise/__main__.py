@@ -114,9 +114,9 @@ def predict(ctx, cmd, job_name):
     click.echo(f"Predicted runtime: {query_jd.runtime}")
     click.echo(f"Predicted memory: {query_jd.memory}")
     if query_warns:
-        click.echo("Warnings:", err=True)
+        click.echo(click.style("Warnings:", fg="yellow"), err=True, color="red")
         for warn in query_warns:
-            click.echo(warn, err=True)
+            click.echo(f"  {warn}", err=True)
 
 
 @main.command()
@@ -126,7 +126,6 @@ def predict(ctx, cmd, job_name):
 def update_model(ctx, cmd, job_name):
 
     query_jd = ctx.obj["config"].parse_job_cmd(cmd=cmd, job_name=job_name)
-
     with job_database.JobDatabase.get_database(ctx.obj["database"]) as db:
         jobs = db.query(query_jd)
 

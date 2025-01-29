@@ -28,6 +28,21 @@ def simple_toml(tmp_path):
     return p
 
 
+@pytest.fixture
+def simple_toml2(tmp_path):
+    d = tmp_path
+    p = d / "slurmise.toml"
+    p.write_text(
+    f'''
+    [slurmise]
+    base_dir = "{d/'slurmise_dir'}"
+
+    [slurmise.job.nupack]
+    job_spec = "monomer -c {{cpus:numeric}} -S {{sequences:numeric}}"
+    ''')
+    return p
+
+
 def test_record(empty_h5py_file, simple_toml, monkeypatch):
     mock_metadata = {
         "slurm_id": "1234",
@@ -126,48 +141,49 @@ def test_raw_record(empty_h5py_file):
         assert query_result == excepted_results
 
 
-def test_predict(simple_toml):
+def test_predict(simple_toml2):
     """Test the predict command."""
     runner = CliRunner()
     result = runner.invoke(
         main,
-        [   
+        [
             "--database",
             "tests/nupack2.h5",
             "--toml",
-            simple_toml,
-            "update_model",
-            "nupack monomer -T 2 -C simple",
+            simple_toml2,
+            "update-model",
+            "nupack monomer -c 1 -S 4985",
         ],
+        catch_exceptions=True
     )
+    if result.exception:
+        print(f"Exception: {result.exception}")
     assert result.exit_code == 0
+
     result = runner.invoke(
         main,
-        [   "--toml",
-            simple_toml,
+        [
+            "--toml",
+            simple_toml2,
             "predict",
-            "nupack monomer -T 2 -C simple",
+            "nupack monomer -c 1 -S 6543",
         ],
     )
     assert result.exit_code == 0
-    # test the job was successfully added
-    with job_database.JobDatabase.get_database(empty_h5py_file) as db:
-        excepted_results = [
-            JobData(
-                job_name="nupack",
-                slurm_id=None,
-                runtime=None,
-                memory=None,
-                categorical={"complexity": 'simple'},
-                numerical={"threads": 2},
-                cmd=None,
-            ),
-        ]
+    assert "Predicted runtime: " in result.stdout
+    assert "Predicted memory: " in result.stdout
 
-        query = JobData(
-            job_name="nupack",
-            categorical={"complexity": "simple"},
-        )
-        query_result = db.query(query)
-
-        assert query_result == excepted_results
+    result = runner.invoke(
+        main,
+        [
+            "--toml",
+            simple_toml2,
+            "predict",
+            "nupack monomer -c 987654 -S 4985",
+        ],
+        catch_exceptions=True
+    )
+    assert result.exit_code == 0
+    assert "Predicted runtime: 60" in result.stdout
+    assert "Predicted memory: 1000" in result.stdout
+    assert "Warnings:" in result.stdout
