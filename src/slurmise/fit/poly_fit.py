@@ -134,8 +134,8 @@ class PolynomialFit(ResourceFit):
         if self.model_metrics["runtime"]["mpe"] < 10:
             warnmsg += [
                 f"Runtime prediction for job {job.job_name} is not within 10% of actual value.",
-                "Returing default runtime value."
-                ]
+                "Returing default runtime value.",
+            ]
         else:
             predicted_runtime = self.runtime_model.predict(X)[0]
             if predicted_runtime > 0 and predicted_runtime < 100 * job.runtime:
@@ -143,22 +143,22 @@ class PolynomialFit(ResourceFit):
             else:
                 warnmsg += [
                     f"Predicted runtime for job {job.job_name} is either negative or more than 100 times larger than default.",
-                    "Returing default runtime value."
+                    "Returing default runtime value.",
                 ]
 
         if self.model_metrics["memory"]["mpe"] < 10:
             warnmsg += [
-                    f"Memory prediction for job {job.job_name} is not within 10% of actual value.",
-                    "Returing default memory value."
-                ]
+                f"Memory prediction for job {job.job_name} is not within 10% of actual value.",
+                "Returing default memory value.",
+            ]
         else:
-            predicted_memory = self.runtime_model.predict(X)[0]
+            predicted_memory = self.memory_model.predict(X)[0]
             if predicted_memory > 0 and predicted_memory < 100 * job.memory:
                 job.memory = predicted_memory
             else:
                 warnmsg += [
                     f"Predicted memory for job {job.job_name} is either negative or more than 100 times larger than default.",
-                    "Returing default memory value."
+                    "Returing default memory value.",
                 ]
 
         return job, warnmsg

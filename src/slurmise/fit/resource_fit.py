@@ -113,7 +113,7 @@ class ResourceFit:
 
         return cls(**info)
 
-    def predict(self, job: JobData) -> tuple[float, float]:
+    def predict(self, job: JobData) -> tuple[JobData, list[str]]:
         raise NotImplementedError
 
     def fit(

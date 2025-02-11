@@ -78,8 +78,7 @@ def test_fit_and_predict(nupack_data, model, kwargs, expected_metrics):
 
     # Predict the runtime and memory of a job
     job = jobs[0]
-    # print(job)
-    # assert False
+
     predicted_job, _ = poly_fit.predict(job)
 
     assert poly_fit.last_fit_dsize == int(len(jobs) * 0.8)
@@ -98,7 +97,6 @@ def test_fit_and_predict(nupack_data, model, kwargs, expected_metrics):
         assert key in expected_metrics
         for metric in poly_fit.model_metrics[key].keys():
             assert metric in expected_metrics[key]
-            print(key, metric, expected_metrics[key][metric])
             np.testing.assert_allclose(
                 poly_fit.model_metrics[key][metric],
                 expected_metrics[key][metric],
