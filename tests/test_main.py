@@ -153,7 +153,7 @@ def test_update_predict(simple_toml2):
     makes sense. The second test returns a runtime and memory values that are not
     possible. Because we cannot know the exact numbers we check of the expected strings.
     """
-    runner = CliRunner()
+    runner = CliRunner(mix_stderr=False)
     result = runner.invoke(
         main,
         [
@@ -188,6 +188,7 @@ def test_update_predict(simple_toml2):
     assert "Predicted memory" == predicted_memory[0]
     np.testing.assert_allclose(float(predicted_memory[1]), 10168.72, rtol=0.01)
 
+    # Test that slurmise returns the default values when the predicted values are not possible.
     result = runner.invoke(
         main,
         [
@@ -206,4 +207,4 @@ def test_update_predict(simple_toml2):
     assert float(predicted_runtime[1]) == 60
     assert "Predicted memory" == predicted_memory[0]
     assert float(predicted_memory[1]) == 1000
-    assert "Warnings:" in result.stdout
+    assert "Warnings:" in result.stderr
