@@ -36,6 +36,7 @@ dependencies = [
 dev = [
   "pytest",
   "ruff",
+  "coverage"
 ]
 
 [project.urls]
@@ -77,3 +78,9 @@ exclude_lines = [
 
 [tool.hatch.envs.hatch-static-analysis]
 config-path = "lint_config.toml"
+
+[tool.hatch.envs.test]
+dependencies = [
+    "pytest",
+    "coverage",  
+]

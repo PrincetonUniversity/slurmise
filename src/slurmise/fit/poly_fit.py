@@ -92,6 +92,8 @@ class PolynomialFit(ResourceFit):
             X, Y, test_size=0.2, random_state=random_state
         )
 
+        self.last_fit_dsize = len(X_train)
+
         self.runtime_model = self._make_model(categorical_features, numerical_features)
         self.memory_model = self._make_model(categorical_features, numerical_features)
 
@@ -115,8 +117,48 @@ class PolynomialFit(ResourceFit):
                 "mse": mean_squared_error(y_test["memory"], Y_pred_memory),
             },
         }
+        # TODO: Warning if model metrics are larger than a threshold.
 
-    def predict(self, job: JobData) -> tuple[float, float]:
+    def predict(self, job: JobData) -> tuple[JobData, list[str]]:
+        # TODO: check if it can be abstracted.
+
+        if self.last_fit_dsize < 10:
+
+            return (
+                job,
+                "Not enough fitting data points in the fits. Returning default values.",
+            )
+
         X, _, _ = jobs_to_pandas([job])
+        warnmsg = []
+        if self.model_metrics["runtime"]["mpe"] < 10:
+            warnmsg += [
+                f"Runtime prediction for job {job.job_name} is not within 10% of actual value.",
+                "Returing default runtime value.",
+            ]
+        else:
+            predicted_runtime = self.runtime_model.predict(X)[0]
+            if predicted_runtime > 0 and predicted_runtime < 100 * job.runtime:
+                job.runtime = predicted_runtime
+            else:
+                warnmsg += [
+                    f"Predicted runtime for job {job.job_name} is either negative or more than 100 times larger than default.",
+                    "Returing default runtime value.",
+                ]
 
-        return self.runtime_model.predict(X)[0], self.memory_model.predict(X)[0]
+        if self.model_metrics["memory"]["mpe"] < 10:
+            warnmsg += [
+                f"Memory prediction for job {job.job_name} is not within 10% of actual value.",
+                "Returing default memory value.",
+            ]
+        else:
+            predicted_memory = self.memory_model.predict(X)[0]
+            if predicted_memory > 0 and predicted_memory < 100 * job.memory:
+                job.memory = predicted_memory
+            else:
+                warnmsg += [
+                    f"Predicted memory for job {job.job_name} is either negative or more than 100 times larger than default.",
+                    "Returing default memory value.",
+                ]
+
+        return job, warnmsg

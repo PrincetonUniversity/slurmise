@@ -2,8 +2,10 @@ import json
 
 import click
 
+import numpy as np
 from slurmise import job_data, job_database, slurm
 from slurmise.config import SlurmiseConfiguration
+from slurmise.fit.poly_fit import PolynomialFit
 
 
 @click.group()
@@ -38,8 +40,6 @@ def main(ctx, database, toml):
 @click.option("--slurm-id", type=str, help="SLURM id of job")
 @click.option("-v", "--verbose", is_flag=True, help="Print verbose output")
 @click.pass_context
-# TODO: create a small toml config file and test it until the job data is created and
-# populated with recorded information
 def record(ctx, cmd, job_name, slurm_id, verbose):
     """Command to record a job.
     For example: `slurmise record "-o 2 -i 3 -m fast"`
@@ -100,3 +100,48 @@ def raw_record(ctx, job_name, slurm_id, numerical, categorical, cmd):
 def print(ctx):
     with job_database.JobDatabase.get_database(ctx.obj["database"]) as db:
         db.print()
+
+
+@main.command()
+@click.argument("cmd", nargs=1)
+@click.option("--job-name", type=str, help="Name of the job")
+@click.pass_context
+def predict(ctx, cmd, job_name):
+    query_jd = ctx.obj["config"].parse_job_cmd(cmd=cmd, job_name=job_name)
+    query_jd = ctx.obj["config"].add_defaults(query_jd)
+    query_model = PolynomialFit.load(query=query_jd, path=ctx.obj["config"].slurmise_base_dir)
+    query_jd, query_warns = query_model.predict(query_jd)
+    click.echo(f"Predicted runtime: {query_jd.runtime}")
+    click.echo(f"Predicted memory: {query_jd.memory}")
+    if query_warns:
+        click.echo(click.style("Warnings:", fg="yellow"), err=True, color="red")
+        for warn in query_warns:
+            click.echo(f"  {warn}", err=True)
+
+
+@main.command()
+@click.argument("cmd", nargs=1)
+@click.option("--job-name", type=str, help="Name of the job")
+@click.pass_context
+def update_model(ctx, cmd, job_name):
+
+    query_jd = ctx.obj["config"].parse_job_cmd(cmd=cmd, job_name=job_name)
+    with job_database.JobDatabase.get_database(ctx.obj["database"]) as db:
+        jobs = db.query(query_jd)
+
+    try:
+        query_model = PolynomialFit.load(query=query_jd, path=ctx.obj["config"].slurmise_base_dir)
+    except FileNotFoundError:
+        query_model = PolynomialFit(query=query_jd, degree=2, path=ctx.obj["config"].slurmise_base_dir)
+
+    random_state = np.random.RandomState(42)
+    query_model.fit(jobs, random_state=random_state)
+
+    query_model.save()
+
+
+@main.command()
+@click.pass_context
+def update_all(ctx):
+    # Query the DB for all unique jobs and update the models
+    raise NotImplementedError("Not implemented yet")
