@@ -3,7 +3,7 @@ import os
 import subprocess
 
 
-def parse_slurm_job_metadata(slurm_id: str | None = None) -> dict:
+def parse_slurm_job_metadata(slurm_id: str | None = None, step_id: str | None = None) -> dict:
     """Return a dictionary of metadata for the current SLURM job."""
     sacct_json = get_slurm_job_sacct(slurm_id)
     # sstat_out = get_slurm_job_sstat(slurm_id)
@@ -16,13 +16,19 @@ def parse_slurm_job_metadata(slurm_id: str | None = None) -> dict:
         CPUs = sacct_json["jobs"][0]["required"]["CPUs"]
         memory_per_cpu = sacct_json["jobs"][0]["required"]["memory_per_cpu"]
         memory_per_node = sacct_json["jobs"][0]["required"]["memory_per_node"]
-        elapsed_seconds = int(sacct_json["jobs"][0]["time"]["elapsed"])
         max_rss = 0
-        # In addition, the max requested memory is updated as slurm steps are completed.
+        steps = {}
+        step_ids = []
         for step in sacct_json["jobs"][0]["steps"]:
-            for item in step["tres"]["requested"]["max"]:
-                if item["type"] == "mem":
-                    max_rss = max(max_rss, item["count"] // (2**20))  # convert to MB
+            steps[step["id"]] = step
+            step_ids.append(step["id"])
+        # step_ids = {step["id"]=step for step in sacct_json["jobs"][0]["steps"]}
+        step_id = step_ids[-1] if step_id is None else ".".join([job_id, step_id])
+        # In addition, the max requested memory is updated as slurm steps are completed.
+        elapsed_seconds = int(steps[step_id]["time"]["elapsed"])
+        for item in steps[step_id]["tres"]["requested"]["max"]:
+            if item["type"] == "mem":
+                max_rss = max(max_rss, item["count"] // (2**20))  # convert to MB
     except Exception as e:
         raise ValueError(
             f"Could not parse json from sacct cmd:\n\n {sacct_json}"
@@ -30,6 +36,7 @@ def parse_slurm_job_metadata(slurm_id: str | None = None) -> dict:
 
     metadata = {
         "slurm_id": job_id,
+        "step_id": step_id,
         "job_name": job_name,
         "state": state,
         "partition": partition,

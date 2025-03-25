@@ -39,7 +39,7 @@ class SlurmiseConfiguration:
                 if 'job_prefix' in job:
                     self.job_prefixes[job['job_prefix']] = job_name
 
-    def parse_job_cmd(self, cmd: str, job_name: str | None = None, slurm_id: str | None = None) -> job_data.JobData:
+    def parse_job_cmd(self, cmd: str, job_name: str | None = None, slurm_id: str | None = None, step_id: str | None = None) -> job_data.JobData:
         """Parse a job data dataset into a JobData object."""
         if job_name is None:  # try to infer
             for prefix, name in self.job_prefixes.items():
@@ -62,6 +62,8 @@ class SlurmiseConfiguration:
         if job_name not in self.jobs:
             raise ValueError(f"Job {job_name} not found in configuration.")
 
+        if step_id is not None:
+            slurm_id = '.'.join([slurm_id, step_id])
         jd = job_data.JobData(
             job_name=job_name,
             slurm_id=slurm_id,

@@ -38,16 +38,17 @@ def main(ctx, database, toml):
 @click.argument("cmd", nargs=1)
 @click.option("--job-name", type=str, help="Name of the job")
 @click.option("--slurm-id", type=str, help="SLURM id of job")
+@click.option("--step-id", type=str, help="SLURM step id")
 @click.option("-v", "--verbose", is_flag=True, help="Print verbose output")
 @click.pass_context
-def record(ctx, cmd, job_name, slurm_id, verbose):
+def record(ctx, cmd, job_name, slurm_id, step_id, verbose):
     """Command to record a job.
     For example: `slurmise record "-o 2 -i 3 -m fast"`
     """
-    metadata_json = slurm.parse_slurm_job_metadata(slurm_id=slurm_id)  # Pull just the slurm ID.
+    metadata_json = slurm.parse_slurm_job_metadata(slurm_id=slurm_id, step_id=step_id)  # Pull just the slurm ID.
 
     parsed_jd = ctx.obj["config"].parse_job_cmd(
-        cmd=cmd, job_name=job_name, slurm_id=metadata_json["slurm_id"]
+        cmd=cmd, job_name=job_name, slurm_id=metadata_json["slurm_id"], step_id=metadata_json["step_id"]
     )
 
     if verbose:
