@@ -146,4 +146,14 @@ def update_model(ctx, cmd, job_name):
 @click.pass_context
 def update_all(ctx):
     # Query the DB for all unique jobs and update the models
-    raise NotImplementedError("Not implemented yet")
+    with job_database.JobDatabase.get_database(ctx.obj["database"]) as db:
+        for query_jd, jobs in db.iterate_database():
+            try:
+                query_model = PolynomialFit.load(query=query_jd, path=ctx.obj["config"].slurmise_base_dir)
+            except FileNotFoundError:
+                query_model = PolynomialFit(query=query_jd, degree=2, path=ctx.obj["config"].slurmise_base_dir)
+
+            random_state = np.random.RandomState(42)
+            query_model.fit(jobs, random_state=random_state)
+
+            query_model.save()

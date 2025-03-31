@@ -224,7 +224,7 @@ class JobDatabase:
         for job_name in self.db.keys():
             entry = self.db[job_name]
             for categoricals, jobs in JobDatabase.iterate_jobs(entry):
-                categoricals = dict(cat.split("=") for cat in categoricals)
+                categoricals = dict(cat.split('=') for cat in categoricals)
                 query = JobData(job_name=job_name, categorical=categoricals)
                 jobs = [
                     JobData.from_dataset(
