@@ -226,3 +226,50 @@ def test_update_predict(simple_toml2):
     assert "Predicted memory" == predicted_memory[0]
     assert float(predicted_memory[1]) == 1000
     assert "Warnings:" in result.stderr
+
+
+def test_update_all_predict(simple_toml2):
+    """Test the update all and predict commands of slurmise.
+    Initially, we run the update command to get the models for the nupack job.
+    After the models are created, we run the predict command to predict the runtime and memory of a job.
+    Two tests are run. The first predicts a runtime and memory values for a job that
+    makes sense. The second test returns a runtime and memory values that are not
+    possible. Because we cannot know the exact numbers we check of the expected strings.
+    """
+    Path.mkdir(simple_toml2[1].parent, exist_ok=True, parents=True)
+    shutil.copyfile(
+        "./tests/nupack2.h5",
+        simple_toml2[1],
+    )
+    runner = CliRunner(mix_stderr=False)
+    result = runner.invoke(
+        main,
+        [
+            "--toml",
+            simple_toml2[0],
+            "update-all",
+        ],
+        catch_exceptions=True,
+    )
+    if result.exception:
+        print(f"Exception: {result.exception}")
+    assert result.exit_code == 0
+
+    result = runner.invoke(
+        main,
+        [
+            "--toml",
+            simple_toml2[0],
+            "predict",
+            "nupack monomer -c 3 -S 6543",
+        ],
+    )
+    assert result.exit_code == 0
+    tmp_stdout = result.stdout.split("\n")
+    predicted_runtime = tmp_stdout[0].split(":")
+    predicted_memory = tmp_stdout[1].split(":")
+    assert "Predicted runtime" == predicted_runtime[0]
+    np.testing.assert_allclose(float(predicted_runtime[1]), 9.29, rtol=0.01)
+    assert "Predicted memory" == predicted_memory[0]
+    np.testing.assert_allclose(float(predicted_memory[1]), 10168.72, rtol=0.01)
+
