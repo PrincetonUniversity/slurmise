@@ -2,9 +2,11 @@ import gzip
 from dataclasses import dataclass, field
 from pathlib import Path
 import subprocess
+import hashlib
 
 
 NUMERICAL = "NUMERICAL"
+CATEGORICAL = "CATEGORICAL"
 
 
 @dataclass()
@@ -17,12 +19,37 @@ class FileParser:
 
 
 @dataclass()
+class FileBasename(FileParser):
+    def __init__(self):
+        super().__init__(name='file_basename', return_type=CATEGORICAL)
+
+    def parse_file(self, path: Path, gzip_file: bool=False):
+        return path.name
+
+
+@dataclass()
+class FileMD5(FileParser):
+    def __init__(self):
+        super().__init__(name='file_md5', return_type=CATEGORICAL)
+
+    def parse_file(self, path: Path, gzip_file: bool=False):
+        md5_hash = hashlib.md5()
+        md5_hash.update(path.read_bytes())
+        # with path.read_bytes() as file:
+        #     # Read the file in chunks to handle large files efficiently
+        #     for chunk in iter(lambda: file.read(4096), b""):
+        #         md5_hash.update(chunk)
+        return md5_hash.hexdigest()
+
+
+@dataclass()
 class FileSizeParser(FileParser):
     def __init__(self):
         super().__init__(name='file_size', return_type=NUMERICAL)
 
     def parse_file(self, path: Path, gzip_file: bool=False):
         return path.stat().st_size  # in bytes
+
 
 @dataclass()
 class FileLinesParser(FileParser):

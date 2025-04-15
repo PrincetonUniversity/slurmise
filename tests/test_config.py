@@ -95,6 +95,8 @@ def test_awk_parsers(basic_toml):
     assert config.file_parsers == {
         'file_size': file_parsers.FileSizeParser(),
         'file_lines': file_parsers.FileLinesParser(),
+        'file_basename': file_parsers.FileBasename(),
+        'file_md5': file_parsers.FileMD5(),
         'get_epochs': file_parsers.AwkParser('get_epochs', 'numerical', "'/^epochs:/ {print $2}'", False),
         'fasta_lengths': file_parsers.AwkParser('fasta_lengths', 'numerical', "/a/path/to/file", True),
         'script_string': file_parsers.AwkParser('script_string', 'categorical', "/^>/", False),

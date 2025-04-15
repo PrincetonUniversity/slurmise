@@ -13,6 +13,8 @@ class SlurmiseConfiguration:
         self.file_parsers = {
             "file_size": file_parsers.FileSizeParser(),
             "file_lines": file_parsers.FileLinesParser(),
+            "file_basename": file_parsers.FileBasename(),
+            "file_md5": file_parsers.FileMD5(),
         }
         with open(toml_file, "rb") as f:
             toml_data = tomllib.load(f)

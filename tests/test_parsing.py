@@ -28,6 +28,82 @@ def test_job_spec_token_with_no_name():
     with pytest.raises(ValueError, match="Token {numeric} has no name."):
         JobSpec('cmd -T {numeric}')
 
+def test_job_spec_with_builtin_parsers_basename(tmp_path):
+    '''
+        [slurmise.job.builtin_files]
+        job_spec = "--input1 {input1:file}"
+        file_parsers.input1 = "file_basename"
+    '''
+    available_parsers = {
+        'file_basename': file_parsers.FileBasename(),
+    }
+
+    spec = JobSpec(
+        "--input1 {input1:file}",
+        file_parsers={'input1': 'file_basename'},
+        available_parsers=available_parsers,
+    )
+
+    input_file = tmp_path / 'input.txt'
+
+    command = f"--input1 {input_file}"
+    jd = spec.parse_job_cmd(
+        JobData(
+            job_name='test',
+            cmd=command,
+            ))
+    assert jd.job_name == 'test'
+    assert jd.numerical == {}
+    assert jd.categorical == {'input1_file_basename': 'input.txt'}
+
+
+def test_job_spec_with_builtin_parsers_md5hash(tmp_path):
+    '''
+        [slurmise.job.builtin_files]
+        job_spec = "--input1 {input1:file}"
+        file_parsers.input1 = "file_md5"
+    '''
+    available_parsers = {
+        'file_md5': file_parsers.FileMD5(),
+    }
+
+    spec = JobSpec(
+        "--input1 {input1:file}",
+        file_parsers={'input1': 'file_md5'},
+        available_parsers=available_parsers,
+    )
+
+    input_file = tmp_path / 'input.txt'
+    input_file.write_text(
+        '''here is
+        some lines
+        of text'''
+    )
+    test_file = tmp_path / 'test.txt'
+    test_file.write_text(
+        '''here is
+        some lines
+        of text'''
+    )
+
+    command = f"--input1 {input_file}"
+    jd = spec.parse_job_cmd(
+        JobData(
+            job_name='test',
+            cmd=command,
+            ))
+    assert jd.job_name == 'test'
+    assert jd.numerical == {}
+
+    jd_test = spec.parse_job_cmd(
+        JobData(
+            job_name='test',
+            cmd=f"--input1 {test_file}",
+            ))
+    # test that md5 digest reflects file content
+    assert jd.categorical == jd_test.categorical
+
+
 def test_job_spec_with_builtin_parsers(tmp_path):
     '''
         [slurmise.job.builtin_files]
