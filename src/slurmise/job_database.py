@@ -160,9 +160,9 @@ class JobDatabase:
                     dataclasses.replace(
                         job,
                         memory=job_info["max_rss"] if job.memory is None else None,
-                        runtime=job_info["elapsed_seconds"]
-                        if job.runtime is None
-                        else None,
+                        runtime=(
+                            job_info["elapsed_seconds"] if job.runtime is None else None
+                        ),
                         numerical={},
                     )
                 )
@@ -170,9 +170,11 @@ class JobDatabase:
                 job = dataclasses.replace(
                     job,
                     memory=job_info["max_rss"] if job.memory is None else job.memory,
-                    runtime=job_info["elapsed_seconds"]
-                    if job.runtime is None
-                    else job.runtime,
+                    runtime=(
+                        job_info["elapsed_seconds"]
+                        if job.runtime is None
+                        else job.runtime
+                    ),
                 )
 
             updated_jobs.append(job)
@@ -214,6 +216,42 @@ class JobDatabase:
 
     def print(self):
         JobDatabase.print_hdf5(self.db)
+
+    def iterate_database(self, update_missing: bool = False):
+        """
+        Yield key (query job) value (list of jobs) pairs of entire database.
+        """
+        for job_name in self.db.keys():
+            entry = self.db[job_name]
+            for categoricals, jobs in JobDatabase.iterate_jobs(entry):
+                categoricals = dict(cat.split("=") for cat in categoricals)
+                query = JobData(job_name=job_name, categorical=categoricals)
+                jobs = [
+                    JobData.from_dataset(
+                        job_name=query.job_name,
+                        slurm_id=slurm_id,
+                        categorical=query.categorical,
+                        dataset=slurm_data,
+                    )
+                    for slurm_id, slurm_data in jobs.items()
+                ]
+                if update_missing:
+                    jobs = self.update_missing_data(jobs)
+
+                yield query, jobs
+
+    @staticmethod
+    def iterate_jobs(h5py_obj, categoricals=None):
+        if categoricals is None:
+            categoricals = tuple()
+
+        jobs = {}
+        for key, entry in h5py_obj.items():
+            if JobDatabase.is_slurm_job(entry):
+                jobs[key] = entry
+            else:
+                yield from JobDatabase.iterate_jobs(entry, categoricals + (key,))
+        yield categoricals, jobs
 
     @staticmethod
     def print_hdf5(
