@@ -11,17 +11,17 @@ def basic_toml(tmpdir):
     toml_str = """
     [slurmise]
     base_dir = "slurmise_dir"
+    default_mem = 2000
+    default_time = 70
 
     [slurmise.job.nupack]
     job_spec = "monomer -T {threads:numeric} -C {complexity:category}"
-    default_mem = 1000
-    default_time = 60
+    default_mem = 3000
+    default_time = 80
 
     [slurmise.job.with_ignore]
     job_prefix = "nothing"
     job_spec = "-T {threads:numeric} -C {complexity:category} -i {ignore}"
-    default_mem = 1000
-    default_time = 60
 
     # builtins will include file_size and file_lines
     # specify custom options here
@@ -43,6 +43,23 @@ def basic_toml(tmpdir):
     [slurmise.file_parsers.unknown_type]
     no_awk_script = "/^>/"
     script_is_file = false
+    """
+
+    f.write(toml_str)
+    return f
+
+
+@pytest.fixture
+def basic_toml_no_default(tmpdir):
+    d = tmpdir.mkdir("slurmise_dir")
+    f = d.join("basic.toml")
+
+    toml_str = """
+    [slurmise]
+    base_dir = "slurmise_dir"
+
+    [slurmise.job.nupack]
+    job_spec = "monomer -T {threads:numeric} -C {complexity:category}"
     """
 
     f.write(toml_str)
@@ -112,3 +129,29 @@ def test_parse_job_cmd_inference(basic_toml):
 
     match_name = config.parse_job_cmd('nupack monomer -T 3 -C high')
     assert match_name.job_name == 'nupack'
+
+def test_default_resources_slurmise_base(basic_toml):
+    '''Test the default can be set at the slurmise level for all jobs without additional defaults.'''
+    config = SlurmiseConfiguration(basic_toml)
+    job_data = config.parse_job_cmd('nothing -T 3 -C high -i something')
+    config.add_defaults(job_data)
+
+    assert job_data.memory == 2000
+    assert job_data.runtime == 70
+
+    # nupack job has defaults overwritten
+    job_data = config.parse_job_cmd('nupack monomer -T 3 -C high')
+    config.add_defaults(job_data)
+
+    assert job_data.memory == 3000
+    assert job_data.runtime == 80
+
+
+def test_default_resources_no_setting(basic_toml_no_default):
+    '''Test the default can be set at the slurmise level for all jobs without additional defaults.'''
+    config = SlurmiseConfiguration(basic_toml_no_default)
+    job_data = config.parse_job_cmd('nupack monomer -T 3 -C high')
+    config.add_defaults(job_data)
+
+    assert job_data.memory == 1000
+    assert job_data.runtime == 60

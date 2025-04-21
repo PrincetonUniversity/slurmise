@@ -1,5 +1,6 @@
 import tomllib
 from pathlib import Path
+from collections import defaultdict
 from slurmise import job_data
 from slurmise.job_parse import file_parsers
 from slurmise.job_parse.job_specification import JobSpec
@@ -39,6 +40,8 @@ class SlurmiseConfiguration:
 
             self.jobs = toml_data["slurmise"].get("job", {})
             self.job_prefixes: dict[str, str] = {}
+            self.default_runtime = defaultdict(lambda: int(toml_data["slurmise"].get("default_time", 60)))
+            self.default_memory = defaultdict(lambda: int(toml_data["slurmise"].get("default_mem", 1000)))
 
             for job_name, job in self.jobs.items():
                 self.jobs[job_name]["job_spec_obj"] = JobSpec(
@@ -48,6 +51,10 @@ class SlurmiseConfiguration:
                 )
                 if "job_prefix" in job:
                     self.job_prefixes[job["job_prefix"]] = job_name
+                if "default_time" in job:
+                    self.default_runtime[job_name] = int(job['default_time'])
+                if "default_mem" in job:
+                    self.default_memory[job_name] = int(job['default_mem'])
 
     def parse_job_cmd(
         self, cmd: str, job_name: str | None = None, slurm_id: str | None = None
@@ -81,6 +88,6 @@ class SlurmiseConfiguration:
 
     def add_defaults(self, job_data: job_data.JobData) -> job_data.JobData:
         """Add default values to a job data object."""
-        job_data.memory = 1000
-        job_data.runtime = 60
+        job_data.memory = self.default_memory[job_data.job_name]
+        job_data.runtime = self.default_runtime[job_data.job_name]
         return job_data
