@@ -49,6 +49,21 @@ def simple_toml2(tmp_path):
     return p, d / "slurmise_dir" / "nupack2.h5"
 
 
+def test_missing_toml():
+    """Check that excluding a toml file will fail with error message."""
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "record",
+            "something"
+        ],
+    )
+    assert result.exit_code == 1
+    assert "Slurmise requires a toml file" in result.output
+    assert "See readme for more information" in result.output
+
+
 def test_record(simple_toml, monkeypatch):
     mock_metadata = {
         "slurm_id": "1234",
