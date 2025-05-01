@@ -51,10 +51,6 @@ slurmise = "slurmise.__main__:main"
 [tool.hatch.version]
 path = "src/slurmise/__about__.py"
 
-[tool.hatch.envs.dev]
-dependencies = [
-  "slurmise[dev]",
-]
 
 [tool.hatch.envs.types]
 extra-dependencies = [
@@ -90,6 +86,8 @@ config-path = "lint_config.toml"
 
 [tool.hatch.envs.test]
 dependencies = [
-    "pytest",
-    "coverage",  
+  "pytest",
+  "pytest-cov",
+  "ruff",
+  "coverage"
 ]
