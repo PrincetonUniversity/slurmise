@@ -1,7 +1,6 @@
 import pytest
 import shutil
 import numpy as np
-from pathlib import Path
 from click.testing import CliRunner
 
 from slurmise import job_database
@@ -9,44 +8,19 @@ from slurmise.__main__ import main
 from slurmise.job_data import JobData
 
 
-@pytest.fixture
-def empty_h5py_file(tmp_path):
-    d = tmp_path
-    p = d / "slurmise.h5"
-    return p
-
-
-@pytest.fixture
-def simple_toml(tmp_path):
-    d = tmp_path
-    p = d / "slurmise.toml"
-    p.write_text(
-        f"""
-    [slurmise]
-    base_dir = "{d/'slurmise_dir'}"
-
-    [slurmise.job.nupack]
-    job_spec = "monomer -T {{threads:numeric}} -C {{complexity:category}}"
-    """
+def test_missing_toml():
+    """Check that excluding a toml file will fail with error message."""
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "record",
+            "something"
+        ],
     )
-    return p, d / "slurmise_dir" / "slurmise.h5"
-
-
-@pytest.fixture
-def simple_toml2(tmp_path):
-    d = tmp_path
-    p = d / "slurmise.toml"
-    p.write_text(
-        f"""
-    [slurmise]
-    base_dir = "{d/'slurmise_dir'}"
-    db_filename = "nupack2.h5"
-
-    [slurmise.job.nupack]
-    job_spec = "monomer -c {{cpus:numeric}} -S {{sequences:numeric}}"
-    """
-    )
-    return p, d / "slurmise_dir" / "nupack2.h5"
+    assert result.exit_code == 1
+    assert "Slurmise requires a toml file" in result.output
+    assert "See readme for more information" in result.output
 
 
 def test_missing_toml():
@@ -160,7 +134,7 @@ def test_raw_record(simple_toml):
         assert query_result == excepted_results
 
 
-def test_update_predict(simple_toml2):
+def test_update_predict(nupack_toml):
     """Test the update and predict commands of slurmise.
     Initially, we run the update command to get the models for the nupack job.
     After the models are created, we run the predict command to predict the runtime and memory of a job.
@@ -168,17 +142,12 @@ def test_update_predict(simple_toml2):
     makes sense. The second test returns a runtime and memory values that are not
     possible. Because we cannot know the exact numbers we check of the expected strings.
     """
-    Path.mkdir(simple_toml2[1].parent, exist_ok=True, parents=True)
-    shutil.copyfile(
-        "./tests/nupack2.h5",
-        simple_toml2[1],
-    )
     runner = CliRunner(mix_stderr=False)
     result = runner.invoke(
         main,
         [
             "--toml",
-            simple_toml2[0],
+            nupack_toml[0],
             "update-model",
             "nupack monomer -c 1 -S 4985",
         ],
@@ -192,7 +161,7 @@ def test_update_predict(simple_toml2):
         main,
         [
             "--toml",
-            simple_toml2[0],
+            nupack_toml[0],
             "predict",
             "nupack monomer -c 3 -S 6543",
         ],
@@ -211,7 +180,7 @@ def test_update_predict(simple_toml2):
         main,
         [
             "--toml",
-            simple_toml2[0],
+            nupack_toml[0],
             "predict",
             "nupack monomer -c 987654 -S 4985",
         ],
@@ -228,7 +197,7 @@ def test_update_predict(simple_toml2):
     assert "Warnings:" in result.stderr
 
 
-def test_update_all_predict(simple_toml2):
+def test_update_all_predict(nupack_toml):
     """Test the update all and predict commands of slurmise.
     Initially, we run the update command to get the models for the nupack job.
     After the models are created, we run the predict command to predict the runtime and memory of a job.
@@ -236,17 +205,12 @@ def test_update_all_predict(simple_toml2):
     makes sense. The second test returns a runtime and memory values that are not
     possible. Because we cannot know the exact numbers we check of the expected strings.
     """
-    Path.mkdir(simple_toml2[1].parent, exist_ok=True, parents=True)
-    shutil.copyfile(
-        "./tests/nupack2.h5",
-        simple_toml2[1],
-    )
     runner = CliRunner(mix_stderr=False)
     result = runner.invoke(
         main,
         [
             "--toml",
-            simple_toml2[0],
+            nupack_toml[0],
             "update-all",
         ],
         catch_exceptions=True,
@@ -259,7 +223,7 @@ def test_update_all_predict(simple_toml2):
         main,
         [
             "--toml",
-            simple_toml2[0],
+            nupack_toml[0],
             "predict",
             "nupack monomer -c 3 -S 6543",
         ],
