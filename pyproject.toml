@@ -51,6 +51,11 @@ slurmise = "slurmise.__main__:main"
 [tool.hatch.version]
 path = "src/slurmise/__about__.py"
 
+[tool.hatch.envs.dev]
+dependencies = [
+  "slurmise[dev]",
+]
+
 [tool.hatch.envs.types]
 extra-dependencies = [
   "mypy>=1.0.0",
