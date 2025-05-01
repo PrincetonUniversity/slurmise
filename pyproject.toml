@@ -35,8 +35,10 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
   "pytest",
+  "pytest-cov",
   "ruff",
-  "coverage"
+  "coverage",
+  "pytest-random-order"
 ]
 
 [project.urls]
@@ -57,6 +59,9 @@ extra-dependencies = [
 [tool.hatch.envs.types.scripts]
 check = "mypy --install-types --non-interactive {args:src/slurmise tests}"
 
+[tool.hatch.envs.test.scripts]
+test = "pytest {args}"
+
 [tool.coverage.run]
 source_pkgs = ["slurmise", "tests"]
 branch = true
@@ -76,11 +81,17 @@ exclude_lines = [
   "if TYPE_CHECKING:",
 ]
 
+[tool.coverage.json]
+output = "coverage.json"
+
 [tool.hatch.envs.hatch-static-analysis]
 config-path = "lint_config.toml"
 
 [tool.hatch.envs.test]
 dependencies = [
-    "pytest",
-    "coverage",  
+  "pytest",
+  "pytest-cov",
+  "ruff",
+  "coverage",
+  "pytest-random-order"
 ]
