@@ -28,7 +28,7 @@ jobs:
         run: pip install hatch
 
       - name: Install dependencies
-        run: hatch env create
+        run: hatch env create test
 
       - name: Run tests
         run: hatch test --cover --randomize
