@@ -1,4 +1,5 @@
 import json
+import sys
 
 import click
 
@@ -18,12 +19,12 @@ from slurmise.fit.poly_fit import PolynomialFit
 )
 @click.pass_context
 def main(ctx, toml):
+    if toml is None:
+        click.echo("Slurmise requires a toml file", err=True)
+        click.echo("See readme for more information", err=True)
+        sys.exit(1)
     ctx.ensure_object(dict)
-    if toml is not None:
-        ctx.obj["config"] = SlurmiseConfiguration(toml_file=toml)
-    else:
-        # TODO: Make this optional with a default config.
-        ctx.obj["config"] = None
+    ctx.obj["config"] = SlurmiseConfiguration(toml_file=toml)
     ctx.obj["database"] = ctx.obj["config"].db_filename
 
 
