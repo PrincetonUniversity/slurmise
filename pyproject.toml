@@ -35,6 +35,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
   "pytest",
+  "pytest-cov",
   "ruff",
   "coverage"
 ]
@@ -75,6 +76,9 @@ exclude_lines = [
   "if __name__ == .__main__.:",
   "if TYPE_CHECKING:",
 ]
+
+[tool.coverage.json]
+output = "coverage.json"
 
 [tool.hatch.envs.hatch-static-analysis]
 config-path = "lint_config.toml"
