@@ -31,7 +31,7 @@ jobs:
         run: hatch env create test
 
       - name: Run tests
-        run: hatch test --cover --randomize
+        run: hatch run test:test -- --cov --random-order --cov-report=json --cov-report=term
 
       - name: Run linter
         run: hatch fmt --check --linter

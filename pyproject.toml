@@ -37,7 +37,8 @@ dev = [
   "pytest",
   "pytest-cov",
   "ruff",
-  "coverage"
+  "coverage",
+  "pytest-random-order"
 ]
 
 [project.urls]
@@ -51,13 +52,15 @@ slurmise = "slurmise.__main__:main"
 [tool.hatch.version]
 path = "src/slurmise/__about__.py"
 
-
 [tool.hatch.envs.types]
 extra-dependencies = [
   "mypy>=1.0.0",
 ]
 [tool.hatch.envs.types.scripts]
 check = "mypy --install-types --non-interactive {args:src/slurmise tests}"
+
+[tool.hatch.envs.test.scripts]
+test = "pytest {args}"
 
 [tool.coverage.run]
 source_pkgs = ["slurmise", "tests"]
@@ -89,5 +92,6 @@ dependencies = [
   "pytest",
   "pytest-cov",
   "ruff",
-  "coverage"
+  "coverage",
+  "pytest-random-order"
 ]
