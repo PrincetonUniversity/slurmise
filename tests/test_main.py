@@ -23,21 +23,6 @@ def test_missing_toml():
     assert "See readme for more information" in result.output
 
 
-def test_missing_toml():
-    """Check that excluding a toml file will fail with error message."""
-    runner = CliRunner()
-    result = runner.invoke(
-        main,
-        [
-            "record",
-            "something"
-        ],
-    )
-    assert result.exit_code == 1
-    assert "Slurmise requires a toml file" in result.output
-    assert "See readme for more information" in result.output
-
-
 def test_record(simple_toml, monkeypatch):
     mock_metadata = {
         "slurm_id": "1234",
@@ -59,7 +44,7 @@ def test_record(simple_toml, monkeypatch):
         main,
         [
             "--toml",
-            simple_toml[0],
+            simple_toml.toml,
             "record",
             "--slurm-id",
             "1234",
@@ -68,7 +53,7 @@ def test_record(simple_toml, monkeypatch):
     )
     assert result.exit_code == 0
     # test the job was successfully added
-    with job_database.JobDatabase.get_database(simple_toml[1]) as db:
+    with job_database.JobDatabase.get_database(simple_toml.db) as db:
         excepted_results = [
             JobData(
                 job_name="nupack",
@@ -97,7 +82,7 @@ def test_raw_record(simple_toml):
         main,
         [
             "--toml",
-            simple_toml[0],
+            simple_toml.toml,
             "raw-record",
             "--job-name",
             "test",
@@ -114,7 +99,7 @@ def test_raw_record(simple_toml):
     assert result.exit_code == 0
 
     # test the job was successfully added
-    with job_database.JobDatabase.get_database(simple_toml[1]) as db:
+    with job_database.JobDatabase.get_database(simple_toml.db) as db:
         excepted_results = [
             JobData(
                 job_name="test",
@@ -147,7 +132,7 @@ def test_update_predict(nupack_toml):
         main,
         [
             "--toml",
-            nupack_toml[0],
+            nupack_toml.toml,
             "update-model",
             "nupack monomer -c 1 -S 4985",
         ],
@@ -161,7 +146,7 @@ def test_update_predict(nupack_toml):
         main,
         [
             "--toml",
-            nupack_toml[0],
+            nupack_toml.toml,
             "predict",
             "nupack monomer -c 3 -S 6543",
         ],
@@ -180,7 +165,7 @@ def test_update_predict(nupack_toml):
         main,
         [
             "--toml",
-            nupack_toml[0],
+            nupack_toml.toml,
             "predict",
             "nupack monomer -c 987654 -S 4985",
         ],
@@ -210,7 +195,7 @@ def test_update_all_predict(nupack_toml):
         main,
         [
             "--toml",
-            nupack_toml[0],
+            nupack_toml.toml,
             "update-all",
         ],
         catch_exceptions=True,
@@ -223,7 +208,7 @@ def test_update_all_predict(nupack_toml):
         main,
         [
             "--toml",
-            nupack_toml[0],
+            nupack_toml.toml,
             "predict",
             "nupack monomer -c 3 -S 6543",
         ],

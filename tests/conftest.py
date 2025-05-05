@@ -1,6 +1,10 @@
 import pytest
 from pathlib import Path
 import shutil
+from collections import namedtuple
+
+
+TomlReturn = namedtuple('TomlReturn', ['toml', 'db'])
 
 
 @pytest.fixture
@@ -16,7 +20,7 @@ def simple_toml(tmp_path):
     job_spec = "monomer -T {{threads:numeric}} -C {{complexity:category}}"
     """
     )
-    return p, d / "slurmise_dir" / "slurmise.h5"
+    return TomlReturn(p, d / "slurmise_dir" / "slurmise.h5")
 
 
 @pytest.fixture
@@ -41,6 +45,6 @@ def nupack_toml(tmp_path):
         db_path,
     )
 
-    return p, db_path
+    return TomlReturn(p, db_path)
 
 

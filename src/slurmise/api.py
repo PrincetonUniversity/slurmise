@@ -11,7 +11,6 @@ class Slurmise():
     """
 
     def __init__(self, toml_path=None):
-        # TODO: Make this optional with a default config.
         self.configuration = SlurmiseConfiguration(toml_path)
         self.database = job_database.JobDatabase(self.configuration.db_filename)
 

@@ -12,7 +12,7 @@ from slurmise.api import Slurmise
     "--toml",
     "-t",
     type=click.Path(exists=True),
-    required=True,
+    required=False,
     help="Path to the slurmise configuration file",
 )
 @click.pass_context
