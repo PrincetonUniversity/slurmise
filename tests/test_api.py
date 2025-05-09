@@ -40,8 +40,6 @@ def slurmise_record(toml, process_id, error_queue):
 
 
 def test_multiple_slurmise_instances(simple_toml):
-    multiprocessing.set_start_method("spawn")
-
     processes = []
     error_queue = multiprocessing.Queue()
     for i in range(10):
