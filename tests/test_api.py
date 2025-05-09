@@ -1,6 +1,5 @@
 from slurmise.api import Slurmise
 
-import h5py
 import multiprocessing
 import time
 import pytest

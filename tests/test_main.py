@@ -1,5 +1,3 @@
-import pytest
-import shutil
 import numpy as np
 from click.testing import CliRunner
 
@@ -13,10 +11,7 @@ def test_missing_toml():
     runner = CliRunner()
     result = runner.invoke(
         main,
-        [
-            "record",
-            "something"
-        ],
+        ["record", "something"],
     )
     assert result.exit_code == 1
     assert "Slurmise requires a toml file" in result.output
@@ -221,4 +216,3 @@ def test_update_all_predict(nupack_toml):
     np.testing.assert_allclose(float(predicted_runtime[1]), 9.29, rtol=0.01)
     assert "Predicted memory" == predicted_memory[0]
     np.testing.assert_allclose(float(predicted_memory[1]), 10168.72, rtol=0.01)
-

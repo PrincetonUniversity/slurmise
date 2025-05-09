@@ -1,4 +1,4 @@
-from slurmise import job_data, job_database, slurm
+from slurmise import job_database, slurm
 from slurmise.config import SlurmiseConfiguration
 from slurmise.fit.poly_fit import PolynomialFit
 
