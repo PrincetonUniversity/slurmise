@@ -5,24 +5,20 @@ from slurmise.fit.poly_fit import PolynomialFit
 import numpy as np
 
 
-class Slurmise():
+class Slurmise:
     """
     API class for interacting with slurmise.
     """
 
     def __init__(self, toml_path=None):
         self.configuration = SlurmiseConfiguration(toml_path)
-        self.database = job_database.JobDatabase(self.configuration.db_filename)
 
-    def __del__(self):
-        if hasattr(self, 'database') and self.database:
-            self.database._close()
-
-    def record(self,
-               cmd: str,
-               job_name:str | None = None,
-               slurm_id: str | None = None,
-               ):
+    def record(
+        self,
+        cmd: str,
+        job_name: str | None = None,
+        slurm_id: str | None = None,
+    ):
         # Pull just the slurm ID
         metadata_json = slurm.parse_slurm_job_metadata(slurm_id=slurm_id)
 
@@ -35,25 +31,38 @@ class Slurmise():
         parsed_jd.memory = metadata_json["max_rss"]
         parsed_jd.runtime = metadata_json["elapsed_seconds"]
 
-        self.database.record(parsed_jd)
+        with job_database.JobDatabase.get_database(
+            self.configuration.db_filename
+        ) as database:
+            database.record(parsed_jd)
 
     def raw_record(self, job_data):
-        self.database.record(job_data)
+        with job_database.JobDatabase.get_database(
+            self.configuration.db_filename
+        ) as database:
+            database.record(job_data)
 
     def print(self):
-        self.database.print()
+        with job_database.JobDatabase.get_database(
+            self.configuration.db_filename
+        ) as database:
+            database.print()
 
     def predict(self, cmd, job_name):
         query_jd = self.configuration.parse_job_cmd(cmd=cmd, job_name=job_name)
         query_jd = self.configuration.add_defaults(query_jd)
-        query_model = PolynomialFit.load(query=query_jd, path=self.configuration.slurmise_base_dir)
+        query_model = PolynomialFit.load(
+            query=query_jd, path=self.configuration.slurmise_base_dir
+        )
         query_jd, query_warns = query_model.predict(query_jd)
         return query_jd, query_warns
 
     def update_model(self, cmd, job_name):
-
         query_jd = self.configuration.parse_job_cmd(cmd=cmd, job_name=job_name)
-        jobs = self.database.query(query_jd)
+        with job_database.JobDatabase.get_database(
+            self.configuration.db_filename
+        ) as database:
+            jobs = database.query(query_jd)
 
         self._update_model(query_jd, jobs)
 
@@ -71,5 +80,8 @@ class Slurmise():
         query_model.save()
 
     def update_all_models(self):
-        for query_jd, jobs in self.database.iterate_database():
-            self._update_model(query_jd, jobs)
+        with job_database.JobDatabase.get_database(
+            self.configuration.db_filename
+        ) as database:
+            for query_jd, jobs in database.iterate_database():
+                self._update_model(query_jd, jobs)

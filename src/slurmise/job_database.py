@@ -2,6 +2,7 @@ import contextlib
 import dataclasses
 import os
 from typing import Any
+import time
 
 import h5py
 import numpy as np
@@ -16,21 +17,30 @@ class JobDatabase:
     It saves the database in HDF5 file.
     """
 
-    def __init__(self, db_file: str):
+    def __init__(self, db_file: str, max_retries: int = 5):
         """
         The DB file is and HDF5 file.
         Use **get_database** and a context manager to have the file automatically
         closed.
         """
 
-        self.db = h5py.File(db_file, "a")
+        attempt = 0
+        while True:
+            attempt += 1
+            try:
+                self.db = h5py.File(db_file, "a")
+                break
+            except BlockingIOError:
+                if attempt > max_retries:
+                    raise
+                time.sleep(attempt)
 
     def _close(self):
         self.db.close()
 
     @staticmethod
     @contextlib.contextmanager
-    def get_database(db_file: str) -> "JobDatabase":
+    def get_database(db_file: str, max_retries=5) -> "JobDatabase":
         """
         Use in context manager to automatically open and close db file.
 
@@ -47,7 +57,7 @@ class JobDatabase:
             Closes h5py database
         """
 
-        db = JobDatabase(db_file)
+        db = JobDatabase(db_file, max_retries)
         try:
             yield db
         finally:
@@ -224,7 +234,7 @@ class JobDatabase:
         for job_name in self.db.keys():
             entry = self.db[job_name]
             for categoricals, jobs in JobDatabase.iterate_jobs(entry):
-                categoricals = dict(cat.split('=') for cat in categoricals)
+                categoricals = dict(cat.split("=") for cat in categoricals)
                 query = JobData(job_name=job_name, categorical=categoricals)
                 jobs = [
                     JobData.from_dataset(
