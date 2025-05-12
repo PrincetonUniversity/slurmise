@@ -174,7 +174,7 @@ def test_update_predict(simple_toml2):
         "./tests/nupack2.h5",
         simple_toml2[1],
     )
-    runner = CliRunner(mix_stderr=False)
+    runner = CliRunner()
     result = runner.invoke(
         main,
         [

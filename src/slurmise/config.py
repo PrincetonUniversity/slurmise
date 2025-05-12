@@ -56,7 +56,10 @@ class SlurmiseConfiguration:
                 if "default_mem" in job:
                     self.default_memory[job_name] = int(job['default_mem'])
 
-    def parse_job_cmd(self, cmd: str, job_name: str | None = None, slurm_id: str | None = None, step_id: str | None = None) -> job_data.JobData:
+    def parse_job_cmd(
+            self, cmd: str, job_name: str | None = None, slurm_id: str | None = None,
+            step_id: str | None = None
+            ) -> job_data.JobData:
         """Parse a job data dataset into a JobData object."""
         if job_name is None:  # try to infer
             for prefix, name in self.job_prefixes.items():
