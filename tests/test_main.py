@@ -122,7 +122,7 @@ def test_update_predict(nupack_toml):
     makes sense. The second test returns a runtime and memory values that are not
     possible. Because we cannot know the exact numbers we check of the expected strings.
     """
-    runner = CliRunner(mix_stderr=False)
+    runner = CliRunner()
     result = runner.invoke(
         main,
         [
@@ -185,7 +185,7 @@ def test_update_all_predict(nupack_toml):
     makes sense. The second test returns a runtime and memory values that are not
     possible. Because we cannot know the exact numbers we check of the expected strings.
     """
-    runner = CliRunner(mix_stderr=False)
+    runner = CliRunner()
     result = runner.invoke(
         main,
         [
