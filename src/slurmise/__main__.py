@@ -1,4 +1,5 @@
 import json
+import sys
 
 import click
 
@@ -10,13 +11,6 @@ from slurmise.fit.poly_fit import PolynomialFit
 
 @click.group()
 @click.option(
-    "--database",
-    "-d",
-    type=click.Path(exists=False),
-    default=".slurmise.h5",
-    help="Path to the hdf5 database file",
-)
-@click.option(
     "--toml",
     "-t",
     type=click.Path(exists=True),
@@ -24,14 +18,14 @@ from slurmise.fit.poly_fit import PolynomialFit
     help="Path to the hdf5 database file",
 )
 @click.pass_context
-def main(ctx, database, toml):
+def main(ctx, toml):
+    if toml is None:
+        click.echo("Slurmise requires a toml file", err=True)
+        click.echo("See readme for more information", err=True)
+        sys.exit(1)
     ctx.ensure_object(dict)
-    ctx.obj["database"] = database
-    if toml is not None:
-        ctx.obj["config"] = SlurmiseConfiguration(toml_file=toml)
-    else:
-        # TODO: Make this optional with a default config.
-        ctx.obj["config"] = None
+    ctx.obj["config"] = SlurmiseConfiguration(toml_file=toml)
+    ctx.obj["database"] = ctx.obj["config"].db_filename
 
 
 @main.command()
@@ -45,8 +39,7 @@ def record(ctx, cmd, job_name, slurm_id, step_id, verbose):
     """Command to record a job.
     For example: `slurmise record "-o 2 -i 3 -m fast"`
     """
-    metadata_json = slurm.parse_slurm_job_metadata(slurm_id=slurm_id, step_id=step_id)  # Pull just the slurm ID.
-
+    metadata_json = slurm.parse_slurm_job_metadata(slurm_id=slurm_id, step_id=step_id)
     parsed_jd = ctx.obj["config"].parse_job_cmd(
         cmd=cmd, job_name=job_name, slurm_id=metadata_json["slurm_id"], step_id=metadata_json["step_id"]
     )
@@ -110,7 +103,9 @@ def print(ctx):
 def predict(ctx, cmd, job_name):
     query_jd = ctx.obj["config"].parse_job_cmd(cmd=cmd, job_name=job_name)
     query_jd = ctx.obj["config"].add_defaults(query_jd)
-    query_model = PolynomialFit.load(query=query_jd, path=ctx.obj["config"].slurmise_base_dir)
+    query_model = PolynomialFit.load(
+        query=query_jd, path=ctx.obj["config"].slurmise_base_dir
+    )
     query_jd, query_warns = query_model.predict(query_jd)
     click.echo(f"Predicted runtime: {query_jd.runtime}")
     click.echo(f"Predicted memory: {query_jd.memory}")
@@ -131,9 +126,13 @@ def update_model(ctx, cmd, job_name):
         jobs = db.query(query_jd)
 
     try:
-        query_model = PolynomialFit.load(query=query_jd, path=ctx.obj["config"].slurmise_base_dir)
+        query_model = PolynomialFit.load(
+            query=query_jd, path=ctx.obj["config"].slurmise_base_dir
+        )
     except FileNotFoundError:
-        query_model = PolynomialFit(query=query_jd, degree=2, path=ctx.obj["config"].slurmise_base_dir)
+        query_model = PolynomialFit(
+            query=query_jd, degree=2, path=ctx.obj["config"].slurmise_base_dir
+        )
 
     random_state = np.random.RandomState(42)
     query_model.fit(jobs, random_state=random_state)

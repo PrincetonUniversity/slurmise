@@ -1,5 +1,7 @@
 import pytest
+import shutil
 import numpy as np
+from pathlib import Path
 from click.testing import CliRunner
 
 from slurmise import job_database
@@ -27,7 +29,7 @@ def simple_toml(tmp_path):
     job_spec = "monomer -T {{threads:numeric}} -C {{complexity:category}}"
     """
     )
-    return p
+    return p, d / "slurmise_dir" / "slurmise.h5"
 
 
 @pytest.fixture
@@ -38,15 +40,31 @@ def simple_toml2(tmp_path):
         f"""
     [slurmise]
     base_dir = "{d/'slurmise_dir'}"
+    db_filename = "nupack2.h5"
 
     [slurmise.job.nupack]
     job_spec = "monomer -c {{cpus:numeric}} -S {{sequences:numeric}}"
     """
     )
-    return p
+    return p, d / "slurmise_dir" / "nupack2.h5"
 
 
-def test_record(empty_h5py_file, simple_toml, monkeypatch):
+def test_missing_toml():
+    """Check that excluding a toml file will fail with error message."""
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "record",
+            "something"
+        ],
+    )
+    assert result.exit_code == 1
+    assert "Slurmise requires a toml file" in result.output
+    assert "See readme for more information" in result.output
+
+
+def test_record(simple_toml, monkeypatch):
     mock_metadata = {
         "slurm_id": "1234",
         "step_id": "0",
@@ -67,10 +85,8 @@ def test_record(empty_h5py_file, simple_toml, monkeypatch):
     result = runner.invoke(
         main,
         [
-            "--database",
-            empty_h5py_file,
             "--toml",
-            simple_toml,
+            simple_toml[0],
             "record",
             "--slurm-id",
             "1234",
@@ -78,9 +94,8 @@ def test_record(empty_h5py_file, simple_toml, monkeypatch):
         ],
     )
     assert result.exit_code == 0
-
     # test the job was successfully added
-    with job_database.JobDatabase.get_database(empty_h5py_file) as db:
+    with job_database.JobDatabase.get_database(simple_toml[1]) as db:
         excepted_results = [
             JobData(
                 job_name="nupack",
@@ -102,14 +117,14 @@ def test_record(empty_h5py_file, simple_toml, monkeypatch):
         assert query_result == excepted_results
 
 
-def test_raw_record(empty_h5py_file):
+def test_raw_record(simple_toml):
     """Test the raw_record command."""
     runner = CliRunner()
     result = runner.invoke(
         main,
         [
-            "--database",
-            empty_h5py_file,
+            "--toml",
+            simple_toml[0],
             "raw-record",
             "--job-name",
             "test",
@@ -126,7 +141,7 @@ def test_raw_record(empty_h5py_file):
     assert result.exit_code == 0
 
     # test the job was successfully added
-    with job_database.JobDatabase.get_database(empty_h5py_file) as db:
+    with job_database.JobDatabase.get_database(simple_toml[1]) as db:
         excepted_results = [
             JobData(
                 job_name="test",
@@ -154,14 +169,17 @@ def test_update_predict(simple_toml2):
     makes sense. The second test returns a runtime and memory values that are not
     possible. Because we cannot know the exact numbers we check of the expected strings.
     """
+    Path.mkdir(simple_toml2[1].parent, exist_ok=True, parents=True)
+    shutil.copyfile(
+        "./tests/nupack2.h5",
+        simple_toml2[1],
+    )
     runner = CliRunner(mix_stderr=False)
     result = runner.invoke(
         main,
         [
-            "--database",
-            "tests/nupack2.h5",
             "--toml",
-            simple_toml2,
+            simple_toml2[0],
             "update-model",
             "nupack monomer -c 1 -S 4985",
         ],
@@ -175,7 +193,7 @@ def test_update_predict(simple_toml2):
         main,
         [
             "--toml",
-            simple_toml2,
+            simple_toml2[0],
             "predict",
             "nupack monomer -c 3 -S 6543",
         ],
@@ -194,7 +212,7 @@ def test_update_predict(simple_toml2):
         main,
         [
             "--toml",
-            simple_toml2,
+            simple_toml2[0],
             "predict",
             "nupack monomer -c 987654 -S 4985",
         ],
