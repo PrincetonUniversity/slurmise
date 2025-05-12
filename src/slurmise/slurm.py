@@ -20,10 +20,10 @@ def parse_slurm_job_metadata(slurm_id: str | None = None, step_id: str | None = 
         steps = {}
         step_ids = []
         for step in sacct_json["jobs"][0]["steps"]:
-            steps[step["id"]] = step
-            step_ids.append(step["id"])
+            steps[step["step"]["id"]] = step
+            step_ids.append(step["step"]["id"])
         # step_ids = {step["id"]=step for step in sacct_json["jobs"][0]["steps"]}
-        step_id = step_ids[-1] if step_id is None else ".".join([job_id, step_id])
+        step_id = step_ids[-1] if step_id is None else ".".join([str(job_id), str(step_id)])
         # In addition, the max requested memory is updated as slurm steps are completed.
         elapsed_seconds = int(steps[step_id]["time"]["elapsed"])
         for item in steps[step_id]["tres"]["requested"]["max"]:

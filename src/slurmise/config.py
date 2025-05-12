@@ -83,7 +83,7 @@ class SlurmiseConfiguration:
             raise ValueError(f"Job {job_name} not found in configuration.")
 
         if step_id is not None:
-            slurm_id = '.'.join([slurm_id, step_id])
+            slurm_id = '.'.join([str(slurm_id), str(step_id)])
         jd = job_data.JobData(
             job_name=job_name,
             slurm_id=slurm_id,
