@@ -40,7 +40,7 @@ class JobDatabase:
 
     @staticmethod
     @contextlib.contextmanager
-    def get_database(db_file: str, max_retries=5) -> "JobDatabase":
+    def get_database(db_file: str, max_retries: int = 5) -> "JobDatabase":
         """
         Use in context manager to automatically open and close db file.
 
