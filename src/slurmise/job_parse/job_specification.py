@@ -5,7 +5,7 @@ import re
 
 
 # matches tokens like {threads:numeric}
-JOB_SPEC_REGEX = re.compile(r"{(?:(?P<name>[^:]+):)?(?P<kind>[^}]+)}")
+JOB_SPEC_REGEX = re.compile(r"{(?:(?P<name>[^:}]+):)?(?P<kind>[^}]+)}")
 KIND_TO_REGEX = {
     'file': '.+?',
     'gzip_file': '.+?',

@@ -3,10 +3,8 @@ import sys
 
 import click
 
-import numpy as np
-from slurmise import job_data, job_database, slurm
-from slurmise.config import SlurmiseConfiguration
-from slurmise.fit.poly_fit import PolynomialFit
+from slurmise import job_data
+from slurmise.api import Slurmise
 
 
 @click.group()
@@ -15,7 +13,7 @@ from slurmise.fit.poly_fit import PolynomialFit
     "-t",
     type=click.Path(exists=True),
     required=False,
-    help="Path to the hdf5 database file",
+    help="Path to the slurmise configuration file",
 )
 @click.pass_context
 def main(ctx, toml):
@@ -24,8 +22,7 @@ def main(ctx, toml):
         click.echo("See readme for more information", err=True)
         sys.exit(1)
     ctx.ensure_object(dict)
-    ctx.obj["config"] = SlurmiseConfiguration(toml_file=toml)
-    ctx.obj["database"] = ctx.obj["config"].db_filename
+    ctx.obj["slurmise"] = Slurmise(toml)
 
 
 @main.command()
@@ -33,27 +30,13 @@ def main(ctx, toml):
 @click.option("--job-name", type=str, help="Name of the job")
 @click.option("--slurm-id", type=str, help="SLURM id of job")
 @click.option("--step-id", type=str, help="SLURM step id")
-@click.option("-v", "--verbose", is_flag=True, help="Print verbose output")
 @click.pass_context
-def record(ctx, cmd, job_name, slurm_id, step_id, verbose):
+def record(ctx, cmd, job_name, slurm_id, step_id):
     """Command to record a job.
     For example: `slurmise record "-o 2 -i 3 -m fast"`
     """
-    metadata_json = slurm.parse_slurm_job_metadata(slurm_id=slurm_id, step_id=step_id)
-    parsed_jd = ctx.obj["config"].parse_job_cmd(
-        cmd=cmd, job_name=job_name, slurm_id=metadata_json["slurm_id"], step_id=metadata_json["step_id"]
-    )
 
-    if verbose:
-        print(json.dumps(parsed_jd, indent=4))
-
-    parsed_jd.memory = metadata_json["max_rss"]
-    parsed_jd.runtime = metadata_json["elapsed_seconds"]
-
-    if verbose:
-        print("METADATA JSON", metadata_json)
-    with job_database.JobDatabase.get_database(ctx.obj["database"]) as db:
-        db.record(parsed_jd)
+    ctx.obj["slurmise"].record(cmd, job_name, slurm_id, step_id)
 
 
 @main.command()
@@ -85,15 +68,13 @@ def raw_record(ctx, job_name, slurm_id, numerical, categorical, cmd):
         cmd=cmd,
     )
 
-    with job_database.JobDatabase.get_database(ctx.obj["database"]) as db:
-        db.record(jd)
+    ctx.obj["slurmise"].raw_record(jd)
 
 
 @main.command()
 @click.pass_context
 def print(ctx):
-    with job_database.JobDatabase.get_database(ctx.obj["database"]) as db:
-        db.print()
+    ctx.obj["slurmise"].print()
 
 
 @main.command()
@@ -101,12 +82,7 @@ def print(ctx):
 @click.option("--job-name", type=str, help="Name of the job")
 @click.pass_context
 def predict(ctx, cmd, job_name):
-    query_jd = ctx.obj["config"].parse_job_cmd(cmd=cmd, job_name=job_name)
-    query_jd = ctx.obj["config"].add_defaults(query_jd)
-    query_model = PolynomialFit.load(
-        query=query_jd, path=ctx.obj["config"].slurmise_base_dir
-    )
-    query_jd, query_warns = query_model.predict(query_jd)
+    query_jd, query_warns = ctx.obj["slurmise"].predict(cmd, job_name)
     click.echo(f"Predicted runtime: {query_jd.runtime}")
     click.echo(f"Predicted memory: {query_jd.memory}")
     if query_warns:
@@ -120,28 +96,10 @@ def predict(ctx, cmd, job_name):
 @click.option("--job-name", type=str, help="Name of the job")
 @click.pass_context
 def update_model(ctx, cmd, job_name):
-
-    query_jd = ctx.obj["config"].parse_job_cmd(cmd=cmd, job_name=job_name)
-    with job_database.JobDatabase.get_database(ctx.obj["database"]) as db:
-        jobs = db.query(query_jd)
-
-    try:
-        query_model = PolynomialFit.load(
-            query=query_jd, path=ctx.obj["config"].slurmise_base_dir
-        )
-    except FileNotFoundError:
-        query_model = PolynomialFit(
-            query=query_jd, degree=2, path=ctx.obj["config"].slurmise_base_dir
-        )
-
-    random_state = np.random.RandomState(42)
-    query_model.fit(jobs, random_state=random_state)
-
-    query_model.save()
+    ctx.obj["slurmise"].update_model(cmd, job_name)
 
 
 @main.command()
 @click.pass_context
 def update_all(ctx):
-    # Query the DB for all unique jobs and update the models
-    raise NotImplementedError("Not implemented yet")
+    ctx.obj["slurmise"].update_all_models()

@@ -62,28 +62,3 @@ def get_slurm_job_sacct(slurm_id: str | None = None) -> dict:
         raise ValueError(f"Error running sacct cmd: {e}") from e
 
     return json.loads(json_encoded_str.decode())
-
-
-# def get_slurm_job_sstat(slurm_id: str | None = None) -> dict:
-#     if slurm_id is None:
-#         if "SLURM_JOBID" not in os.environ:
-#             raise ValueError("Not running in a SLURM job")
-#         slurm_id = os.environ["SLURM_JOBID"]
-
-#     try:
-#         rss_out = subprocess.check_output(  # noqa: F841
-#             [
-#                 "sstat",
-#                 "-j",
-#                 slurm_id,
-#                 "--format",
-#                 "maxrss",
-#                 "--noheader",
-#                 "--parsable",
-#             ]
-#         )
-#     except subprocess.CalledProcessError as e:
-#         raise ValueError(f"Error running sstat cmd: {e}") from e
-
-#     # print(rss_out) # TODO RSS is empty, need to figure out how to get it
-#     return {}
