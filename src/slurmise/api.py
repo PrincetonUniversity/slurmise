@@ -27,6 +27,7 @@ class Slurmise:
             cmd=cmd,
             job_name=job_name,
             slurm_id=metadata_json["slurm_id"],
+            step_id=metadata_json["step_id"],
         )
 
         parsed_jd.memory = metadata_json["max_rss"]
