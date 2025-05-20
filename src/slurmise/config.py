@@ -80,7 +80,7 @@ class SlurmiseConfiguration:
         else:
             job_prefix = self.job_prefixes.get(job_name, None)
             if job_prefix is not None:
-                cmd = cmd.removeprefix(prefix).lstrip()
+                cmd = cmd.removeprefix(job_prefix).lstrip()
 
         # TODO decide if prefix is removed from command?
         if job_name not in self.jobs:

@@ -123,11 +123,6 @@ def test_update_predict(nupack_toml):
     makes sense. The second test returns a runtime and memory values that are not
     possible. Because we cannot know the exact numbers we check of the expected strings.
     """
-    Path.mkdir(simple_toml2[1].parent, exist_ok=True, parents=True)
-    shutil.copyfile(
-        "./tests/nupack2.h5",
-        simple_toml2[1],
-    )
     runner = CliRunner()
     result = runner.invoke(
         main,
