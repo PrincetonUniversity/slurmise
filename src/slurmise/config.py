@@ -68,7 +68,7 @@ class SlurmiseConfiguration:
                     cmd = cmd.removeprefix(prefix).lstrip()
                     break
 
-            else:  # not a prefix. Runs when it does not hit the else.
+            else:  # not a prefix. Runs when it does not hit the break.
                 for name in self.jobs.keys():
                     if cmd.startswith(name):
                         job_name = name
