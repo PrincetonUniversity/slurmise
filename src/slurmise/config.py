@@ -82,7 +82,6 @@ class SlurmiseConfiguration:
             if job_prefix is not None:
                 cmd = cmd.removeprefix(job_prefix).lstrip()
 
-        # TODO decide if prefix is removed from command?
         if job_name not in self.jobs:
             raise ValueError(f"Job {job_name} not found in configuration.")
 

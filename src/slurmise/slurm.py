@@ -3,11 +3,20 @@ import os
 import subprocess
 
 
-def parse_slurm_job_metadata(slurm_id: str | None = None, step_id: str | None = None) -> dict:
-    """Return a dictionary of metadata for the current SLURM job."""
+def parse_slurm_job_metadata(slurm_id: str | None = None, step_name: str | None = None) -> dict:
+    """
+    Return a dictionary of metadata for the current SLURM job.
+    Parameters:
+        slurm_id (str | None): The SLURM job ID. If None, the function will attempt to retrieve
+            the job ID from the SLURM_JOBID environment variable.
+        step_id (str | None): The SLURM step ID. If None, the function defaults to the last step
+            of the job. If provided, it specifies which step's metadata to return.
+    Returns:
+        dict: A dictionary containing metadata for the specified SLURM job and step.
+    """
+    
     sacct_json = get_slurm_job_sacct(slurm_id)
-    # sstat_out = get_slurm_job_sstat(slurm_id)
-
+    
     try:
         job_id = sacct_json["jobs"][0]["job_id"]
         job_name = sacct_json["jobs"][0]["name"]
@@ -18,12 +27,18 @@ def parse_slurm_job_metadata(slurm_id: str | None = None, step_id: str | None = 
         memory_per_node = sacct_json["jobs"][0]["required"]["memory_per_node"]
         max_rss = 0
         steps = {}
-        step_ids = []
+        jobstep_ids = []
         for step in sacct_json["jobs"][0]["steps"]:
             steps[step["step"]["id"]] = step
-            step_ids.append(step["step"]["id"])
-        # step_ids = {step["id"]=step for step in sacct_json["jobs"][0]["steps"]}
-        step_id = step_ids[-1] if step_id is None else ".".join([str(job_id), str(step_id)])
+            jobstep_ids.append(step["step"]["id"])
+
+
+        if step_name is None:
+            step_id = jobstep_ids[-1]
+            step_name = step_id.split(".")[-1]
+        else:
+            step_id = f"{job_id}.{step_name}"
+
         # In addition, the max requested memory is updated as slurm steps are completed.
         elapsed_seconds = int(steps[step_id]["time"]["elapsed"])
         for item in steps[step_id]["tres"]["requested"]["max"]:
@@ -36,7 +51,7 @@ def parse_slurm_job_metadata(slurm_id: str | None = None, step_id: str | None = 
 
     metadata = {
         "slurm_id": job_id,
-        "step_id": step_id.split(".")[-1],
+        "step_id": step_name,
         "job_name": job_name,
         "state": state,
         "partition": partition,

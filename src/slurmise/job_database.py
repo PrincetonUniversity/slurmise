@@ -162,8 +162,10 @@ class JobDatabase:
         updated_jobs = []
         for job in jobs:
             if job.memory is None or job.runtime is None:
-                slurm_id = job.slurm_id.split(".")[0]
-                step_id = job.slurm_id.split(".")[1] if "." in job.slurm_id else None
+                if "." in job.slurm_id:
+                    slurm_id, step_id = job.slurm_id.split(".")
+                else:
+                    slurm_id, step_id = job.slurm_id, None
                 job_info = slurm.parse_slurm_job_metadata(slurm_id = slurm_id, step_id = step_id)
 
                 # job dataclass is immutable, so this creates a new object with the updated values
