@@ -18,6 +18,7 @@ def slurmise_record(toml, process_id, error_queue):
             "memory_per_cpu": 0,
             "memory_per_node": 0,
             "max_rss": 232,
+            "step_id": "external",
         }
         return result
 

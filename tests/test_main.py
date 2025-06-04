@@ -21,6 +21,7 @@ def test_missing_toml():
 def test_record(simple_toml, monkeypatch):
     mock_metadata = {
         "slurm_id": "1234",
+        "step_id": "0",
         "job_name": "nupack",
         "state": "COMPLETED",
         "partition": "",
@@ -52,7 +53,7 @@ def test_record(simple_toml, monkeypatch):
         excepted_results = [
             JobData(
                 job_name="nupack",
-                slurm_id="1234",
+                slurm_id="1234.0",
                 runtime=97201,
                 memory=232,
                 categorical={"complexity": "simple"},

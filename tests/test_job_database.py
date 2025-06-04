@@ -395,7 +395,7 @@ def test_delete_all_children(small_db):
 
 
 def test_update_missing_mem_elapsed(empty_h5py_file, monkeypatch):
-    def mock_parse_slurm_job_metadata(slurm_id):
+    def mock_parse_slurm_job_metadata(slurm_id, step_id):
         return {
             "max_rss": 101,
             "elapsed_seconds": 100,
@@ -410,7 +410,7 @@ def test_update_missing_mem_elapsed(empty_h5py_file, monkeypatch):
         db.record(
             JobData(
                 job_name="test_job",
-                slurm_id="1",
+                slurm_id="1.0",
                 categorical={"option1": "value1", "option2": "value2"},
                 numerical={"filesizes": [123, 512, 128]},
             )
@@ -419,7 +419,7 @@ def test_update_missing_mem_elapsed(empty_h5py_file, monkeypatch):
         db.record(
             JobData(
                 job_name="test_job",
-                slurm_id="2",
+                slurm_id="2.1",
                 memory=128,
                 categorical={"option1": "value1", "option2": "value2"},
                 numerical={"filesizes": [123, 512, 128]},
@@ -429,7 +429,7 @@ def test_update_missing_mem_elapsed(empty_h5py_file, monkeypatch):
         db.record(
             JobData(
                 job_name="test_job",
-                slurm_id="3",
+                slurm_id="3.extern",
                 runtime=111,
                 categorical={"option1": "value1", "option2": "value2"},
                 numerical={"filesizes": [123, 512, 128]},
@@ -439,7 +439,7 @@ def test_update_missing_mem_elapsed(empty_h5py_file, monkeypatch):
         db.record(
             JobData(
                 job_name="test_job",
-                slurm_id="4",
+                slurm_id="4.extern",
                 memory=138,
                 runtime=222,
                 categorical={"option1": "value1", "option2": "value2"},
@@ -450,7 +450,7 @@ def test_update_missing_mem_elapsed(empty_h5py_file, monkeypatch):
         expected_output = [
             JobData(
                 job_name="test_job",
-                slurm_id="1",
+                slurm_id="1.0",
                 memory=101,
                 runtime=100,
                 categorical={"option1": "value1", "option2": "value2"},
@@ -458,7 +458,7 @@ def test_update_missing_mem_elapsed(empty_h5py_file, monkeypatch):
             ),
             JobData(
                 job_name="test_job",
-                slurm_id="2",
+                slurm_id="2.1",
                 memory=128,
                 runtime=100,
                 categorical={"option1": "value1", "option2": "value2"},
@@ -466,7 +466,7 @@ def test_update_missing_mem_elapsed(empty_h5py_file, monkeypatch):
             ),
             JobData(
                 job_name="test_job",
-                slurm_id="3",
+                slurm_id="3.extern",
                 runtime=111,
                 memory=101,
                 categorical={"option1": "value1", "option2": "value2"},
@@ -474,7 +474,7 @@ def test_update_missing_mem_elapsed(empty_h5py_file, monkeypatch):
             ),
             JobData(
                 job_name="test_job",
-                slurm_id="4",
+                slurm_id="4.extern",
                 memory=138,
                 runtime=222,
                 categorical={"option1": "value1", "option2": "value2"},

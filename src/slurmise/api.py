@@ -18,14 +18,16 @@ class Slurmise:
         cmd: str,
         job_name: str | None = None,
         slurm_id: str | None = None,
+        step_id: str | None = None,
     ):
         # Pull just the slurm ID
-        metadata_json = slurm.parse_slurm_job_metadata(slurm_id=slurm_id)
+        metadata_json = slurm.parse_slurm_job_metadata(slurm_id=slurm_id, step_id=step_id)
 
         parsed_jd = self.configuration.parse_job_cmd(
             cmd=cmd,
             job_name=job_name,
             slurm_id=metadata_json["slurm_id"],
+            step_id=metadata_json["step_id"],
         )
 
         parsed_jd.memory = metadata_json["max_rss"]

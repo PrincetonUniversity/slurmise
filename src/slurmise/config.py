@@ -50,24 +50,25 @@ class SlurmiseConfiguration:
                     available_parsers=self.file_parsers,
                 )
                 if "job_prefix" in job:
-                    self.job_prefixes[job["job_prefix"]] = job_name
+                    self.job_prefixes[job_name] = job["job_prefix"]
                 if "default_time" in job:
                     self.default_runtime[job_name] = int(job['default_time'])
                 if "default_mem" in job:
                     self.default_memory[job_name] = int(job['default_mem'])
 
     def parse_job_cmd(
-        self, cmd: str, job_name: str | None = None, slurm_id: str | None = None
-    ) -> job_data.JobData:
+            self, cmd: str, job_name: str | None = None, slurm_id: str | None = None,
+            step_id: str | None = None
+            ) -> job_data.JobData:
         """Parse a job data dataset into a JobData object."""
         if job_name is None:  # try to infer
-            for prefix, name in self.job_prefixes.items():
+            for name, prefix in self.job_prefixes.items():
                 if cmd.startswith(prefix):
                     job_name = name
                     cmd = cmd.removeprefix(prefix).lstrip()
                     break
 
-            else:  # not a prefix
+            else:  # not a prefix. Runs when it does not hit the break.
                 for name in self.jobs.keys():
                     if cmd.startswith(name):
                         job_name = name
@@ -76,12 +77,21 @@ class SlurmiseConfiguration:
 
                 else:
                     raise ValueError(f"Unable to match job name to {cmd!r}")
+        else:
+            job_prefix = self.job_prefixes.get(job_name, None)
+            if job_prefix is not None:
+                cmd = cmd.removeprefix(job_prefix).lstrip()
 
-        # TODO decide if prefix is removed from command?
         if job_name not in self.jobs:
             raise ValueError(f"Job {job_name} not found in configuration.")
 
-        jd = job_data.JobData(job_name=job_name, slurm_id=slurm_id, cmd=cmd)
+        if step_id is not None:
+            slurm_id = '.'.join([str(slurm_id), str(step_id)])
+        jd = job_data.JobData(
+            job_name=job_name,
+            slurm_id=slurm_id,
+            cmd=cmd
+        )
 
         job_spec = self.jobs[job_name]["job_spec_obj"]
         return job_spec.parse_job_cmd(jd)
