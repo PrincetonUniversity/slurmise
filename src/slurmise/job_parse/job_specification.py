@@ -112,6 +112,8 @@ class JobSpec:
 
 
         greedy_regex = re.sub(r'\.\+\?', '.+', self.job_regex)
+        # ?b is for best match
+        # {e} indicates to allow errors
         match = regex.fullmatch(f"(?b)(?:{greedy_regex})" + r"{e}", cmd)
         if not match:
             raise ValueError('TODO: handle no matches')
@@ -170,8 +172,9 @@ class JobSpec:
                         display_spec[display_start:display_end] +
                         spec_line[match_end:])
 
-                    # insert arrows to ind_line
+                    # insert markers to ind_line
                     ind_with_arrows = [' '] * (display_end-display_start)
+                    # start bracket on first and last position
                     ind_with_arrows[0] = '│'
                     ind_with_arrows[-1] = '│'
 
@@ -179,7 +182,7 @@ class JobSpec:
                     if self.token_kinds[wc_name] == 'numeric':
                         try:
                             float(''.join(cmd_line[match_start:match_end]))
-                        except ValueError:
+                        except ValueError:  # cannot parse
                             ind_with_arrows[len(ind_with_arrows) // 2] = '⚠'
 
 
@@ -191,17 +194,23 @@ class JobSpec:
                     added_chars = display_end - display_start - (
                         match_end - match_start)
                     # extract match in cmd_line and add spaces to stay aligned
-                    cmd_line = (cmd_line[:match_start] +
-                        ['└'] +
+                    # surround with corner and indicator
+                    cmd_line = (cmd_line[:match_start] +  # unchanged
+                        ['└'] +  # start callout
+                        # half of added chars, %2 to deal with odd added chars,
+                        # remove two for corner and callout
                         ['─'] * (added_chars // 2 + added_chars % 2 - 2) +
-                        ['┤'] +
-                        cmd_line[match_start:match_end] +
-                        ['├'] +
+                        ['┤'] +  # start of matching chars
+                        cmd_line[match_start:match_end] +  # matching chars
+                        ['├'] +  # end of matching chars
+                        # half of added chars, remove two for corner and callout
                         ['─'] * (added_chars // 2 - 2) +
-                        ['┘'] +
-                        cmd_line[match_end:]
+                        ['┘'] +  # end callout
+                        cmd_line[match_end:]  # rest of cmd line
                     )
 
+                    # offset accounts for the difference between what was added
+                    # and the original positions
                     offset += added_chars
 
                 aligned_spec.append(''.join(spec_line))
@@ -209,24 +218,24 @@ class JobSpec:
                 indicator_line.append(''.join(ind_line))
             elif tag == 'replace':
                 # Replacement
-                len1 = spec_end - spec_start
-                len2 = cmd_end - cmd_start
-                max_len = max(len1, len2)
-                aligned_spec.append(spec_with_matches[spec_start:spec_end] + ' ' * (max_len - len1))
-                aligned_cmd.append(cmd[cmd_start:cmd_end] + ' ' * (max_len - len2))
+                spec_len = spec_end - spec_start
+                cmd_len = cmd_end - cmd_start
+                max_len = max(spec_len, cmd_len)
+                aligned_spec.append(spec_with_matches[spec_start:spec_end] + ' ' * (max_len - spec_len))
+                aligned_cmd.append(cmd[cmd_start:cmd_end] + ' ' * (max_len - cmd_len))
                 indicator_line.append('╳' * max_len)
             elif tag == 'delete':
                 # Deletion from spec_with_matches
-                len1 = spec_end - spec_start
+                spec_len = spec_end - spec_start
                 aligned_spec.append(spec_with_matches[spec_start:spec_end])
-                aligned_cmd.append(' ' * len1)
-                indicator_line.append('∧' * len1)
+                aligned_cmd.append(' ' * spec_len)
+                indicator_line.append('∧' * spec_len)
             elif tag == 'insert':
                 # Insertion into cmd
-                len2 = cmd_end - cmd_start
-                aligned_spec.append(' ' * len2)
+                cmd_len = cmd_end - cmd_start
+                aligned_spec.append(' ' * cmd_len)
                 aligned_cmd.append(cmd[cmd_start:cmd_end])
-                indicator_line.append('∨' * len2)
+                indicator_line.append('∨' * cmd_len)
 
         return '\n'.join(
             [
