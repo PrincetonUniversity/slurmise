@@ -28,6 +28,61 @@ def test_job_spec_token_with_no_name():
     with pytest.raises(ValueError, match="Token {numeric} has no name."):
         JobSpec('cmd -T {numeric}')
 
+def test_basic_job_spec():
+    spec = JobSpec('cmd -T {threads:numeric}')
+
+    jd = spec.parse_job_cmd(JobData(job_name='test', cmd='cmd -T 3'))
+    assert jd.numerical == {'threads': 3}
+
+def test_job_spec_failure_swap():
+    spec = JobSpec('cmd -T {threads:numeric} -S {another:category}')
+
+    with pytest.raises(ValueError, match="Job spec for test does not match command:") as ve:
+        spec.parse_job_cmd(JobData(job_name='test', cmd='cmd -S simple -T 5'))
+    print(f'\n{ve.value}')
+
+def test_job_spec_failure_typos():
+    spec = JobSpec('cmd -T {threads:numeric} -S {another:category}')
+
+    with pytest.raises(ValueError, match="Job spec for test does not match command:") as ve:
+        spec.parse_job_cmd(JobData(job_name='test', cmd='cnd -t 5 -S simple'))
+    print(f'\n{ve.value}')
+
+def test_basic_job_spec_extra_cmd_prefix():
+    spec = JobSpec('cmd -T {threads:numeric} -S {another:category}')
+
+    with pytest.raises(ValueError, match="Job spec for test does not match command:") as ve:
+        spec.parse_job_cmd(JobData(job_name='test', cmd='extra cmd -T 3 -S beep'))
+    print(f'\n{ve.value}')
+
+def test_basic_job_spec_extra_spec_prefix():
+    spec = JobSpec('extra cmd -T {threads:numeric} -S {another:category}')
+
+    with pytest.raises(ValueError, match="Job spec for test does not match command:") as ve:
+        spec.parse_job_cmd(JobData(job_name='test', cmd='cmd -T 3 -S beep'))
+    print(f'\n{ve.value}')
+
+def test_basic_job_spec_extra_spec_suffix():
+    spec = JobSpec('cmd -T {threads:numeric} -S {another:category} extra')
+
+    with pytest.raises(ValueError, match="Job spec for test does not match command:") as ve:
+        spec.parse_job_cmd(JobData(job_name='test', cmd='cmd -T 3 -S cat'))
+    print(f'\n{ve.value}')
+
+def test_basic_job_spec_extra_spec_internal():
+    spec = JobSpec('cmd -T {threads:numeric} extra -S {another:category}')
+
+    with pytest.raises(ValueError, match="Job spec for test does not match command:") as ve:
+        spec.parse_job_cmd(JobData(job_name='test', cmd='cmd -T 3 -S cat'))
+    print(f'\n{ve.value}')
+
+def test_basic_job_spec_extra_cmd_internal():
+    spec = JobSpec('cmd -T {threads:numeric} -S {another:category}')
+
+    with pytest.raises(ValueError, match="Job spec for test does not match command:") as ve:
+        spec.parse_job_cmd(JobData(job_name='test', cmd='cmd -T 3 extra -S cat'))
+    print(f'\n{ve.value}')
+
 def test_job_spec_with_builtin_parsers_basename(tmp_path):
     '''
         [slurmise.job.builtin_files]
