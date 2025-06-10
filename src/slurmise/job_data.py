@@ -20,7 +20,7 @@ def array_safe_eq(a, b) -> bool:
         )
     try:
         return a == b
-    except TypeError:
+    except TypeError:   # pragma: no cover
         return NotImplemented
 
 
@@ -31,7 +31,7 @@ def dc_eq(dc1, dc2) -> bool:
 
     if dc1 is dc2:
         return True
-    if dc1.__class__ is not dc2.__class__:
+    if dc1.__class__ is not dc2.__class__:   # pragma: no cover
         return NotImplemented  # better than False
     t1 = astuple(dc1)
     t2 = astuple(dc2)

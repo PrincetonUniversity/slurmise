@@ -114,6 +114,25 @@ def test_raw_record(simple_toml):
 
         assert query_result == excepted_results
 
+    # test the db can print the new values
+    result = runner.invoke(
+        main,
+        [
+            "--toml",
+            simple_toml.toml,
+            "print",
+        ],
+    )
+    assert result.exit_code == 0
+
+    split_std = result.stdout.split('\n')
+    assert split_std[0] == 'test'
+    assert split_std[1].split('-')[-1] == ' a=1'
+    assert split_std[2].split('-')[-1] == ' b=2'
+    assert split_std[3].split('-')[-1] == ' 1234'
+    assert split_std[4].split('-')[-1] == ' n: () int64 3'
+    assert split_std[5].split('-')[-1] == ' q: () float64 17.4'
+
 
 def test_update_predict(nupack_toml):
     """Test the update and predict commands of slurmise.
@@ -134,7 +153,7 @@ def test_update_predict(nupack_toml):
         ],
         catch_exceptions=True,
     )
-    if result.exception:
+    if result.exception:  # pragma: no cover
         print(f"Exception: {result.exception}")
     assert result.exit_code == 0
 

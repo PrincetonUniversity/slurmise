@@ -14,7 +14,7 @@ class FileParser:
     name: str = 'UNK'
     return_type: str = NUMERICAL
 
-    def parse_file(self, path: Path, gzip_file: bool=False):
+    def parse_file(self, path: Path, gzip_file: bool=False):   # pragma: no cover
         raise NotImplementedError()
 
 
@@ -35,10 +35,6 @@ class FileMD5(FileParser):
     def parse_file(self, path: Path, gzip_file: bool=False):
         md5_hash = hashlib.md5()
         md5_hash.update(path.read_bytes())
-        # with path.read_bytes() as file:
-        #     # Read the file in chunks to handle large files efficiently
-        #     for chunk in iter(lambda: file.read(4096), b""):
-        #         md5_hash.update(chunk)
         return md5_hash.hexdigest()
 
 

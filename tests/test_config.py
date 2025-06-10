@@ -93,8 +93,9 @@ def test_parse_job_cmd_with_ignore(basic_toml):
 
 def test_parse_job_cmd_invalid(basic_toml):
     config = SlurmiseConfiguration(basic_toml)
-    with pytest.raises(ValueError, match="Job spec monomer -T {threads:numeric} -C {complexity:category} does not match command dimer -T 1 -C simple."):
+    with pytest.raises(ValueError, match="Job spec for nupack does not match command:") as ve:
         config.parse_job_cmd("dimer -T 1 -C simple", "nupack", "1234")
+    print(f'\n{ve.value}')
 
 def test_parse_job_cmd_name_mismatch(basic_toml):
     config = SlurmiseConfiguration(basic_toml)
@@ -103,8 +104,9 @@ def test_parse_job_cmd_name_mismatch(basic_toml):
 
 def test_parse_job_cmd_invalid_numeric(basic_toml):
     config = SlurmiseConfiguration(basic_toml)
-    with pytest.raises(ValueError, match="Job spec monomer -T {threads:numeric} -C {complexity:category} does not match command monomer -T 1A -C simple."):
+    with pytest.raises(ValueError, match="Job spec for nupack does not match command:") as ve:
         config.parse_job_cmd("monomer -T 1A -C simple", "nupack", "1234")
+    print(f'\n{ve.value}')
 
 def test_awk_parsers(basic_toml):
     config = SlurmiseConfiguration(basic_toml)
