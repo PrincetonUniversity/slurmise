@@ -12,6 +12,7 @@ license = "MIT"
 keywords = []
 authors = [
   { name = "Troy Comi", email = "tcomi@princeton.edu" },
+  { name = "Ioannis Paraskevakos", email = "iparask@princeton.edu" },
 ]
 classifiers = [
   "Development Status :: 4 - Beta",
