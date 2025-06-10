@@ -39,11 +39,15 @@ class PolynomialFit(ResourceFit):
             joblib.dump(self.memory_model, str(modelpath))
 
     @classmethod
-    def load(cls, query: JobData | None = None, path: str | None = None):
-        fit_obj = super().load(query=query, path=path)
+    def load(cls, query: JobData | None = None, path: str | None = None)-> "PolynomialFit":
+        fit_obj = super().load(query=query, path=path, degree=2)
 
-        fit_obj.runtime_model = joblib.load(str(fit_obj.path / "runtime_model.pkl"))
-        fit_obj.memory_model = joblib.load(str(fit_obj.path / "memory_model.pkl"))
+        try:
+            fit_obj.runtime_model = joblib.load(str(fit_obj.path / "runtime_model.pkl"))
+            fit_obj.memory_model = joblib.load(str(fit_obj.path / "memory_model.pkl"))
+        except FileNotFoundError:
+            fit_obj.runtime_model = None
+            fit_obj.memory_model = None
 
         return fit_obj
 
@@ -121,6 +125,8 @@ class PolynomialFit(ResourceFit):
 
     def predict(self, job: JobData) -> tuple[JobData, list[str]]:
         # TODO: check if it can be abstracted.
+
+
 
         if self.last_fit_dsize < 10:
 

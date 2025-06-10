@@ -79,7 +79,7 @@ class ResourceFit:
 
     @classmethod
     def load(
-        cls, query: JobData | None = None, path: str | None = None
+        cls, query: JobData | None = None, path: str | None = None, **kwargs
     ) -> "ResourceFit":
         """
         This method loads a model from a file. The model is loaded from the path
@@ -89,6 +89,7 @@ class ResourceFit:
         :type query: JobData
         :param path: The path to the model
         :type path: str
+        :param kwargs: Additional keyword arguments to pass to the model
         :return: The model
         :rtype: ResourceFit
 
@@ -101,11 +102,21 @@ class ResourceFit:
             case (str(path), _):
                 path = pathlib.Path(path)
 
-        with open(str(path / "fits.json")) as load_file:
-            info = json.load(load_file)
+        try:
+            with open(str(path / "fits.json")) as load_file:
+                info = json.load(load_file)
 
-        # Convert datetime from isoformat string to datetime object
-        info["fit_timestamp"] = datetime.fromisoformat(info["fit_timestamp"])
+            # Convert datetime from isoformat string to datetime object
+            info["fit_timestamp"] = datetime.fromisoformat(info["fit_timestamp"])
+        except FileNotFoundError:
+            info = {
+                "query": query,
+                "last_fit_dsize": 0,
+                "fit_timestamp": datetime.now(),
+                "model_metrics": {},
+                "path": path,
+            }
+            info.update(kwargs)
 
         # Generates an instance of the class from the dictionary. When this is called by
         # a ResourceFit subclass, it includes all attributes of the subclass(es) and the
