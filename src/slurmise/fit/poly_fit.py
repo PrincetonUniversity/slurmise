@@ -39,11 +39,14 @@ class PolynomialFit(ResourceFit):
             joblib.dump(self.memory_model, str(modelpath))
 
     @classmethod
-    def load(cls, query: JobData | None = None, path: str | None = None):
-        fit_obj = super().load(query=query, path=path)
+    def load(cls, query: JobData | None = None, path: str | None = None)-> "PolynomialFit":
+        fit_obj = super().load(query=query, path=path, degree=2)
 
-        fit_obj.runtime_model = joblib.load(str(fit_obj.path / "runtime_model.pkl"))
-        fit_obj.memory_model = joblib.load(str(fit_obj.path / "memory_model.pkl"))
+        runtime_model = fit_obj.path / "runtime_model.pkl"
+        fit_obj.runtime_model = joblib.load(str(runtime_model)) if runtime_model.exists() else None
+        
+        memory_model = fit_obj.path / "memory_model.pkl"
+        fit_obj.memory_model = joblib.load(str(memory_model)) if memory_model.exists() else None
 
         return fit_obj
 
