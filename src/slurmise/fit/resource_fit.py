@@ -102,13 +102,13 @@ class ResourceFit:
             case (str(path), _):
                 path = pathlib.Path(path)
 
-        try:
+        if (path / "fits.json").exists():
             with open(str(path / "fits.json")) as load_file:
                 info = json.load(load_file)
 
             # Convert datetime from isoformat string to datetime object
             info["fit_timestamp"] = datetime.fromisoformat(info["fit_timestamp"])
-        except FileNotFoundError:
+        else:
             info = {
                 "query": query,
                 "last_fit_dsize": 0,

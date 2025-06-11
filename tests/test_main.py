@@ -219,12 +219,9 @@ def test_update_all_predict(nupack_toml):
     np.testing.assert_allclose(float(predicted_memory[1]), 10168.72, rtol=0.01)
 
 def test_predict_nomodel(nupackdefaults_toml):
-    """Test the update and predict commands of slurmise.
-    Initially, we run the update command to get the models for the nupack job.
-    After the models are created, we run the predict command to predict the runtime and memory of a job.
-    Two tests are run. The first predicts a runtime and memory values for a job that
-    makes sense. The second test returns a runtime and memory values that are not
-    possible. Because we cannot know the exact numbers we check of the expected strings.
+    """Test the predict commands of slurmise with no model.
+    Running predict before updating (creating) a model will cause the job
+    default values to be returned.
     """
     runner = CliRunner()
 
