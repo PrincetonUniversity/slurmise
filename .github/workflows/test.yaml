@@ -32,12 +32,13 @@ jobs:
 
       - name: Run tests
         run: |
-          hatch run test:test -- --cov --random-order --cov-append --cov-report=json
+          hatch run test:test -- --cov --random-order --cov-append
           ls -alh
 
       - name: Run linter
         run: hatch fmt --check --linter
-
+      - name: Install coverage
+        run: pip install coverage
       - name: Upload coverage report
         uses: coverallsapp/github-action@v2
         with:
