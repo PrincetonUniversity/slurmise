@@ -92,5 +92,6 @@ dependencies = [
   "pytest-cov",
   "ruff",
   "coverage",
-  "pytest-random-order"
+  "pytest-random-order",
+  "coveralls",
 ]
