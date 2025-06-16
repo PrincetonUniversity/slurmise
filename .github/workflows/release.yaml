@@ -10,9 +10,6 @@ jobs:
     environment: release
     permissions:
       id-token: write # IMPORTANT: this permission is mandatory for trusted publishing
-    strategy:
-      matrix:
-        python-version: ["3.10", "3.11", "3.12"]
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -20,13 +17,13 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: 3.10
 
       - name: Cache Python dependencies
         uses: actions/cache@v3
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ matrix.python-version }}
+          key: ${{ runner.os }}-pip-3.10
           restore-keys: |
             ${{ runner.os }}-pip-
       - name: Install Hatch

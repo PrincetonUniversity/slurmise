@@ -3,7 +3,7 @@
 [![PyPI - Version](https://img.shields.io/pypi/v/slurmise.svg)](https://pypi.org/project/slurmise)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/slurmise.svg)](https://pypi.org/project/slurmise)
 ![CI workflow](https://github.com/princetonuniversity/slurmise/actions/workflows/test.yaml/badge.svg)
-[![cov](https://github.com/PrincetonUniversity/slurmise/blob/gh-pages/badges/coverage.svg)](https://github.com/princetonuniversity/slurmise/actions)
+[![Coverage Status](https://coveralls.io/repos/github/PrincetonUniversity/slurmise/badge.svg?branch=main)](https://coveralls.io/github/PrincetonUniversity/slurmise?branch=main)
 -----
 
 ## Table of Contents
