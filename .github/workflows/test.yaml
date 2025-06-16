@@ -33,7 +33,7 @@ jobs:
       - name: Run tests
         run: |
           if [ "${{ matrix.python-version }}" == "3.12" ]; then
-            hatch run test:test -- --cov --random-order --cov-append
+            hatch run test:test -- --cov --random-order --cov-append --cov-report
           else
             hatch run test:test -- --random-order
           fi
