@@ -39,7 +39,8 @@ dev = [
   "pytest-cov",
   "ruff",
   "coverage",
-  "pytest-random-order"
+  "pytest-random-order",
+  "coveralls"
 ]
 
 [project.urls]
@@ -82,9 +83,6 @@ exclude_lines = [
   "if TYPE_CHECKING:",
 ]
 
-[tool.coverage.json]
-output = "coverage.json"
-
 [tool.hatch.envs.hatch-static-analysis]
 config-path = "lint_config.toml"
 
@@ -94,5 +92,6 @@ dependencies = [
   "pytest-cov",
   "ruff",
   "coverage",
-  "pytest-random-order"
+  "pytest-random-order",
+  "coveralls",
 ]
