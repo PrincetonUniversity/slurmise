@@ -32,17 +32,13 @@ jobs:
 
       - name: Run tests
         run: |
-          if [ "${{ matrix.python-version }}" == "3.12" ]; then
-            hatch run test:test -- --cov --random-order --cov-append
-          else
-            hatch run test:test -- --random-order
-          fi
+          hatch run test:test -- --cov --random-order --cov-append
 
       - name: Run linter
         run: hatch fmt --check --linter
 
       - name: Upload coverage report
-        if: matrix.python-version == '3.12'
         uses: coverallsapp/github-action@v2
         with:
+          allow-empty: true
           file: .coverage
