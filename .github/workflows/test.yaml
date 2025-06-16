@@ -32,7 +32,8 @@ jobs:
 
       - name: Run tests
         run: |
-          hatch run test:test -- --cov --random-order --cov-append
+          hatch run test:test -- --cov --random-order --cov-append --cov-report=json
+          ls -alh
 
       - name: Run linter
         run: hatch fmt --check --linter
@@ -40,5 +41,6 @@ jobs:
       - name: Upload coverage report
         uses: coverallsapp/github-action@v2
         with:
+          debug: true
           allow-empty: true
           file: .coverage
