@@ -29,6 +29,7 @@ dependencies = [
   "pandas",
   "scikit-learn",
   "joblib",
+  "regex",
   "sphinx",
   "sphinx-rtd-theme"
 ]
