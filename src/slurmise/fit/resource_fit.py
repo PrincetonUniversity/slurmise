@@ -18,7 +18,7 @@ class ResourceFit:
     last_fit_dsize: int = 0
     fit_timestamp: datetime = field(default_factory=datetime.now)
     model_metrics: dict = field(default_factory=dict)
-    path: Optional[pathlib.Path] = None
+    path: pathlib.Path | str | None = None
 
     def __post_init__(self):
         if isinstance(self.path, str):

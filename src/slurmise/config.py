@@ -80,7 +80,12 @@ class SlurmiseConfiguration:
         else:
             job_prefix = self.job_prefixes.get(job_name, None)
             if job_prefix is not None:
-                cmd = cmd.removeprefix(job_prefix).lstrip()
+                if cmd.startswith(job_prefix):
+                    cmd = cmd.removeprefix(job_prefix).lstrip()
+                else:
+                    raise ValueError(
+                        f"Command {cmd!r} does not start with job prefix {job_prefix!r} for job {job_name!r}"
+                    )
 
         if job_name not in self.jobs:
             raise ValueError(f"Job {job_name} not found in configuration.")

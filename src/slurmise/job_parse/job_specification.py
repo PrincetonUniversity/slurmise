@@ -1,7 +1,10 @@
+import warnings
+import re
+
+from os import sep
 from pathlib import Path
 from slurmise import job_data
 from slurmise.job_parse.file_parsers import FileParser
-import re
 
 
 # matches tokens like {threads:numeric}
@@ -85,10 +88,13 @@ class JobSpec:
                 job.numerical[name] = float(m.group(name))
             elif kind == 'category':
                 job.categorical[name] = m.group(name)
+                if sep in job.categorical[name]:
+                    warnings.warn(message=f"Category {name} is a path, use a file parser like md5 instead.",
+                                  category=RuntimeWarning)
             elif kind in ('file', 'gzip_file', 'file_list'):
                 for parser in self.file_parsers[name]:
                     match kind:
-                        case 'file':
+                        case "file":
                             file_value = parser.parse_file(Path(m.group(name)))
                         case 'gzip_file':
                             file_value = parser.parse_file(Path(m.group(name)), gzip_file=True)
@@ -105,9 +111,8 @@ class JobSpec:
 
             else:
                 raise ValueError(f"Unknown kind {kind}.")
-            
-        return job
 
+        return job
 
     def align_and_indicate_differences(self, cmd) -> str:
         """
@@ -209,7 +214,6 @@ class JobSpec:
                             float(''.join(cmd_line[match_start:match_end]))
                         except ValueError:  # cannot parse
                             ind_with_arrows[len(ind_with_arrows) // 2] = '⚠'
-
 
                     ind_line = (ind_line[:match_start] +
                         ind_with_arrows +

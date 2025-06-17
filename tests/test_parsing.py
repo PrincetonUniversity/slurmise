@@ -19,10 +19,28 @@ def test_job_spec_named_ignore():
         numerical={'threads': 10},
     )
 
+@pytest.mark.skip
+def test_job_spec_with_special_characters():
+    spec = JobSpec(job_spec="find -name '*.out' | grep {type:category}")
+    jd = spec.parse_job_cmd(
+        JobData(
+            job_name='test',
+            cmd="find -name '*.out' | grep my_type",
+            ))
+    assert jd.categorical == {'type': 'my_type'}
+
 
 def test_job_spec_unknown_kind():
     with pytest.raises(ValueError, match="Token kind double is unknown"):
         JobSpec('cmd -T {threads:double}')
+
+
+def test_job_spec_path():
+    spec = JobSpec("cmd -T {threads:numeric} -S {another:category}")
+
+    with pytest.warns(
+        RuntimeWarning, match="Category another is a path, use a file parser like md5 instead."    ) as ve:
+        spec.parse_job_cmd(JobData(job_name="test", cmd="cmd -T 5 -S /path/to/file"))
 
 def test_job_spec_token_with_no_name():
     with pytest.raises(ValueError, match="Token {numeric} has no name."):

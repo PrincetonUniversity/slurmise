@@ -1,6 +1,7 @@
 from slurmise import job_database, slurm
 from slurmise.config import SlurmiseConfiguration
 from slurmise.fit.poly_fit import PolynomialFit
+from slurmise.job_data import JobData
 
 import numpy as np
 
@@ -10,7 +11,7 @@ class Slurmise:
     API class for interacting with slurmise.
     """
 
-    def __init__(self, toml_path=None):
+    def __init__(self, toml_path=None) -> None:
         self.configuration = SlurmiseConfiguration(toml_path)
 
     def record(
@@ -19,7 +20,7 @@ class Slurmise:
         job_name: str | None = None,
         slurm_id: str | None = None,
         step_id: str | None = None,
-    ):
+    ) -> None:
         # Pull just the slurm ID
         metadata_json = slurm.parse_slurm_job_metadata(slurm_id=slurm_id, step_id=step_id)
 
@@ -38,19 +39,19 @@ class Slurmise:
         ) as database:
             database.record(parsed_jd)
 
-    def raw_record(self, job_data):
+    def raw_record(self, job_data: JobData) -> None:
         with job_database.JobDatabase.get_database(
             self.configuration.db_filename
         ) as database:
             database.record(job_data)
 
-    def print(self):
+    def print(self) -> None:
         with job_database.JobDatabase.get_database(
             self.configuration.db_filename
         ) as database:
             database.print()
 
-    def predict(self, cmd, job_name):
+    def predict(self, cmd: str, job_name: str) -> None:
         query_jd = self.configuration.parse_job_cmd(cmd=cmd, job_name=job_name)
         query_jd = self.configuration.add_defaults(query_jd)
         query_model = PolynomialFit.load(

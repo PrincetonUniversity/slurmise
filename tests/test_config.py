@@ -84,12 +84,23 @@ def test_parse_job_cmd(basic_toml):
 
 def test_parse_job_cmd_with_ignore(basic_toml):
     config = SlurmiseConfiguration(basic_toml)
-    job_data = config.parse_job_cmd("-T 1 -C simple -i can't see me", "with_ignore", "1234")
+    job_data = config.parse_job_cmd(
+        "nothing -T 1 -C simple -i can't see me", "with_ignore", "1234"
+    )
 
     assert job_data.job_name == "with_ignore"
     assert job_data.slurm_id == "1234"
     assert job_data.categorical == {"complexity": "simple"}
     assert job_data.numerical == {"threads": 1}
+
+
+def test_parse_job_cmd_no_prefix(basic_toml):
+    config = SlurmiseConfiguration(basic_toml)
+    with pytest.raises(ValueError, match="Command \"-T 1 -C simple -i can't see me\" does not start with job prefix 'nothing' for job 'with_ignore'"):
+        config.parse_job_cmd(
+        "-T 1 -C simple -i can't see me", "with_ignore", "1234"
+    )
+
 
 def test_parse_job_cmd_invalid(basic_toml):
     config = SlurmiseConfiguration(basic_toml)
