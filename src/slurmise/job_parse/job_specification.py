@@ -38,6 +38,11 @@ class JobSpec:
         self.token_kinds = {}
         self.file_parsers: dict[str, list[FileParser]] = {}
 
+        self.job_regex = self.build_regex(available_parsers, file_parsers)
+
+    def build_regex(self, available_parsers=None, file_parsers=None, named_ignore=False):
+        job_spec = self.job_spec_str
+        ignore_ind = 0
         while match := JOB_SPEC_REGEX.search(job_spec):
             kind = match.group('kind')
             name = match.group('name')
@@ -46,21 +51,28 @@ class JobSpec:
                 raise ValueError(f"Token kind {kind} is unknown.")
 
             if kind == 'ignore':
-                job_spec = job_spec.replace(match.group(0), f'{KIND_TO_REGEX[kind]}')
+                if named_ignore:
+                    if name is None:
+                        name = f'ignore_{ignore_ind}'
+                        ignore_ind += 1
+                    job_spec = job_spec.replace(match.group(0), f'(?P<{name}>{KIND_TO_REGEX[kind]})', 1)
+                else:
+                    job_spec = job_spec.replace(match.group(0), f'{KIND_TO_REGEX[kind]}', 1)
 
             else:
                 if name is None:
                     raise ValueError(f"Token {match.group(0)} has no name.")
                 self.token_kinds[name] = kind
-                job_spec = job_spec.replace(match.group(0), f'(?P<{name}>{KIND_TO_REGEX[kind]})')
+                job_spec = job_spec.replace(match.group(0), f'(?P<{name}>{KIND_TO_REGEX[kind]})', 1)
 
-                if kind in ('file', 'gzip_file', 'file_list'):
+                if (kind in ('file', 'gzip_file', 'file_list')
+                        and available_parsers and file_parsers):
                     self.file_parsers[name] = [
                         available_parsers[parser_type]
                         for parser_type in file_parsers[name].split(',')
                     ]
 
-        self.job_regex = f'^{job_spec}$'
+        return f'^{job_spec}$'
 
     def parse_job_cmd(self, job: job_data.JobData) -> job_data.JobData:
         m = re.match(self.job_regex, job.cmd)
@@ -99,7 +111,7 @@ class JobSpec:
 
     def align_and_indicate_differences(self, cmd) -> str:
         """
-        Compares two strings and prints them aligned with indicators for differences.
+        Compares two strings and aligns with indicators for differences.
 
         Args:
             cmd: The user supplied string.
@@ -110,15 +122,28 @@ class JobSpec:
         from difflib import SequenceMatcher
         import regex
 
+        # need to handle ignore tokens differently as they have no names in the regex
+        # rebuild regex to keep names if given and give default if not
+        raw_regex = self.job_regex
+        job_spec_str = self.job_spec_str
+        if 'ignore}' in self.job_spec_str:
+            raw_regex = self.build_regex(named_ignore=True)
+            # add names to job spec str as well
+            ignore_index = 0
+            while '{ignore}' in job_spec_str:
+                job_spec_str = job_spec_str.replace('{ignore}',
+                                      f'{{ignore_{ignore_index}:ignore}}',
+                                      1)
+                ignore_index += 1
 
-        greedy_regex = re.sub(r'\.\+\?', '.+', self.job_regex)
         # ?b is for best match
         # {e} indicates to allow errors
-        match = regex.fullmatch(f"(?b)(?:{greedy_regex})" + r"{e}", cmd)
+        match = regex.fullmatch(f"(?b)(?:{raw_regex})" + r"{e}", cmd)
+        # match = re.match(raw_regex, cmd)
         if not match:
             raise ValueError('TODO: handle no matches')
 
-        simple_spec = re.sub(r'{([^:}]+)(:[^}]+)}', r'{\1}', self.job_spec_str)
+        simple_spec = re.sub(r'{([^:}]+)(:[^}]+)?}', r'{\1}', job_spec_str)
         spec_with_matches = simple_spec.format(**match.groupdict())
         display_spec = re.sub(r'{([^}]+)}', r'{{\1⇒{\1}}}', simple_spec)
         display_spec = display_spec.format(**match.groupdict())
@@ -179,7 +204,7 @@ class JobSpec:
                     ind_with_arrows[-1] = '│'
 
                     # if the regex fails because a numeric can't parse, add an indicator
-                    if self.token_kinds[wc_name] == 'numeric':
+                    if self.token_kinds.get(wc_name, '') == 'numeric':
                         try:
                             float(''.join(cmd_line[match_start:match_end]))
                         except ValueError:  # cannot parse

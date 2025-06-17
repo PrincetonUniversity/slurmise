@@ -83,6 +83,40 @@ def test_basic_job_spec_extra_cmd_internal():
         spec.parse_job_cmd(JobData(job_name='test', cmd='cmd -T 3 extra -S cat'))
     print(f'\n{ve.value}')
 
+def test_basic_job_spec_with_ignore():
+    spec = JobSpec('cmd {named:ignore} -T {threads:numeric} {ignore} -S {another:category}')
+
+    with pytest.raises(ValueError, match="Job spec for test does not match command:") as ve:
+        spec.parse_job_cmd(JobData(job_name='test', cmd='cmd ignore me please -T 3 and this too -s cat'))
+    print(f'\n{ve.value}')
+
+@pytest.mark.skip
+def test_long_job_spec():
+    spec = JobSpec(
+        '--cpu_bind=cores --export=ALL --ntasks-per-node={cpus:numeric} '
+        '--cpus-per-task=8 so-site-pipeline make-ml-map {query:category} '
+        '{footprint:category} {ignore} --comps={maps:category} -C {ignore} '
+        '--bands={bands:category} --maxiter={iters:numeric} -v --tiled=1 --site act',
+        file_parsers={'footprint': 'file_md5'},
+    )
+    cmd = (
+        '--cpu_bind=cores --export=ALL --ntasks-per-node=1 '
+        '--cpus-per-task=8 so-site-pipeline make-ml-map timestamp_start '
+        'somefile.fits output --executable so-site-pipeline '
+        '--comps=context.yaml -C context.yaml '
+        '--bands=aband '
+        '--maxiter=10 -v --tiled=1 --site act'
+    )
+
+    print(spec.align_and_indicate_differences(cmd))
+
+    from datetime import datetime
+    start = datetime.now()
+    with pytest.raises(ValueError, match="Job spec for test does not match command:") as ve:
+        spec.parse_job_cmd(JobData(job_name='test', cmd=cmd))
+    print(datetime.now() - start)
+    print(f'\n{ve.value}')
+
 def test_job_spec_with_builtin_parsers_basename(tmp_path):
     '''
         [slurmise.job.builtin_files]
