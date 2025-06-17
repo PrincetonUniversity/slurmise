@@ -39,6 +39,14 @@ class Slurmise:
             database.record(parsed_jd)
 
     def raw_record(self, job_data):
+
+        metadata_json = slurm.parse_slurm_job_metadata(
+            slurm_id=job_data.slurm_id, step_id=job_data.step_id
+        )
+
+        job_data.memory = metadata_json["max_rss"]
+        job_data.runtime = metadata_json["elapsed_seconds"]
+
         with job_database.JobDatabase.get_database(
             self.configuration.db_filename
         ) as database:
@@ -52,6 +60,14 @@ class Slurmise:
 
     def predict(self, cmd, job_name):
         query_jd = self.configuration.parse_job_cmd(cmd=cmd, job_name=job_name)
+        query_jd = self.configuration.add_defaults(query_jd)
+        query_model = PolynomialFit.load(
+            query=query_jd, path=self.configuration.slurmise_base_dir
+        )
+        query_jd, query_warns = query_model.predict(query_jd)
+        return query_jd, query_warns
+
+    def raw_predict(self, query_jd):
         query_jd = self.configuration.add_defaults(query_jd)
         query_model = PolynomialFit.load(
             query=query_jd, path=self.configuration.slurmise_base_dir

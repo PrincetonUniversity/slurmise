@@ -42,6 +42,7 @@ def record(ctx, cmd, job_name, slurm_id, step_id):
 @main.command()
 @click.option("--job-name", type=str, required=True, help="Name of the job")
 @click.option("--slurm-id", type=str, required=True, help="SLURM id of job")
+@click.option("--step-id", type=str, help="SLURM step id")
 @click.option(
     "--numerical",
     type=str,
@@ -54,7 +55,7 @@ def record(ctx, cmd, job_name, slurm_id, step_id):
 )
 @click.option("--cmd", type=str, help="Actual command run")
 @click.pass_context
-def raw_record(ctx, job_name, slurm_id, numerical, categorical, cmd):
+def raw_record(ctx, job_name, slurm_id, step_id, numerical, categorical, cmd):
     """Record a job"""
     # NOTE hack to get JSON parsing working with click who is too eager to try and process the args
     categorical = json.loads("{" + categorical + "}") if categorical else {}
@@ -63,6 +64,7 @@ def raw_record(ctx, job_name, slurm_id, numerical, categorical, cmd):
     jd = job_data.JobData(
         job_name=job_name,
         slurm_id=slurm_id,
+        step_id=step_id,
         numerical=numerical,
         categorical=categorical,
         cmd=cmd,
@@ -89,6 +91,36 @@ def predict(ctx, cmd, job_name):
         click.echo(click.style("Warnings:", fg="yellow"), err=True, color="red")
         for warn in query_warns:
             click.echo(f"  {warn}", err=True)
+
+
+@main.command()
+@click.option("--job-name", type=str, required=True, help="Name of the job")
+@click.option(
+    "--numerical",
+    type=str,
+    help="Numerical run parameters in JSON format without outer {}, such as 'n:3,q:17.4'",
+)
+@click.option(
+    "--categorical",
+    type=str,
+    help="Categorical run parameters in JSON format without outer {}",
+)
+@click.option("--cmd", type=str, help="Actual command run")
+@click.pass_context
+def raw_predict(ctx, job_name, numerical, categorical, cmd):
+    """predict a job"""
+    # NOTE hack to get JSON parsing working with click who is too eager to try and process the args
+    categorical = json.loads("{" + categorical + "}") if categorical else {}
+    numerical = json.loads("{" + numerical + "}") if numerical else {}
+
+    jd = job_data.JobData(
+        job_name=job_name,
+        numerical=numerical,
+        categorical=categorical,
+        cmd=cmd,
+    )
+
+    ctx.obj["slurmise"].raw_predict(jd)
 
 
 @main.command()
