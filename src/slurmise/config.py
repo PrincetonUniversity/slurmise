@@ -61,6 +61,30 @@ class SlurmiseConfiguration:
             step_id: str | None = None
             ) -> job_data.JobData:
         """Parse a job data dataset into a JobData object."""
+
+        jd = self._fill_job_name(cmd, job_name, slurm_id, step_id)
+        job_spec = self.jobs[jd.job_name]["job_spec_obj"]
+
+        return job_spec.parse_job_cmd(jd)
+
+    def dry_parse(
+            self,
+            cmd: str,
+            job_name: str | None = None,
+        ):
+
+        jd = self._fill_job_name(cmd, job_name)
+        job_spec = self.jobs[jd.job_name]["job_spec_obj"]
+        return job_spec.align_and_indicate_differences(jd.cmd, try_exact_match=True)
+
+    def _fill_job_name(
+            self,
+            cmd: str,
+            job_name: str | None = None,
+            slurm_id: str | None = None,
+            step_id: str | None = None,
+        ) -> job_data.JobData:
+        """From the user supplied input, create a job data object."""
         if job_name is None:  # try to infer
             for name, prefix in self.job_prefixes.items():
                 if cmd.startswith(prefix):
@@ -87,14 +111,12 @@ class SlurmiseConfiguration:
 
         if step_id is not None:
             slurm_id = '.'.join([str(slurm_id), str(step_id)])
-        jd = job_data.JobData(
+        return job_data.JobData(
             job_name=job_name,
             slurm_id=slurm_id,
             cmd=cmd
         )
 
-        job_spec = self.jobs[job_name]["job_spec_obj"]
-        return job_spec.parse_job_cmd(jd)
 
     def add_defaults(self, job_data: job_data.JobData) -> job_data.JobData:
         """Add default values to a job data object."""

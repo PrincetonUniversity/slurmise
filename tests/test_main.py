@@ -263,3 +263,19 @@ def test_predict_nomodel(nupackdefaults_toml):
     assert "Predicted memory" == predicted_memory[0]
     assert float(predicted_memory[1]) == 3000
     assert "Warnings:" in result.stderr
+
+def test_parse(simple_toml):
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "--toml",
+            simple_toml.toml,
+            "parse",
+            "nupack monomer -T 2 -C simple",
+        ],
+    )
+    assert result.exit_code == 0
+
+    assert result.stdout.startswith("Able to parse")

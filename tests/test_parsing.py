@@ -90,6 +90,19 @@ def test_basic_job_spec_with_ignore():
         spec.parse_job_cmd(JobData(job_name='test', cmd='cmd ignore me please -T 3 and this too -s cat'))
     print(f'\n{ve.value}')
 
+def test_try_exact_passes():
+    spec = JobSpec('cmd -T {threads:numeric} -S {another:category}')
+    result = spec.align_and_indicate_differences('cmd -T 3 -S cat', try_exact_match=True)
+    print(f'\n{result}')
+    assert result.startswith('Able to parse')
+
+def test_try_exact_fails():
+    spec = JobSpec('cmd -T {threads:numeric} -S {another:category}')
+    result = spec.align_and_indicate_differences('FAILURE -T 3 -S cat', try_exact_match=True)
+    print(f'\n{result}')
+    assert result.startswith('Failed to parse')
+
+
 @pytest.mark.skip
 def test_long_job_spec():
     spec = JobSpec(
