@@ -68,7 +68,6 @@ class Slurmise:
         return query_jd, query_warns
 
     def raw_predict(self, query_jd):
-        query_jd = self.configuration.add_defaults(query_jd)
         query_model = PolynomialFit.load(
             query=query_jd, path=self.configuration.slurmise_base_dir
         )

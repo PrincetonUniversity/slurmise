@@ -32,7 +32,6 @@ def parse_slurm_job_metadata(slurm_id: str | None = None, step_name: str | None 
             steps[step["step"]["id"]] = step
             jobstep_ids.append(step["step"]["id"])
 
-
         if step_name is None:
             step_id = jobstep_ids[-1]
             step_name = step_id.split(".")[-1]

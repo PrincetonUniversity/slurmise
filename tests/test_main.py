@@ -175,6 +175,26 @@ def test_update_predict(nupack_toml):
     assert "Predicted memory" == predicted_memory[0]
     np.testing.assert_allclose(float(predicted_memory[1]), 10168.72, rtol=0.01)
 
+    result = runner.invoke(
+        main,
+        [
+            "--toml",
+            nupack_toml.toml,
+            "raw-predict",
+            "--numerical='c':3,'S':6543",
+            "--cmd='nupack monomer -c 3 -S 6543'",
+        ],
+    )
+    assert result.exit_code == 0
+    tmp_stdout = result.stdout.split("\n")
+    predicted_runtime = tmp_stdout[0].split(":")
+    predicted_memory = tmp_stdout[1].split(":")
+    assert "Predicted runtime" == predicted_runtime[0]
+    np.testing.assert_allclose(float(predicted_runtime[1]), 9.29, rtol=0.01)
+    assert "Predicted memory" == predicted_memory[0]
+    np.testing.assert_allclose(float(predicted_memory[1]), 10168.72, rtol=0.01)
+
+
     # Test that slurmise returns the default values when the predicted values are not possible.
     result = runner.invoke(
         main,
