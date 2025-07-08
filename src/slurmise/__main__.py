@@ -35,8 +35,19 @@ def record(ctx, cmd, job_name, slurm_id, step_id):
     """Command to record a job.
     For example: `slurmise record "-o 2 -i 3 -m fast"`
     """
-
     ctx.obj["slurmise"].record(cmd, job_name, slurm_id, step_id)
+
+
+@main.command()
+@click.argument("cmd", nargs=1)
+@click.option("--job-name", type=str, help="Name of the job")
+@click.pass_context
+def parse(ctx, cmd, job_name):
+    """Command to record a job.
+    For example: `slurmise record "-o 2 -i 3 -m fast"`
+    """
+    parsed_output = ctx.obj["slurmise"].dry_parse(cmd, job_name)
+    click.echo(parsed_output)
 
 
 @main.command()

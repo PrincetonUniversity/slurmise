@@ -38,6 +38,17 @@ class Slurmise:
         ) as database:
             database.record(parsed_jd)
 
+    def dry_parse(
+        self,
+        cmd: str,
+        job_name: str | None = None,
+    ):
+        parsed_output = self.configuration.dry_parse(
+            cmd=cmd,
+            job_name=job_name,
+        )
+        return parsed_output
+
     def raw_record(self, job_data):
 
         metadata_json = slurm.parse_slurm_job_metadata(

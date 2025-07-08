@@ -109,12 +109,13 @@ class JobSpec:
         return job
 
 
-    def align_and_indicate_differences(self, cmd) -> str:
+    def align_and_indicate_differences(self, cmd: str, try_exact_match: bool=False) -> str:
         """
         Compares two strings and aligns with indicators for differences.
 
         Args:
             cmd: The user supplied string.
+            try_exact_match: Attempt to match regex exactly, fall back to fuzzy.
 
         Returns:
             multi-line, aligned string of differences
@@ -136,10 +137,21 @@ class JobSpec:
                                       1)
                 ignore_index += 1
 
-        # ?b is for best match
-        # {e} indicates to allow errors
-        match = regex.fullmatch(f"(?b)(?:{raw_regex})" + r"{e}", cmd)
-        # match = re.match(raw_regex, cmd)
+        match = None
+        parsable = False
+
+        if try_exact_match:
+            parsable = True
+            match = re.match(raw_regex, cmd)
+
+        # unable or unwilling to exact match
+        if not match:
+            parsable = False
+            # ?b is for best match
+            # {e} indicates to allow errors
+            match = regex.fullmatch(f"(?b)(?:{raw_regex})" + r"{e}", cmd)
+
+        # still no matches
         if not match:
             raise ValueError('TODO: handle no matches')
 
@@ -262,9 +274,18 @@ class JobSpec:
                 aligned_cmd.append(cmd[cmd_start:cmd_end])
                 indicator_line.append('∨' * cmd_len)
 
-        return '\n'.join(
-            [
+        result = []
+
+        if try_exact_match:
+            if parsable:
+                result += ["Able to parse"]
+            else:
+                result += ["Failed to parse"]
+
+        result += [
                 "".join(aligned_spec),
                 "".join(indicator_line),
                 "".join(aligned_cmd),
-            ])
+            ]
+
+        return '\n'.join(result)
