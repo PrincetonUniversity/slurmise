@@ -21,7 +21,9 @@ class Slurmise:
         step_id: str | None = None,
     ):
         # Pull just the slurm ID
-        metadata_json = slurm.parse_slurm_job_metadata(slurm_id=slurm_id, step_id=step_id)
+        metadata_json = slurm.parse_slurm_job_metadata(
+            slurm_id=slurm_id, step_id=step_id
+        )
 
         parsed_jd = self.configuration.parse_job_cmd(
             cmd=cmd,
@@ -50,9 +52,14 @@ class Slurmise:
         return parsed_output
 
     def raw_record(self, job_data):
-
+        if "." in job_data.slurm_id:
+            # If the slurm_id is in the format "1234.0", split it to get the step_id
+            slurm_id, step_name = job_data.slurm_id.split(".")
+        else:
+            # If no step_id is provided, use the slurm_id as is
+            slurm_id, step_name = job_data.slurm_id, None
         metadata_json = slurm.parse_slurm_job_metadata(
-            slurm_id=job_data.slurm_id, step_id=job_data.step_id
+            slurm_id=slurm_id, step_name=step_name
         )
 
         job_data.memory = metadata_json["max_rss"]
@@ -79,6 +86,8 @@ class Slurmise:
         return query_jd, query_warns
 
     def raw_predict(self, query_jd):
+        # breakpoint()
+        query_jd = self.configuration.add_defaults(query_jd)
         query_model = PolynomialFit.load(
             query=query_jd, path=self.configuration.slurmise_base_dir
         )
