@@ -235,6 +235,29 @@ def test_update_predict(nupack_toml):
     assert float(predicted_memory[1]) == 1000
     assert "Warnings:" in result.stderr
 
+    # Test that slurmise returns the default values when the predicted values are not possible.
+    result = runner.invoke(
+        main,
+        [
+            "--toml",
+            nupack_toml.toml,
+            "raw-predict",
+            "--job-name=nupack",
+            '--numerical="cpus":987654,"sequences":4985',
+            "--cmd='nupack monomer -c 987654 -S 4985'",
+        ],
+        catch_exceptions=True,
+    )
+    assert result.exit_code == 0
+    tmp_stdout = result.stdout.split("\n")
+    predicted_runtime = tmp_stdout[0].split(":")
+    predicted_memory = tmp_stdout[1].split(":")
+    assert "Predicted runtime" == predicted_runtime[0]
+    assert float(predicted_runtime[1]) == 60
+    assert "Predicted memory" == predicted_memory[0]
+    assert float(predicted_memory[1]) == 1000
+    assert "Warnings:" in result.stderr
+
 
 def test_update_all_predict(nupack_toml):
     """Test the update all and predict commands of slurmise.
