@@ -71,7 +71,6 @@ def raw_record(ctx, job_name, slurm_id, step_id, numerical, categorical, cmd):
     # NOTE hack to get JSON parsing working with click who is too eager to try and process the args
     categorical = json.loads("{" + categorical + "}") if categorical else {}
     numerical = json.loads("{" + numerical + "}") if numerical else {}
-    # breakpoint()  # For debugging purposes, remove in production
     slurm_id = f"{slurm_id}.{step_id}" if step_id is not None else slurm_id
 
     jd = job_data.JobData(
