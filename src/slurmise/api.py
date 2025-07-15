@@ -13,6 +13,7 @@ class Slurmise:
     """
 
     def __init__(self, toml_path=None):
+        self.toml_path = toml_path
         self.configuration = SlurmiseConfiguration(toml_path)
 
     def record(
