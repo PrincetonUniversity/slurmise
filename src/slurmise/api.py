@@ -58,6 +58,7 @@ class Slurmise:
         else:
             # If no step_id is provided, use the slurm_id as is
             slurm_id, step_name = job_data.slurm_id, None
+
         metadata_json = slurm.parse_slurm_job_metadata(
             slurm_id=slurm_id, step_name=step_name
         )
@@ -122,3 +123,14 @@ class Slurmise:
         ) as database:
             for query_jd, jobs in database.iterate_database():
                 self._update_model(query_jd, jobs)
+
+    def job_data_from_dict(
+        self,
+        variables: dict,
+        job_name: str,
+        slurm_id: str | None = None,
+        step_id: str | None = None,
+        ):
+        return self.configuration.parse_job_from_dict(
+            variables, job_name, slurm_id, step_id,
+        )

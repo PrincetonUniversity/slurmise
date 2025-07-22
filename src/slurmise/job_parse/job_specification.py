@@ -75,27 +75,37 @@ class JobSpec:
         return f'^{job_spec}$'
 
     def parse_job_cmd(self, job: job_data.JobData) -> job_data.JobData:
-        m = re.match(self.job_regex, job.cmd)
-        if m is None:
+        match = re.match(self.job_regex, job.cmd)
+        if match is None:
             result = self.align_and_indicate_differences(job.cmd)
             raise ValueError(f"Job spec for {job.job_name} does not match command:\n{result}")
+        return self.parse_job_from_dict(match.groupdict(), job)
+
+    def parse_job_from_dict(self, input_dict: dict, job: job_data.JobData):
+
+        token_keys = set(self.token_kinds.keys())
+        input_keys = set(input_dict.keys())
+        if len(extras := token_keys - input_keys) != 0:
+            raise ValueError(f'Dict missing variable: {extras.pop()!r}')
+        if len(extras := input_keys - token_keys) != 0:
+            raise ValueError(f'Dict contained extra variable: {extras.pop()!r}')
 
         for name, kind in self.token_kinds.items():
             if kind == 'numeric':
-                job.numerical[name] = float(m.group(name))
+                job.numerical[name] = float(input_dict[name])
             elif kind == 'category':
-                job.categorical[name] = m.group(name)
+                job.categorical[name] = input_dict[name]
             elif kind in ('file', 'gzip_file', 'file_list'):
                 for parser in self.file_parsers[name]:
                     match kind:
                         case 'file':
-                            file_value = parser.parse_file(Path(m.group(name)))
+                            file_value = parser.parse_file(Path(input_dict[name]))
                         case 'gzip_file':
-                            file_value = parser.parse_file(Path(m.group(name)), gzip_file=True)
+                            file_value = parser.parse_file(Path(input_dict[name]), gzip_file=True)
                         case 'file_list':
                             file_value = [
                             parser.parse_file(Path(file.strip()))
-                            for file in open(Path(m.group(name)), 'r')
+                            for file in open(Path(input_dict[name]), 'r')
                         ]
 
                     if parser.return_type == NUMERICAL:

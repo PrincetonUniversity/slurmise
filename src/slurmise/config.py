@@ -67,6 +67,20 @@ class SlurmiseConfiguration:
 
         return job_spec.parse_job_cmd(jd)
 
+    def parse_job_from_dict(
+        self,
+        variables: dict,
+        job_name: str,
+        slurm_id: str | None = None,
+        step_id: str | None = None,
+        ) -> job_data.JobData:
+        """Parse a job data dataset into a JobData object."""
+
+        jd = self._fill_job_name("", job_name, slurm_id, step_id)
+        job_spec = self.jobs[jd.job_name]["job_spec_obj"]
+
+        return job_spec.parse_job_from_dict(variables, jd)
+
     def dry_parse(
             self,
             cmd: str,
