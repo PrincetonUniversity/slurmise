@@ -43,7 +43,7 @@ def test_basic_job_spec_from_dict():
 def test_basic_job_spec_from_dict_extra_in_dict():
     spec = JobSpec('cmd -T {threads:numeric}')
 
-    with pytest.raises(ValueError, match="Dict contained extra variable: 'extra'") as ve:
+    with pytest.raises(ValueError, match="Dict contained extra variable: 'extra'"):
         spec.parse_job_from_dict(
             {'threads': 3, 'extra': 'something'},
             JobData(job_name='test'),
@@ -52,7 +52,7 @@ def test_basic_job_spec_from_dict_extra_in_dict():
 def test_basic_job_spec_from_dict_missing_in_dict():
     spec = JobSpec('cmd -T {threads:numeric}')
 
-    with pytest.raises(ValueError, match="Dict missing variable: 'threads'") as ve:
+    with pytest.raises(ValueError, match="Dict missing variable: 'threads'"):
         spec.parse_job_from_dict(
             {},
             JobData(job_name='test'),
