@@ -271,13 +271,17 @@ def test_rqd_with_emptydb(empty_h5py_file):
 def test_iterate_database(small_db):
     """Test access to all jobs and data through an iterator."""
     expected_queries = [
-        JobData(job_name='test_job', categorical={'option1': 'value1', 'option2': 'value2'}),
-        JobData(job_name='test_job', categorical={'option1': 'value1'}),
-        JobData(job_name='test_job', categorical={'option1': 'value2'}),
-        JobData(job_name='test_job'),
+        JobData(
+            job_name="test_job", categorical={"option1": "value1", "option2": "value2"}
+        ),
+        JobData(job_name="test_job", categorical={"option1": "value1"}),
+        JobData(job_name="test_job", categorical={"option1": "value2"}),
+        JobData(job_name="test_job"),
     ]
 
-    for (query, jobs), expected in zip(small_db.iterate_database(), expected_queries, strict=True):
+    for (query, jobs), expected in zip(
+        small_db.iterate_database(), expected_queries, strict=True
+    ):
         assert query == expected
         expected_result = small_db.query(query)
         assert jobs == expected_result

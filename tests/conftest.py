@@ -4,7 +4,7 @@ import shutil
 from collections import namedtuple
 
 
-TomlReturn = namedtuple('TomlReturn', ['toml', 'db'])
+TomlReturn = namedtuple("TomlReturn", ["toml", "db"])
 
 
 @pytest.fixture

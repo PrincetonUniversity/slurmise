@@ -20,25 +20,12 @@ class Slurmise:
         slurm_id: str | None = None,
         step_id: str | None = None,
     ):
-        # Pull just the slurm ID
-        metadata_json = slurm.parse_slurm_job_metadata(
-            slurm_id=slurm_id, step_id=step_id
-        )
-
         parsed_jd = self.configuration.parse_job_cmd(
             cmd=cmd,
             job_name=job_name,
-            slurm_id=metadata_json["slurm_id"],
-            step_id=metadata_json["step_id"],
+            slurm_id=f"{slurm_id}.{step_id}" if step_id is not None else slurm_id,
         )
-
-        parsed_jd.memory = metadata_json["max_rss"]
-        parsed_jd.runtime = metadata_json["elapsed_seconds"]
-
-        with job_database.JobDatabase.get_database(
-            self.configuration.db_filename
-        ) as database:
-            database.record(parsed_jd)
+        self.raw_record(parsed_jd)
 
     def dry_parse(
         self,
@@ -79,15 +66,10 @@ class Slurmise:
 
     def predict(self, cmd, job_name):
         query_jd = self.configuration.parse_job_cmd(cmd=cmd, job_name=job_name)
-        query_jd = self.configuration.add_defaults(query_jd)
-        query_model = PolynomialFit.load(
-            query=query_jd, path=self.configuration.slurmise_base_dir
-        )
-        query_jd, query_warns = query_model.predict(query_jd)
-        return query_jd, query_warns
+
+        return self.raw_predict(query_jd)
 
     def raw_predict(self, query_jd):
-        # breakpoint()
         query_jd = self.configuration.add_defaults(query_jd)
         query_model = PolynomialFit.load(
             query=query_jd, path=self.configuration.slurmise_base_dir
@@ -130,7 +112,10 @@ class Slurmise:
         job_name: str,
         slurm_id: str | None = None,
         step_id: str | None = None,
-        ):
+    ):
         return self.configuration.parse_job_from_dict(
-            variables, job_name, slurm_id, step_id,
+            variables,
+            job_name,
+            slurm_id,
+            step_id,
         )

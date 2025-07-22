@@ -32,7 +32,7 @@ def slurmise_record(toml, process_id, error_queue):
             time.sleep(process_id * 0.1)
             for i in range(10):
                 slurmise.record(
-                    "nupack monomer -T 2 -C simple", slurm_id=process_id * 100 + i
+                    "nupack monomer -T 2 -C simple", slurm_id=str(process_id * 100 + i)
                 )
                 time.sleep(process_id * 0.1)
     except Exception as e:
@@ -56,11 +56,12 @@ def test_multiple_slurmise_instances(simple_toml):
             print(error_queue.get())
         pytest.fail("Child prcess had error")
 
+
 def test_job_data_from_dict(simple_toml):
     slurmise = Slurmise(simple_toml.toml)
     result = slurmise.job_data_from_dict(
-        {'threads': 3, 'complexity': 'simple'},
-        'nupack',
+        {"threads": 3, "complexity": "simple"},
+        "nupack",
     )
-    assert result.categorical == {'complexity': 'simple'}
-    assert result.numerical == {'threads': 3}
+    assert result.categorical == {"complexity": "simple"}
+    assert result.numerical == {"threads": 3}
