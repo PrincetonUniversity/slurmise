@@ -1,11 +1,12 @@
 import shutil
 from pathlib import Path
-from typing import namedtuple
+from typing import NamedTuple
 
 import pytest
 
-TomlReturn = namedtuple("TomlReturn", ["toml", "db"])
-
+class TomlReturn(NamedTuple):
+    toml: str
+    db: str
 
 @pytest.fixture
 def simple_toml(tmp_path):

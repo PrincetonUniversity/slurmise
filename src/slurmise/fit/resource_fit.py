@@ -18,7 +18,7 @@ BASEMODELPATH = pathlib.Path.home() / ".slurmise/models/"
 class ResourceFit:
     query: JobData
     last_fit_dsize: int = 0
-    fit_timestamp: datetime = field(default_factory=datetime.now)
+    fit_timestamp: datetime.datetime = field(default_factory=datetime.datetime.now)
     model_metrics: dict = field(default_factory=dict)
     path: Optional[pathlib.Path] = None
 
@@ -108,7 +108,7 @@ class ResourceFit:
                 info = json.load(load_file)
 
             # Convert datetime from isoformat string to datetime object
-            info["fit_timestamp"] = datetime.fromisoformat(info["fit_timestamp"])
+            info["fit_timestamp"] = datetime.datetime.fromisoformat(info["fit_timestamp"])
         else:
             info = {
                 "query": query,
