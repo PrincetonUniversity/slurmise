@@ -5,7 +5,7 @@ from slurmise.slurm import parse_slurm_job_metadata
 
 
 def test_parse_slurm_job_metadata(monkeypatch):
-    def mock_get_slurm_job_sacct(slurm_id):
+    def mock_get_slurm_job_sacct(slurm_id):  # noqa: ARG001
         with open(Path(__file__).parent / "sacct_output.json") as f:
             return json.load(f)
 

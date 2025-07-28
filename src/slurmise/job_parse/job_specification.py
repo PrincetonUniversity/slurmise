@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import re
 from pathlib import Path
 
@@ -40,9 +42,7 @@ class JobSpec:
 
         self.job_regex = self.build_regex(available_parsers, file_parsers)
 
-    def build_regex(
-        self, available_parsers=None, file_parsers=None, named_ignore=False
-    ):
+    def build_regex(self, available_parsers=None, file_parsers=None, named_ignore=False):
         job_spec = self.job_spec_str
         ignore_ind = 0
         while match := JOB_SPEC_REGEX.search(job_spec):
@@ -50,37 +50,28 @@ class JobSpec:
             name = match.group("name")
 
             if kind not in KIND_TO_REGEX:
-                raise ValueError(f"Token kind {kind} is unknown.")
+                msg = f"Token kind {kind} is unknown."
+                raise ValueError(msg)
 
             if kind == "ignore":
                 if named_ignore:
                     if name is None:
                         name = f"ignore_{ignore_ind}"
                         ignore_ind += 1
-                    job_spec = job_spec.replace(
-                        match.group(0), f"(?P<{name}>{KIND_TO_REGEX[kind]})", 1
-                    )
+                    job_spec = job_spec.replace(match.group(0), f"(?P<{name}>{KIND_TO_REGEX[kind]})", 1)
                 else:
-                    job_spec = job_spec.replace(
-                        match.group(0), f"{KIND_TO_REGEX[kind]}", 1
-                    )
+                    job_spec = job_spec.replace(match.group(0), f"{KIND_TO_REGEX[kind]}", 1)
 
             else:
                 if name is None:
-                    raise ValueError(f"Token {match.group(0)} has no name.")
+                    msg = f"Token {match.group(0)} has no name."
+                    raise ValueError(msg)
                 self.token_kinds[name] = kind
-                job_spec = job_spec.replace(
-                    match.group(0), f"(?P<{name}>{KIND_TO_REGEX[kind]})", 1
-                )
+                job_spec = job_spec.replace(match.group(0), f"(?P<{name}>{KIND_TO_REGEX[kind]})", 1)
 
-                if (
-                    kind in ("file", "gzip_file", "file_list")
-                    and available_parsers
-                    and file_parsers
-                ):
+                if kind in ("file", "gzip_file", "file_list") and available_parsers and file_parsers:
                     self.file_parsers[name] = [
-                        available_parsers[parser_type]
-                        for parser_type in file_parsers[name].split(",")
+                        available_parsers[parser_type] for parser_type in file_parsers[name].split(",")
                     ]
 
         return f"^{job_spec}$"
@@ -89,18 +80,19 @@ class JobSpec:
         match = re.match(self.job_regex, job.cmd)
         if match is None:
             result = self.align_and_indicate_differences(job.cmd)
-            raise ValueError(
-                f"Job spec for {job.job_name} does not match command:\n{result}"
-            )
+            msg = f"Job spec for {job.job_name} does not match command:\n{result}"
+            raise ValueError(msg)
         return self.parse_job_from_dict(match.groupdict(), job)
 
     def parse_job_from_dict(self, input_dict: dict, job: job_data.JobData):
         token_keys = set(self.token_kinds.keys())
         input_keys = set(input_dict.keys())
         if len(extras := token_keys - input_keys) != 0:
-            raise ValueError(f"Dict missing variable: {extras.pop()!r}")
+            msg = f"Dict missing variable: {extras.pop()!r}"
+            raise ValueError(msg)
         if len(extras := input_keys - token_keys) != 0:
-            raise ValueError(f"Dict contained extra variable: {extras.pop()!r}")
+            msg = f"Dict contained extra variable: {extras.pop()!r}"
+            raise ValueError(msg)
 
         for name, kind in self.token_kinds.items():
             if kind == "numeric":
@@ -117,14 +109,12 @@ class JobSpec:
                         case "file":
                             file_value = parser.parse_file(Path(input_dict[name]))
                         case "gzip_file":
-                            file_value = parser.parse_file(
-                                Path(input_dict[name]), gzip_file=True
-                            )
+                            file_value = parser.parse_file(Path(input_dict[name]), gzip_file=True)
                         case "file_list":
-                            file_value = [
-                                parser.parse_file(Path(file.strip()))
-                                for file in open(Path(input_dict[name]), "r")
-                            ]
+                            file_value = []
+                            with open(Path(input_dict[name])) as f:
+                                for file in f:
+                                    file_value.append(parser.parse_file(Path(file.strip())))
 
                     if parser.return_type == NUMERICAL:
                         job.numerical[f"{name}_{parser.name}"] = file_value
@@ -136,9 +126,7 @@ class JobSpec:
 
         return job
 
-    def align_and_indicate_differences(
-        self, cmd: str, try_exact_match: bool = False
-    ) -> str:
+    def align_and_indicate_differences(self, cmd: str, try_exact_match: bool = False) -> str:
         """
         Compares two strings and aligns with indicators for differences.
 
@@ -162,9 +150,7 @@ class JobSpec:
             # add names to job spec str as well
             ignore_index = 0
             while "{ignore}" in job_spec_str:
-                job_spec_str = job_spec_str.replace(
-                    "{ignore}", f"{{ignore_{ignore_index}:ignore}}", 1
-                )
+                job_spec_str = job_spec_str.replace("{ignore}", f"{{ignore_{ignore_index}:ignore}}", 1)
                 ignore_index += 1
 
         match = None
@@ -195,15 +181,13 @@ class JobSpec:
         matches_to_display = []
         offset = 0
         for wc in re.finditer(r"{([^⇒]+)⇒([^}]*)}", display_spec):
-            matches_to_display.append(
-                (
-                    wc.start() + offset,
-                    wc.start() + offset + len(wc.group(2)),
-                    wc.start(),  # start of match in display_spec
-                    wc.end(),  # end of match in display_spec
-                    wc.group(1),  # wc name
-                )
-            )
+            matches_to_display.append((
+                wc.start() + offset,
+                wc.start() + offset + len(wc.group(2)),
+                wc.start(),  # start of match in display_spec
+                wc.end(),  # end of match in display_spec
+                wc.group(1),  # wc name
+            ))
             offset += len(wc.group(2)) - wc.end() + wc.start()
 
         # convert to list for slicing
@@ -231,17 +215,13 @@ class JobSpec:
                     and matches_to_display[0][1] <= spec_end
                 ):
                     # get first set of indices, remove spec_start offset
-                    match_start, match_end, display_start, display_end, wc_name = (
-                        matches_to_display.pop(0)
-                    )
+                    match_start, match_end, display_start, display_end, wc_name = matches_to_display.pop(0)
                     match_start += offset - spec_start
                     match_end += offset - spec_start
 
                     # insert display spec into spec_line
                     spec_line = (
-                        spec_line[:match_start]
-                        + display_spec[display_start:display_end]
-                        + spec_line[match_end:]
+                        spec_line[:match_start] + display_spec[display_start:display_end] + spec_line[match_end:]
                     )
 
                     # insert markers to ind_line
@@ -257,14 +237,10 @@ class JobSpec:
                         except ValueError:  # cannot parse
                             ind_with_arrows[len(ind_with_arrows) // 2] = "⚠"
 
-                    ind_line = (
-                        ind_line[:match_start] + ind_with_arrows + ind_line[match_end:]
-                    )
+                    ind_line = ind_line[:match_start] + ind_with_arrows + ind_line[match_end:]
 
                     # this many characters were added to spec_line
-                    added_chars = (
-                        display_end - display_start - (match_end - match_start)
-                    )
+                    added_chars = display_end - display_start - (match_end - match_start)
                     # extract match in cmd_line and add spaces to stay aligned
                     # surround with corner and indicator
                     cmd_line = (
@@ -296,11 +272,9 @@ class JobSpec:
                 spec_len = spec_end - spec_start
                 cmd_len = cmd_end - cmd_start
                 max_len = max(spec_len, cmd_len)
-                aligned_spec.append(
-                    spec_with_matches[spec_start:spec_end] + " " * (max_len - spec_len)
-                )
+                aligned_spec.append(spec_with_matches[spec_start:spec_end] + " " * (max_len - spec_len))
                 aligned_cmd.append(cmd[cmd_start:cmd_end] + " " * (max_len - cmd_len))
-                indicator_line.append("╳" * max_len)
+                indicator_line.append("╳" * max_len)  # noqa: RUF001
             elif tag == "delete":
                 # Deletion from spec_with_matches
                 spec_len = spec_end - spec_start
@@ -312,7 +286,7 @@ class JobSpec:
                 cmd_len = cmd_end - cmd_start
                 aligned_spec.append(" " * cmd_len)
                 aligned_cmd.append(cmd[cmd_start:cmd_end])
-                indicator_line.append("∨" * cmd_len)
+                indicator_line.append("∨" * cmd_len)  # noqa: RUF001
 
         result = []
 

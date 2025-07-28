@@ -71,9 +71,7 @@ def test_basic_job_spec_from_dict_missing_in_dict():
 def test_job_spec_failure_swap():
     spec = JobSpec("cmd -T {threads:numeric} -S {another:category}")
 
-    with pytest.raises(
-        ValueError, match="Job spec for test does not match command:"
-    ) as ve:
+    with pytest.raises(ValueError, match="Job spec for test does not match command:") as ve:
         spec.parse_job_cmd(JobData(job_name="test", cmd="cmd -S simple -T 5"))
     print(f"\n{ve.value}")
 
@@ -81,9 +79,7 @@ def test_job_spec_failure_swap():
 def test_job_spec_failure_typos():
     spec = JobSpec("cmd -T {threads:numeric} -S {another:category}")
 
-    with pytest.raises(
-        ValueError, match="Job spec for test does not match command:"
-    ) as ve:
+    with pytest.raises(ValueError, match="Job spec for test does not match command:") as ve:
         spec.parse_job_cmd(JobData(job_name="test", cmd="cnd -t 5 -S simple"))
     print(f"\n{ve.value}")
 
@@ -91,9 +87,7 @@ def test_job_spec_failure_typos():
 def test_basic_job_spec_extra_cmd_prefix():
     spec = JobSpec("cmd -T {threads:numeric} -S {another:category}")
 
-    with pytest.raises(
-        ValueError, match="Job spec for test does not match command:"
-    ) as ve:
+    with pytest.raises(ValueError, match="Job spec for test does not match command:") as ve:
         spec.parse_job_cmd(JobData(job_name="test", cmd="extra cmd -T 3 -S beep"))
     print(f"\n{ve.value}")
 
@@ -101,9 +95,7 @@ def test_basic_job_spec_extra_cmd_prefix():
 def test_basic_job_spec_extra_spec_prefix():
     spec = JobSpec("extra cmd -T {threads:numeric} -S {another:category}")
 
-    with pytest.raises(
-        ValueError, match="Job spec for test does not match command:"
-    ) as ve:
+    with pytest.raises(ValueError, match="Job spec for test does not match command:") as ve:
         spec.parse_job_cmd(JobData(job_name="test", cmd="cmd -T 3 -S beep"))
     print(f"\n{ve.value}")
 
@@ -111,9 +103,7 @@ def test_basic_job_spec_extra_spec_prefix():
 def test_basic_job_spec_extra_spec_suffix():
     spec = JobSpec("cmd -T {threads:numeric} -S {another:category} extra")
 
-    with pytest.raises(
-        ValueError, match="Job spec for test does not match command:"
-    ) as ve:
+    with pytest.raises(ValueError, match="Job spec for test does not match command:") as ve:
         spec.parse_job_cmd(JobData(job_name="test", cmd="cmd -T 3 -S cat"))
     print(f"\n{ve.value}")
 
@@ -121,9 +111,7 @@ def test_basic_job_spec_extra_spec_suffix():
 def test_basic_job_spec_extra_spec_internal():
     spec = JobSpec("cmd -T {threads:numeric} extra -S {another:category}")
 
-    with pytest.raises(
-        ValueError, match="Job spec for test does not match command:"
-    ) as ve:
+    with pytest.raises(ValueError, match="Job spec for test does not match command:") as ve:
         spec.parse_job_cmd(JobData(job_name="test", cmd="cmd -T 3 -S cat"))
     print(f"\n{ve.value}")
 
@@ -131,26 +119,16 @@ def test_basic_job_spec_extra_spec_internal():
 def test_basic_job_spec_extra_cmd_internal():
     spec = JobSpec("cmd -T {threads:numeric} -S {another:category}")
 
-    with pytest.raises(
-        ValueError, match="Job spec for test does not match command:"
-    ) as ve:
+    with pytest.raises(ValueError, match="Job spec for test does not match command:") as ve:
         spec.parse_job_cmd(JobData(job_name="test", cmd="cmd -T 3 extra -S cat"))
     print(f"\n{ve.value}")
 
 
 def test_basic_job_spec_with_ignore():
-    spec = JobSpec(
-        "cmd {named:ignore} -T {threads:numeric} {ignore} -S {another:category}"
-    )
+    spec = JobSpec("cmd {named:ignore} -T {threads:numeric} {ignore} -S {another:category}")
 
-    with pytest.raises(
-        ValueError, match="Job spec for test does not match command:"
-    ) as ve:
-        spec.parse_job_cmd(
-            JobData(
-                job_name="test", cmd="cmd ignore me please -T 3 and this too -s cat"
-            )
-        )
+    with pytest.raises(ValueError, match="Job spec for test does not match command:") as ve:
+        spec.parse_job_cmd(JobData(job_name="test", cmd="cmd ignore me please -T 3 and this too -s cat"))
     print(f"\n{ve.value}")
 
 
@@ -161,25 +139,19 @@ def test_job_spec_failure_file():
         ValueError,
         match="Invalid category value for another: test/somefile.txt. Please use a file parser like file_md5.",
     ):
-        spec.parse_job_cmd(
-            JobData(job_name="test", cmd="cmd -T 5 -S test/somefile.txt")
-        )
+        spec.parse_job_cmd(JobData(job_name="test", cmd="cmd -T 5 -S test/somefile.txt"))
 
 
 def test_try_exact_passes():
     spec = JobSpec("cmd -T {threads:numeric} -S {another:category}")
-    result = spec.align_and_indicate_differences(
-        "cmd -T 3 -S cat", try_exact_match=True
-    )
+    result = spec.align_and_indicate_differences("cmd -T 3 -S cat", try_exact_match=True)
     print(f"\n{result}")
     assert result.startswith("Able to parse")
 
 
 def test_try_exact_fails():
     spec = JobSpec("cmd -T {threads:numeric} -S {another:category}")
-    result = spec.align_and_indicate_differences(
-        "FAILURE -T 3 -S cat", try_exact_match=True
-    )
+    result = spec.align_and_indicate_differences("FAILURE -T 3 -S cat", try_exact_match=True)
     print(f"\n{result}")
     assert result.startswith("Failed to parse")
 
@@ -207,9 +179,7 @@ def test_long_job_spec():
     from datetime import datetime
 
     start = datetime.now()
-    with pytest.raises(
-        ValueError, match="Job spec for test does not match command:"
-    ) as ve:
+    with pytest.raises(ValueError, match="Job spec for test does not match command:") as ve:
         spec.parse_job_cmd(JobData(job_name="test", cmd=cmd))
     print(datetime.now() - start)
     print(f"\n{ve.value}")
@@ -478,12 +448,8 @@ def test_job_spec_with_awk_parsers(tmp_path):
     """
 
     available_parsers = {
-        "epochs": file_parsers.AwkParser(
-            "epochs", "numerical", "/^epochs:/ {print $2 ; exit}"
-        ),
-        "network": file_parsers.AwkParser(
-            "network", "categorical", "/^network type:/ {print $3 ; exit}"
-        ),
+        "epochs": file_parsers.AwkParser("epochs", "numerical", "/^epochs:/ {print $2 ; exit}"),
+        "network": file_parsers.AwkParser("network", "categorical", "/^network type:/ {print $3 ; exit}"),
     }
 
     spec = JobSpec(
@@ -524,9 +490,7 @@ def test_job_spec_with_awk_parsers_multiple_numerics(tmp_path):
     """
 
     available_parsers = {
-        "layers": file_parsers.AwkParser(
-            "layers", "numerical", '/^layers:/ {$1="" ; print $0}'
-        ),
+        "layers": file_parsers.AwkParser("layers", "numerical", '/^layers:/ {$1="" ; print $0}'),
     }
 
     spec = JobSpec(
@@ -576,9 +540,10 @@ def test_job_spec_with_awk_file(tmp_path):
     script_is_file = True
     """
 
-    awk_script = """ /^>/ {if (seq) print seq; seq=0} 
-/^>/ {next} 
-{seq = seq + length($0)} 
+    awk_script = """ /^>/ {if (seq) print seq; seq=0}
+/^>/ {next}
+{seq = seq + length($0)}
+
 END {if (seq) print seq}
 """
     awk_file = tmp_path / "parse_fasta.awk"
@@ -586,9 +551,7 @@ END {if (seq) print seq}
 
     available_parsers = {
         "fasta_inline": file_parsers.AwkParser("fasta_inline", "numerical", awk_script),
-        "fasta_script": file_parsers.AwkParser(
-            "fasta_script", "numerical", awk_file, script_is_file=True
-        ),
+        "fasta_script": file_parsers.AwkParser("fasta_script", "numerical", awk_file, script_is_file=True),
     }
 
     spec = JobSpec(
@@ -654,9 +617,9 @@ def test_job_spec_with_awk_gzip_file(tmp_path):
     script_is_file = True
     """
 
-    awk_script = """ /^>/ {if (seq) print seq; seq=0} 
-/^>/ {next} 
-{seq = seq + length($0)} 
+    awk_script = """ /^>/ {if (seq) print seq; seq=0}
+/^>/ {next}
+{seq = seq + length($0)}
 END {if (seq) print seq}
 """
     awk_file = tmp_path / "parse_fasta.awk"
@@ -664,9 +627,7 @@ END {if (seq) print seq}
 
     available_parsers = {
         "fasta_inline": file_parsers.AwkParser("fasta_inline", "numerical", awk_script),
-        "fasta_script": file_parsers.AwkParser(
-            "fasta_script", "numerical", awk_file, script_is_file=True
-        ),
+        "fasta_script": file_parsers.AwkParser("fasta_script", "numerical", awk_file, script_is_file=True),
     }
 
     spec = JobSpec(

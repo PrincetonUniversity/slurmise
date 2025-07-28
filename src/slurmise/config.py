@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import tomllib
 from collections import defaultdict
 from pathlib import Path
@@ -23,9 +25,7 @@ class SlurmiseConfiguration:
 
             self.slurmise_base_dir = toml_data["slurmise"]["base_dir"]
             Path(self.slurmise_base_dir).mkdir(parents=True, exist_ok=True)
-            self.db_filename = Path(self.slurmise_base_dir) / toml_data["slurmise"].get(
-                "db_filename", "slurmise.h5"
-            )
+            self.db_filename = Path(self.slurmise_base_dir) / toml_data["slurmise"].get("db_filename", "slurmise.h5")
             parsers = toml_data["slurmise"].get("file_parsers", {})
 
             for parser_name, config in parsers.items():
@@ -41,12 +41,8 @@ class SlurmiseConfiguration:
 
             self.jobs = toml_data["slurmise"].get("job", {})
             self.job_prefixes: dict[str, str] = {}
-            self.default_runtime = defaultdict(
-                lambda: int(toml_data["slurmise"].get("default_time", 60))
-            )
-            self.default_memory = defaultdict(
-                lambda: int(toml_data["slurmise"].get("default_mem", 1000))
-            )
+            self.default_runtime = defaultdict(lambda: int(toml_data["slurmise"].get("default_time", 60)))
+            self.default_memory = defaultdict(lambda: int(toml_data["slurmise"].get("default_mem", 1000)))
 
             for job_name, job in self.jobs.items():
                 self.jobs[job_name]["job_spec_obj"] = JobSpec(
@@ -121,14 +117,16 @@ class SlurmiseConfiguration:
                         break
 
                 else:
-                    raise ValueError(f"Unable to match job name to {cmd!r}")
+                    msg = f"Unable to match job name to {cmd!r}"
+                    raise ValueError(msg)
         else:
             job_prefix = self.job_prefixes.get(job_name, None)
             if job_prefix is not None:
                 cmd = cmd.removeprefix(job_prefix).lstrip()
 
         if job_name not in self.jobs:
-            raise ValueError(f"Job {job_name} not found in configuration.")
+            msg = f"Job {job_name} not found in configuration."
+            raise ValueError(msg)
 
         if step_id is not None:
             slurm_id = ".".join([str(slurm_id), str(step_id)])

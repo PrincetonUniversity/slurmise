@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 
 
@@ -31,7 +33,7 @@ def parse_slurmise_record_args(args: list[str]) -> dict:
 
     # Handle the flags and options
     prev_flag = None
-    for i, arg in enumerate(args):
+    for _, arg in enumerate(args):
         if not arg.startswith("-"):
             if prev_flag:
                 parsed_args["options"][prev_flag] = arg
@@ -102,16 +104,8 @@ def process_slurmise_record_args(parsed_args: dict) -> dict:
                 return {"type": "string", "value": value}
 
     # Loop through any positional arguments
-    positional = [
-        {"name": arg, "arg_type": "positional", **process_value(arg)}
-        for arg in parsed_args["positional"]
-    ]
-    options = [
-        {"name": arg, "arg_type": "option", **process_value(arg)}
-        for arg in parsed_args["options"]
-    ]
-    flags = [
-        {"name": arg, "arg_type": "flag", "value": True} for arg in parsed_args["flags"]
-    ]
+    positional = [{"name": arg, "arg_type": "positional", **process_value(arg)} for arg in parsed_args["positional"]]
+    options = [{"name": arg, "arg_type": "option", **process_value(arg)} for arg in parsed_args["options"]]
+    flags = [{"name": arg, "arg_type": "flag", "value": True} for arg in parsed_args["flags"]]
 
     return positional + options + flags

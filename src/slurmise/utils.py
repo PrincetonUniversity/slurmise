@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import asdict
 
 import numpy as np
@@ -14,7 +16,7 @@ def jobs_to_pandas(jobs: list[JobData]):
 
     :param jobs: A list of JobData objects
     :type jobs: list[JobData]
-    :return: A pandas DataFrame with columns for each categorical and numerical feature
+    :return: A pandas DataFrame with columns lint_configfor each categorical and numerical feature
     :rtype: pd.DataFrame
 
     """
@@ -33,41 +35,29 @@ def jobs_to_pandas(jobs: list[JobData]):
     for col in df.columns:
         new_col_name = col.replace("numerical.", "")
 
-        if col.startswith("numerical."):
-            if df[col].dtype == "object":
-                # Check if they are all numpy arrays
-                if all([isinstance(row, np.ndarray) for row in df[col]]):
-                    # Check if the column is a numpy array of all the same size
-                    sizes = set([row.shape for row in df[col]])
+        if col.startswith("numerical.") and df[col].dtype == "object":
+            # Check if they are all numpy arrays
+            if all(isinstance(row, np.ndarray) for row in df[col]):
+                # Check if the column is a numpy array of all the same size
+                sizes = {row.shape for row in df[col]}
 
-                    if len(sizes) == 1:
-                        # If all the same size, expand each element of the numpy array into a new column
-                        col_df = pd.DataFrame(
-                            np.vstack(
-                                [
-                                    s.flatten()
-                                    for s in df.loc[0:10, "numerical.sequences"]
-                                ]
-                            )
-                        )
-                        col_df.columns = [
-                            f"{new_col_name}_{i}" for i in range(col_df.shape[1])
-                        ]
+                if len(sizes) == 1:
+                    # If all the same size, expand each element of the numpy array into a new column
+                    col_df = pd.DataFrame(np.vstack([s.flatten() for s in df.loc[0:10, "numerical.sequences"]]))
+                    col_df.columns = [f"{new_col_name}_{i}" for i in range(col_df.shape[1])]
 
-                        # Drop the original column and add the new columns
-                        df = df.drop(columns=[col])
-                        df = pd.concat([df, col_df], axis=1)
-
-                    else:
-                        raise ValueError(
-                            f"Numerical feature {new_col_name} is an a numpy array of different sizes. "
-                            f"Numpy arrays are supported only if they are all the same size."
-                        )
+                    # Drop the original column and add the new columns
+                    df = df.drop(columns=[col])
+                    df = pd.concat([df, col_df], axis=1)
 
                 else:
-                    raise ValueError(
-                        "Numerical columns must be scalars or equal length numpy arrays"
-                    )
+                    msg = f"Numerical feature {new_col_name} is an a numpy array of different sizes. "
+                    msg += "Numpy arrays are supported only if they are all the same size."
+                    raise ValueError(msg)
+
+            else:
+                msg = "Numerical columns must be scalars or equal length numpy arrays"
+                raise ValueError(msg)
 
     df.columns = [col.replace("numerical.", "") for col in df.columns]
 
@@ -77,9 +67,7 @@ def jobs_to_pandas(jobs: list[JobData]):
     # Transform features
     categorical_features = [name for name in df.columns if df[name].dtype == "category"]
     numerical_features = [
-        name
-        for name in df.columns
-        if name not in categorical_features and name not in ["memory", "runtime"]
+        name for name in df.columns if name not in categorical_features and name not in ["memory", "runtime"]
     ]
 
     return df, categorical_features, numerical_features

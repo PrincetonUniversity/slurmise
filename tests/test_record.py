@@ -28,7 +28,7 @@ from slurmise import parse_args
 
 
 @pytest.mark.parametrize(
-    "args,exp",
+    ("args", "exp"),
     [
         (
             ["sleep", "2"],
@@ -91,11 +91,11 @@ def test_parse_record_args(args, exp):
 
 
 @pytest.mark.parametrize(
-    "parsed_args,exp",
+    ("parsed_args", "exp"),
     [
         (
             {
-                "cmd": ["sort", "-k", "2" "tests/sacct_output.json"],
+                "cmd": ["sort", "-k", "2tests/sacct_output.json"],
                 "positional": ["sort", "tests/sacct_output.json"],
                 "options": {"-k": "2"},
                 "flags": {},

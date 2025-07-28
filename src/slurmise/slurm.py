@@ -1,11 +1,11 @@
+from __future__ import annotations
+
 import json
 import os
 import subprocess
 
 
-def parse_slurm_job_metadata(
-    slurm_id: str | None = None, step_name: str | None = None
-) -> dict:
+def parse_slurm_job_metadata(slurm_id: str | None = None, step_name: str | None = None) -> dict:
     """
     Return a dictionary of metadata for the current SLURM job.
     Parameters:
@@ -24,7 +24,7 @@ def parse_slurm_job_metadata(
         job_name = sacct_json["jobs"][0]["name"]
         state = sacct_json["jobs"][0]["state"]["current"][0]
         partition = sacct_json["jobs"][0]["partition"]
-        CPUs = sacct_json["jobs"][0]["required"]["CPUs"]
+        cpus = sacct_json["jobs"][0]["required"]["CPUs"]
         memory_per_cpu = sacct_json["jobs"][0]["required"]["memory_per_cpu"]
         memory_per_node = sacct_json["jobs"][0]["required"]["memory_per_node"]
         max_rss = 0
@@ -46,35 +46,35 @@ def parse_slurm_job_metadata(
             if item["type"] == "mem":
                 max_rss = max(max_rss, item["count"] // (2**20))  # convert to MB
     except Exception as e:
-        raise ValueError(
-            f"Could not parse json from sacct cmd:\n\n {sacct_json}"
-        ) from e
+        msg = f"Could not parse json from sacct cmd:\n\n {sacct_json}"
+        raise ValueError(msg) from e
 
-    metadata = {
+    return {
         "slurm_id": job_id,
         "step_id": step_name,
         "job_name": job_name,
         "state": state,
         "partition": partition,
         "elapsed_seconds": elapsed_seconds,
-        "CPUs": CPUs,
+        "CPUs": cpus,
         "memory_per_cpu": memory_per_cpu,
         "memory_per_node": memory_per_node,
         "max_rss": max_rss,
     }
-    return metadata
 
 
 def get_slurm_job_sacct(slurm_id: str | None = None) -> dict:
     """Return the JSON output of the sacct command for the current SLURM job."""
     if slurm_id is None:
         if "SLURM_JOBID" not in os.environ:
-            raise ValueError("Not running in a SLURM job")
+            msg = "Not running in a SLURM job"
+            raise ValueError(msg)
         slurm_id = os.environ["SLURM_JOBID"]
 
     try:
         json_encoded_str = subprocess.check_output(["sacct", "-j", slurm_id, "--json"])
     except subprocess.CalledProcessError as e:
-        raise ValueError(f"Error running sacct cmd: {e}") from e
+        msg = f"Error running sacct cmd: {e}"
+        raise ValueError(msg) from e
 
     return json.loads(json_encoded_str.decode())

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import sys
 
@@ -106,7 +108,7 @@ def raw_record(ctx, job_name, slurm_id, step_id, numerical, categorical, cmd):
 
 @main.command()
 @click.pass_context
-def print(ctx):
+def print(ctx):  # noqa: A001
     ctx.obj["slurmise"].print()
 
 

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import astuple, dataclass, field
 
 import h5py
@@ -15,9 +17,7 @@ def array_safe_eq(a, b) -> bool:
     if isinstance(a, np.ndarray) and isinstance(b, np.ndarray):
         return a.shape == b.shape and (a == b).all()
     if isinstance(a, dict) and isinstance(b, dict):
-        return a.keys() == b.keys() and all(
-            array_safe_eq(a[key], b[key]) for key in a.keys()
-        )
+        return a.keys() == b.keys() and all(array_safe_eq(a[key], b[key]) for key in a.keys())
     try:
         return a == b
     except TypeError:  # pragma: no cover
@@ -35,7 +35,7 @@ def dc_eq(dc1, dc2) -> bool:
         return NotImplemented  # better than False
     t1 = astuple(dc1)
     t2 = astuple(dc2)
-    return all(array_safe_eq(a1, a2) for a1, a2 in zip(t1, t2))
+    return all(array_safe_eq(a1, a2) for a1, a2 in zip(t1, t2, strict=False))
 
 
 @dataclass(eq=False)
@@ -62,9 +62,7 @@ class JobData:
     cmd: str | None = None  # TODO: NOT STORED OR RETURNED
 
     @staticmethod
-    def from_dataset(
-        job_name: str, slurm_id: str, dataset: h5py.Dataset, categorical: dict
-    ) -> "JobData":
+    def from_dataset(job_name: str, slurm_id: str, dataset: h5py.Dataset, categorical: dict) -> JobData:
         """
         This method creates a JobData object from a HDF5 dataset that describes a job.
         :arguments:
@@ -80,11 +78,7 @@ class JobData:
         memory = dataset.get("memory", None)
         if memory is not None:
             memory = memory[()]
-        numerical = {
-            key: value[()]
-            for key, value in dataset.items()
-            if key not in ("runtime", "memory")
-        }
+        numerical = {key: value[()] for key, value in dataset.items() if key not in ("runtime", "memory")}
         categorical = dict(**categorical)
 
         return JobData(

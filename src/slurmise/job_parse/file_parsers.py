@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import gzip
 import hashlib
 import subprocess
@@ -14,7 +16,7 @@ class FileParser:
     return_type: str = NUMERICAL
 
     def parse_file(self, path: Path, gzip_file: bool = False):  # pragma: no cover
-        raise NotImplementedError()
+        raise NotImplementedError
 
 
 @dataclass()
@@ -22,7 +24,7 @@ class FileBasename(FileParser):
     def __init__(self):
         super().__init__(name="file_basename", return_type=CATEGORICAL)
 
-    def parse_file(self, path: Path, gzip_file: bool = False):
+    def parse_file(self, path: Path, gzip_file: bool = False):  # noqa: ARG002
         return path.name
 
 
@@ -31,8 +33,8 @@ class FileMD5(FileParser):
     def __init__(self):
         super().__init__(name="file_md5", return_type=CATEGORICAL)
 
-    def parse_file(self, path: Path, gzip_file: bool = False):
-        md5_hash = hashlib.md5()
+    def parse_file(self, path: Path, gzip_file: bool = False):  # noqa: ARG002
+        md5_hash = hashlib.md5()  # noqa: S324
         md5_hash.update(path.read_bytes())
         return md5_hash.hexdigest()
 
@@ -42,7 +44,7 @@ class FileSizeParser(FileParser):
     def __init__(self):
         super().__init__(name="file_size", return_type=NUMERICAL)
 
-    def parse_file(self, path: Path, gzip_file: bool = False):
+    def parse_file(self, path: Path, gzip_file: bool = False):  # noqa: ARG002
         return path.stat().st_size  # in bytes
 
 
@@ -55,14 +57,12 @@ class FileLinesParser(FileParser):
         if gzip_file:
             with gzip.open(path, "rb") as infile:
                 # gzip files have no raw read, use slower loop
-                for lines, _ in enumerate(infile):
+                for lines, _ in enumerate(infile):  # noqa: B007
                     pass
                 return lines + 1
         else:
             with open(path, "rb") as infile:
-                lines = (
-                    1  # will count the last line as well.  Off by one for empty files
-                )
+                lines = 1  # will count the last line as well.  Off by one for empty files
                 buf_size = 1024 * 1024
                 read_f = infile.raw.read
 
@@ -90,7 +90,7 @@ class AwkParser(FileParser):
             result = subprocess.check_output(self.args, stdin=zcat.stdout, text=True)
             zcat.wait()
         else:
-            result = subprocess.check_output(self.args + [path], text=True)
+            result = subprocess.check_output(self.args + [path], text=True)  # noqa: RUF005
 
         if self.return_type == NUMERICAL:
             return [float(token) for token in result.split()]
