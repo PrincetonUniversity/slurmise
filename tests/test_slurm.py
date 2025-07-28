@@ -1,6 +1,5 @@
-from pathlib import Path
-
 import json
+from pathlib import Path
 
 from slurmise.slurm import parse_slurm_job_metadata
 

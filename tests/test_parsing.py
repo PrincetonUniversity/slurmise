@@ -1,10 +1,11 @@
 import gzip
-import pytest
 import sys
 
-from slurmise.job_parse.job_specification import JobSpec
-from slurmise.job_parse import file_parsers
+import pytest
+
 from slurmise.job_data import JobData
+from slurmise.job_parse import file_parsers
+from slurmise.job_parse.job_specification import JobSpec
 
 
 # Tests for JobSpec

@@ -1,4 +1,5 @@
 import pytest
+
 from slurmise.config import SlurmiseConfiguration
 from slurmise.job_parse import file_parsers
 

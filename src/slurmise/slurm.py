@@ -3,7 +3,9 @@ import os
 import subprocess
 
 
-def parse_slurm_job_metadata(slurm_id: str | None = None, step_name: str | None = None) -> dict:
+def parse_slurm_job_metadata(
+    slurm_id: str | None = None, step_name: str | None = None
+) -> dict:
     """
     Return a dictionary of metadata for the current SLURM job.
     Parameters:
@@ -14,9 +16,9 @@ def parse_slurm_job_metadata(slurm_id: str | None = None, step_name: str | None 
     Returns:
         dict: A dictionary containing metadata for the specified SLURM job and step.
     """
-    
+
     sacct_json = get_slurm_job_sacct(slurm_id)
-    
+
     try:
         job_id = sacct_json["jobs"][0]["job_id"]
         job_name = sacct_json["jobs"][0]["name"]

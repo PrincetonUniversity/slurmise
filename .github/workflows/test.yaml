@@ -35,7 +35,7 @@ jobs:
           hatch run test:test -- --cov --random-order --cov-append
 
       - name: Run linter
-        run: hatch fmt --check --linter
+        run: hatch fmt --check
       - name: Install coverage
         run: pip install coverage
       - name: Upload coverage report

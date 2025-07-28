@@ -8,13 +8,13 @@ from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
-
 # Generate a polynomial fit for the runtime data using sklearn
-from sklearn.preprocessing import OneHotEncoder, PolynomialFeatures, StandardScaler
+from sklearn.preprocessing import (OneHotEncoder, PolynomialFeatures,
+                                   StandardScaler)
 
+from slurmise.fit.resource_fit import ResourceFit
 from slurmise.job_data import JobData
 from slurmise.utils import jobs_to_pandas
-from slurmise.fit.resource_fit import ResourceFit
 
 
 @dataclass(kw_only=True)
@@ -39,14 +39,20 @@ class PolynomialFit(ResourceFit):
             joblib.dump(self.memory_model, str(modelpath))
 
     @classmethod
-    def load(cls, query: JobData | None = None, path: str | None = None)-> "PolynomialFit":
+    def load(
+        cls, query: JobData | None = None, path: str | None = None
+    ) -> "PolynomialFit":
         fit_obj = super().load(query=query, path=path, degree=2)
 
         runtime_model = fit_obj.path / "runtime_model.pkl"
-        fit_obj.runtime_model = joblib.load(str(runtime_model)) if runtime_model.exists() else None
-        
+        fit_obj.runtime_model = (
+            joblib.load(str(runtime_model)) if runtime_model.exists() else None
+        )
+
         memory_model = fit_obj.path / "memory_model.pkl"
-        fit_obj.memory_model = joblib.load(str(memory_model)) if memory_model.exists() else None
+        fit_obj.memory_model = (
+            joblib.load(str(memory_model)) if memory_model.exists() else None
+        )
 
         return fit_obj
 
@@ -126,7 +132,6 @@ class PolynomialFit(ResourceFit):
         # TODO: check if it can be abstracted.
 
         if self.last_fit_dsize < 10:
-
             return (
                 job,
                 "Not enough fitting data points in the fits. Returning default values.",

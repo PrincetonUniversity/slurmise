@@ -1,8 +1,8 @@
 import contextlib
 import dataclasses
 import os
-from typing import Any
 import time
+from typing import Any
 
 import h5py
 import numpy as np
@@ -166,7 +166,9 @@ class JobDatabase:
                     slurm_id, step_id = job.slurm_id.split(".")
                 else:
                     slurm_id, step_id = job.slurm_id, None
-                job_info = slurm.parse_slurm_job_metadata(slurm_id = slurm_id, step_id = step_id)
+                job_info = slurm.parse_slurm_job_metadata(
+                    slurm_id=slurm_id, step_id=step_id
+                )
 
                 # job dataclass is immutable, so this creates a new object with the updated values
                 # ternary's are to avoid updating if the value is already present which causes a "dataset already exists" error

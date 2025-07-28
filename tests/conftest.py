@@ -1,8 +1,8 @@
-import pytest
-from pathlib import Path
 import shutil
 from collections import namedtuple
+from pathlib import Path
 
+import pytest
 
 TomlReturn = namedtuple("TomlReturn", ["toml", "db"])
 

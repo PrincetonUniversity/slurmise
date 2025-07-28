@@ -1,6 +1,7 @@
 import tomllib
-from pathlib import Path
 from collections import defaultdict
+from pathlib import Path
+
 from slurmise import job_data
 from slurmise.job_parse import file_parsers
 from slurmise.job_parse.job_specification import JobSpec
@@ -40,8 +41,12 @@ class SlurmiseConfiguration:
 
             self.jobs = toml_data["slurmise"].get("job", {})
             self.job_prefixes: dict[str, str] = {}
-            self.default_runtime = defaultdict(lambda: int(toml_data["slurmise"].get("default_time", 60)))
-            self.default_memory = defaultdict(lambda: int(toml_data["slurmise"].get("default_mem", 1000)))
+            self.default_runtime = defaultdict(
+                lambda: int(toml_data["slurmise"].get("default_time", 60))
+            )
+            self.default_memory = defaultdict(
+                lambda: int(toml_data["slurmise"].get("default_mem", 1000))
+            )
 
             for job_name, job in self.jobs.items():
                 self.jobs[job_name]["job_spec_obj"] = JobSpec(
@@ -52,14 +57,17 @@ class SlurmiseConfiguration:
                 if "job_prefix" in job:
                     self.job_prefixes[job_name] = job["job_prefix"]
                 if "default_time" in job:
-                    self.default_runtime[job_name] = int(job['default_time'])
+                    self.default_runtime[job_name] = int(job["default_time"])
                 if "default_mem" in job:
-                    self.default_memory[job_name] = int(job['default_mem'])
+                    self.default_memory[job_name] = int(job["default_mem"])
 
     def parse_job_cmd(
-            self, cmd: str, job_name: str | None = None, slurm_id: str | None = None,
-            step_id: str | None = None
-            ) -> job_data.JobData:
+        self,
+        cmd: str,
+        job_name: str | None = None,
+        slurm_id: str | None = None,
+        step_id: str | None = None,
+    ) -> job_data.JobData:
         """Parse a job data dataset into a JobData object."""
 
         jd = self._fill_job_name(cmd, job_name, slurm_id, step_id)
@@ -73,7 +81,7 @@ class SlurmiseConfiguration:
         job_name: str,
         slurm_id: str | None = None,
         step_id: str | None = None,
-        ) -> job_data.JobData:
+    ) -> job_data.JobData:
         """Parse a job data dataset into a JobData object."""
 
         jd = self._fill_job_name("", job_name, slurm_id, step_id)
@@ -82,22 +90,21 @@ class SlurmiseConfiguration:
         return job_spec.parse_job_from_dict(variables, jd)
 
     def dry_parse(
-            self,
-            cmd: str,
-            job_name: str | None = None,
-        ):
-
+        self,
+        cmd: str,
+        job_name: str | None = None,
+    ):
         jd = self._fill_job_name(cmd, job_name)
         job_spec = self.jobs[jd.job_name]["job_spec_obj"]
         return job_spec.align_and_indicate_differences(jd.cmd, try_exact_match=True)
 
     def _fill_job_name(
-            self,
-            cmd: str,
-            job_name: str | None = None,
-            slurm_id: str | None = None,
-            step_id: str | None = None,
-        ) -> job_data.JobData:
+        self,
+        cmd: str,
+        job_name: str | None = None,
+        slurm_id: str | None = None,
+        step_id: str | None = None,
+    ) -> job_data.JobData:
         """From the user supplied input, create a job data object."""
         if job_name is None:  # try to infer
             for name, prefix in self.job_prefixes.items():
@@ -124,13 +131,8 @@ class SlurmiseConfiguration:
             raise ValueError(f"Job {job_name} not found in configuration.")
 
         if step_id is not None:
-            slurm_id = '.'.join([str(slurm_id), str(step_id)])
-        return job_data.JobData(
-            job_name=job_name,
-            slurm_id=slurm_id,
-            cmd=cmd
-        )
-
+            slurm_id = ".".join([str(slurm_id), str(step_id)])
+        return job_data.JobData(job_name=job_name, slurm_id=slurm_id, cmd=cmd)
 
     def add_defaults(self, job_data: job_data.JobData) -> job_data.JobData:
         """Add default values to a job data object."""

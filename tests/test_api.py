@@ -1,9 +1,10 @@
-from slurmise.api import Slurmise
-
 import multiprocessing
 import time
-import pytest
 from unittest import mock
+
+import pytest
+
+from slurmise.api import Slurmise
 
 
 def slurmise_record(toml, process_id, error_queue):

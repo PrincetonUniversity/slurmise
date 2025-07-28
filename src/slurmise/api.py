@@ -1,8 +1,8 @@
+import numpy as np
+
 from slurmise import job_database, slurm
 from slurmise.config import SlurmiseConfiguration
 from slurmise.fit.poly_fit import PolynomialFit
-
-import numpy as np
 
 
 class Slurmise:

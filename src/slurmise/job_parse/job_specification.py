@@ -1,8 +1,8 @@
+import re
 from pathlib import Path
+
 from slurmise import job_data
 from slurmise.job_parse.file_parsers import FileParser
-import re
-
 
 # matches tokens like {threads:numeric}
 JOB_SPEC_REGEX = re.compile(r"{(?:(?P<name>[^:}]+):)?(?P<kind>[^}]+)}")
@@ -150,6 +150,7 @@ class JobSpec:
             multi-line, aligned string of differences
         """
         from difflib import SequenceMatcher
+
         import regex
 
         # need to handle ignore tokens differently as they have no names in the regex
