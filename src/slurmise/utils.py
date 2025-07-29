@@ -16,7 +16,7 @@ def jobs_to_pandas(jobs: list[JobData]):
 
     :param jobs: A list of JobData objects
     :type jobs: list[JobData]
-    :return: A pandas DataFrame with columns lint_configfor each categorical and numerical feature
+    :return: A pandas DataFrame with columns for each categorical and numerical feature
     :rtype: pd.DataFrame
 
     """
