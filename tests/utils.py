@@ -3,9 +3,7 @@ import os
 import h5py
 
 
-def print_hdf5(
-    h5py_obj, level=-1, print_full_name: bool = False, print_attrs: bool = True
-) -> None:
+def print_hdf5(h5py_obj, level=-1, print_full_name: bool = False, print_attrs: bool = True) -> None:
     """Prints the name and shape of datasets in a H5py HDF5 file.
 
     Parameters
@@ -26,10 +24,10 @@ def print_hdf5(
     """
 
     def is_group(f):
-        return type(f) == h5py._hl.group.Group
+        return isinstance(f, h5py._hl.group.Group)
 
     def is_dataset(f):
-        return type(f) == h5py._hl.dataset.Dataset
+        return isinstance(f, h5py._hl.dataset.Dataset)
 
     def print_level(level, n_spaces=5) -> str:
         if level == -1:
@@ -49,8 +47,7 @@ def print_hdf5(
             shape = entry.shape
             dtype = entry.dtype
             print(f"{print_level(level)}{name}: {shape} {dtype} {entry[()]}")
-    if level == -1:
-        if print_attrs:
-            print("attrs: ")
-            for key, value in h5py_obj.attrs.items():
-                print(f" {key}: {value}")
+    if level == -1 and print_attrs:
+        print("attrs: ")
+        for key, value in h5py_obj.attrs.items():
+            print(f" {key}: {value}")

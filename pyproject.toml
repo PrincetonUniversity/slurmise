@@ -41,7 +41,8 @@ dev = [
   "ruff",
   "coverage",
   "pytest-random-order",
-  "coveralls"
+  "coveralls",
+  "isort"
 ]
 
 [project.urls]
@@ -95,4 +96,6 @@ dependencies = [
   "coverage",
   "pytest-random-order",
   "coveralls",
+  "pre-commit",
+  "isort"
 ]

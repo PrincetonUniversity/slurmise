@@ -1,14 +1,15 @@
-from slurmise.api import Slurmise
-
 import multiprocessing
 import time
-import pytest
 from unittest import mock
+
+import pytest
+
+from slurmise.api import Slurmise
 
 
 def slurmise_record(toml, process_id, error_queue):
     def mock_metadata(kwargs):
-        result = {
+        return {
             "slurm_id": kwargs["slurm_id"],
             "job_name": "nupack",
             "state": "COMPLETED",
@@ -20,7 +21,6 @@ def slurmise_record(toml, process_id, error_queue):
             "max_rss": 232,
             "step_id": "external",
         }
-        return result
 
     try:
         time.sleep(process_id * 0.1)
@@ -31,11 +31,9 @@ def slurmise_record(toml, process_id, error_queue):
             slurmise = Slurmise(toml)
             time.sleep(process_id * 0.1)
             for i in range(10):
-                slurmise.record(
-                    "nupack monomer -T 2 -C simple", slurm_id=process_id * 100 + i
-                )
+                slurmise.record("nupack monomer -T 2 -C simple", slurm_id=str(process_id * 100 + i))
                 time.sleep(process_id * 0.1)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         error_queue.put(f"PID {process_id}: {e}")
 
 
@@ -43,9 +41,7 @@ def test_multiple_slurmise_instances(simple_toml):
     processes = []
     error_queue = multiprocessing.Queue()
     for i in range(10):
-        p = multiprocessing.Process(
-            target=slurmise_record, args=(simple_toml.toml, i, error_queue)
-        )
+        p = multiprocessing.Process(target=slurmise_record, args=(simple_toml.toml, i, error_queue))
         processes.append(p)
         p.start()
 
@@ -56,11 +52,12 @@ def test_multiple_slurmise_instances(simple_toml):
             print(error_queue.get())
         pytest.fail("Child prcess had error")
 
+
 def test_job_data_from_dict(simple_toml):
     slurmise = Slurmise(simple_toml.toml)
     result = slurmise.job_data_from_dict(
-        {'threads': 3, 'complexity': 'simple'},
-        'nupack',
+        {"threads": 3, "complexity": "simple"},
+        "nupack",
     )
-    assert result.categorical == {'complexity': 'simple'}
-    assert result.numerical == {'threads': 3}
+    assert result.categorical == {"complexity": "simple"}
+    assert result.numerical == {"threads": 3}
