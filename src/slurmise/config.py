@@ -44,11 +44,32 @@ class SlurmiseConfiguration:
             self.default_memory = defaultdict(lambda: int(toml_data["slurmise"].get("default_mem", 1000)))
 
             for job_name, job in self.jobs.items():
-                self.jobs[job_name]["job_spec_obj"] = JobSpec(
-                    job["job_spec"],
-                    file_parsers=job.get("file_parsers", {}),
-                    available_parsers=self.file_parsers,
-                )
+                if "job_spec" in job:
+                    self.jobs[job_name]["job_spec_obj"] = JobSpec(
+                        job["job_spec"],
+                        file_parsers=job.get("file_parsers", {}),
+                        available_parsers=self.file_parsers,
+                    )
+                    if "variables" in job:
+                        validation = self.jobs[job_name]["job_spec_obj"].validate_variables(job["variables"])
+                        if validation is not None:
+                            raise ValueError(
+                                f'Unable to validate variables for {job_name}\n'
+                                + validation
+                            )
+
+                elif "variables" in job:
+                    self.jobs[job_name]["job_spec_obj"] = JobSpec.from_variables(
+                        job["variables"],
+                        file_parsers=job.get("file_parsers", {}),
+                        available_parsers=self.file_parsers,
+                    )
+                else:
+                    raise ValueError(
+                        f"Job {job_name} has no specification. "
+                        "A `job_spec` or `variables` entry is required."
+                    )
+                
                 if "job_prefix" in job:
                     self.job_prefixes[job_name] = job["job_prefix"]
                 if "default_time" in job:

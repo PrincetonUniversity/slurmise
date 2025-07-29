@@ -21,7 +21,7 @@ def test_job_spec_named_ignore():
 
 
 def test_job_spec_unknown_kind():
-    with pytest.raises(ValueError, match="Token kind double is unknown"):
+    with pytest.raises(ValueError, match="Unknown variable type double for variable threads"):
         JobSpec('cmd -T {threads:double}')
 
 def test_job_spec_token_with_no_name():
