@@ -23,6 +23,15 @@ def basic_toml(tmpdir):
     job_prefix = "nothing"
     job_spec = "-T {threads:numeric} -C {complexity:category} -i {ignore}"
 
+    [slurmise.job.dict_spec]
+    variables = { threads = "numeric", runtype = "category", infile = "file"}
+    file_parsers.infile = "file_basename"
+
+    [slurmise.job.both_specs]
+    job_spec = "-T {threads:numeric} -C {runtype:category} -i {infile:file}"
+    variables = { threads = "numeric", runtype = "category", infile = "file"}
+    file_parsers.infile = "file_basename"
+
     # builtins will include file_size and file_lines
     # specify custom options here
     [slurmise.file_parsers.get_epochs]
@@ -65,11 +74,106 @@ def basic_toml_no_default(tmpdir):
     f.write(toml_str)
     return f
 
+
+@pytest.fixture
+def basic_toml_no_spec(tmpdir):
+    d = tmpdir.mkdir("slurmise_dir")
+    f = d.join("basic.toml")
+
+    toml_str = """
+    [slurmise]
+    base_dir = "slurmise_dir"
+
+    [slurmise.job.nupack]
+    default_mem = 1234
+    """
+
+    f.write(toml_str)
+    return f
+
+@pytest.fixture
+def basic_toml_inconsistent_spec_type(tmpdir):
+    d = tmpdir.mkdir("slurmise_dir")
+    f = d.join("basic.toml")
+
+    toml_str = """
+    [slurmise]
+    base_dir = "slurmise_dir"
+
+    [slurmise.job.nupack]
+    job_spec = "monomer -T {threads:numeric} -C {complexity:category}"
+    variables = {threads="numeric", complexity="numeric"}
+    """
+
+    f.write(toml_str)
+    return f
+
+@pytest.fixture
+def basic_toml_inconsistent_spec_name(tmpdir):
+    d = tmpdir.mkdir("slurmise_dir")
+    f = d.join("basic.toml")
+
+    toml_str = """
+    [slurmise]
+    base_dir = "slurmise_dir"
+
+    [slurmise.job.nupack]
+    job_spec = "monomer -T {threads:numeric} -C {complexity:category}"
+    variables = {threads="numeric", complxity="category"}
+    """
+
+    f.write(toml_str)
+    return f
+
+@pytest.fixture
+def basic_toml_variables_unknown_type(tmpdir):
+    d = tmpdir.mkdir("slurmise_dir")
+    f = d.join("basic.toml")
+
+    toml_str = """
+    [slurmise]
+    base_dir = "slurmise_dir"
+
+    [slurmise.job.nupack]
+    variables = {threads="numeric", complexity="asdf"}
+    """
+
+    f.write(toml_str)
+    return f
+
 def test_init_SlurmiseConfiguration(basic_toml):
     config = SlurmiseConfiguration(basic_toml)
     assert config.slurmise_base_dir == "slurmise_dir"
-    assert len(config.jobs) == 2
+    assert len(config.jobs) == 4
     assert config.jobs['with_ignore']['job_prefix'] == "nothing"
+
+
+def test_init_SlurmiseConfiguration_no_spec(basic_toml_no_spec):
+    with pytest.raises(
+        ValueError,
+        match="Job nupack has no specification. A `job_spec` or `variables` entry is required."):
+        SlurmiseConfiguration(basic_toml_no_spec)
+
+
+def test_init_SlurmiseConfiguration_wrong_name(basic_toml_inconsistent_spec_name):
+    with pytest.raises(
+        ValueError,
+        match="Unable to validate variables for nupack"):
+        SlurmiseConfiguration(basic_toml_inconsistent_spec_name)
+
+
+def test_init_SlurmiseConfiguration_wrong_spec_type(basic_toml_inconsistent_spec_type):
+    with pytest.raises(
+        ValueError,
+        match="Unable to validate variables for nupack"):
+        SlurmiseConfiguration(basic_toml_inconsistent_spec_type)
+
+
+def test_init_SlurmiseConfiguration_unknown_variable_type(basic_toml_variables_unknown_type):
+    with pytest.raises(
+        ValueError,
+        match="Unknown variable type asdf for variable complexity"):
+        SlurmiseConfiguration(basic_toml_variables_unknown_type)
 
 
 def test_parse_job_cmd(basic_toml):
@@ -80,6 +184,19 @@ def test_parse_job_cmd(basic_toml):
     assert job_data.slurm_id == "1234"
     assert job_data.categorical == {"complexity": "simple"}
     assert job_data.numerical == {"threads": 1}
+
+
+def test_parse_job_from_variables(basic_toml):
+    config = SlurmiseConfiguration(basic_toml)
+    job_data = config.parse_job_from_dict(
+        {"threads": 3,
+         "runtype": "something",
+         "infile": "test.txt"
+         }, "dict_spec")
+
+    assert job_data.job_name == "dict_spec"
+    assert job_data.categorical == {"runtype": "something", "infile_file_basename": "test.txt"}
+    assert job_data.numerical == {"threads": 3}
 
 
 def test_parse_job_cmd_with_ignore(basic_toml):
@@ -107,6 +224,12 @@ def test_parse_job_cmd_invalid_numeric(basic_toml):
     with pytest.raises(ValueError, match="Job spec for nupack does not match command:") as ve:
         config.parse_job_cmd("monomer -T 1A -C simple", "nupack", "1234")
     print(f'\n{ve.value}')
+
+def test_parse_job_cmd_no_job_spec(basic_toml):
+    config = SlurmiseConfiguration(basic_toml)
+    with pytest.raises(ValueError, match="Job dict_spec has no job spec entry for parsing commands"):
+        config.parse_job_cmd("monomer -T 1A -C simple", "dict_spec", "1234")
+
 
 def test_awk_parsers(basic_toml):
     config = SlurmiseConfiguration(basic_toml)

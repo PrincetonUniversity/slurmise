@@ -44,11 +44,32 @@ class SlurmiseConfiguration:
             self.default_memory = defaultdict(lambda: int(toml_data["slurmise"].get("default_mem", 1000)))
 
             for job_name, job in self.jobs.items():
-                self.jobs[job_name]["job_spec_obj"] = JobSpec(
-                    job["job_spec"],
-                    file_parsers=job.get("file_parsers", {}),
-                    available_parsers=self.file_parsers,
-                )
+                if "job_spec" in job:
+                    self.jobs[job_name]["job_spec_obj"] = JobSpec(
+                        job["job_spec"],
+                        file_parsers=job.get("file_parsers", {}),
+                        available_parsers=self.file_parsers,
+                    )
+                    if "variables" in job:
+                        validation = self.jobs[job_name]["job_spec_obj"].validate_variables(job["variables"])
+                        if validation is not None:
+                            raise ValueError(
+                                f'Unable to validate variables for {job_name}\n'
+                                + validation
+                            )
+
+                elif "variables" in job:
+                    self.jobs[job_name]["job_spec_obj"] = JobSpec.from_variables(
+                        job["variables"],
+                        file_parsers=job.get("file_parsers", {}),
+                        available_parsers=self.file_parsers,
+                    )
+                else:
+                    raise ValueError(
+                        f"Job {job_name} has no specification. "
+                        "A `job_spec` or `variables` entry is required."
+                    )
+                
                 if "job_prefix" in job:
                     self.job_prefixes[job_name] = job["job_prefix"]
                 if "default_time" in job:
@@ -66,6 +87,20 @@ class SlurmiseConfiguration:
         job_spec = self.jobs[jd.job_name]["job_spec_obj"]
 
         return job_spec.parse_job_cmd(jd)
+
+    def parse_job_from_dict(
+        self,
+        variables: dict,
+        job_name: str,
+        slurm_id: str | None = None,
+        step_id: str | None = None,
+        ) -> job_data.JobData:
+        """Parse a job data dataset into a JobData object."""
+
+        jd = self._fill_job_name("", job_name, slurm_id, step_id)
+        job_spec = self.jobs[jd.job_name]["job_spec_obj"]
+
+        return job_spec.parse_job_from_dict(variables, jd)
 
     def dry_parse(
             self,

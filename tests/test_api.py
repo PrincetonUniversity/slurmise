@@ -55,3 +55,12 @@ def test_multiple_slurmise_instances(simple_toml):
         while not error_queue.empty():
             print(error_queue.get())
         pytest.fail("Child prcess had error")
+
+def test_job_data_from_dict(simple_toml):
+    slurmise = Slurmise(simple_toml.toml)
+    result = slurmise.job_data_from_dict(
+        {'threads': 3, 'complexity': 'simple'},
+        'nupack',
+    )
+    assert result.categorical == {'complexity': 'simple'}
+    assert result.numerical == {'threads': 3}
