@@ -41,7 +41,9 @@ dev = [
   "ruff",
   "coverage",
   "pytest-random-order",
-  "coveralls"
+  "coveralls",
+  "pre-commit",
+  "isort"
 ]
 
 [project.urls]
@@ -95,4 +97,66 @@ dependencies = [
   "coverage",
   "pytest-random-order",
   "coveralls",
+  "pre-commit",
+  "isort"
 ]
+
+[tool.ruff]
+line-length = 120
+[tool.ruff.lint]
+ignore = ["ANN001",
+          "SIM118",
+          "T201",
+          "D100",
+          "INP001",
+          "D212",
+          "PTH119",
+          "D415",
+          "D103",
+          "D411",
+          "D410",
+          "COM812",
+          "D205",
+          "S101",
+          "D202",
+          "SLF001",
+          "D401",
+          "D400",
+          "FBT001",
+          "ANN202",
+          "PTH123",
+          "FBT002",
+          "ANN201"]
+[tool.ruff.format]
+docstring-code-format = true
+docstring-code-line-length = 80
+
+[tool.ruff.lint.per-file-ignores]
+"**/scripts/*" = [
+  "INP001",
+  "T201",
+]
+"**/tests/**/*" = [
+  "PLC1901",
+  "PLR2004",
+  "PLR6301",
+  "S",
+  "TID252",
+  "T201",
+  "DTZ005",
+  "N802",
+  "ARG005"
+]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.lint.isort]
+known-first-party = ["slurmise"]
+
+[tool.ruff.lint.flake8-pytest-style]
+fixture-parentheses = false
+mark-parentheses = false
+
+[tool.isort]
+line_length = 120

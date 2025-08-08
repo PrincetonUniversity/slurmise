@@ -21,7 +21,6 @@ def test_missing_toml():
 def test_record(simple_toml, monkeypatch):
     mock_metadata = {
         "slurm_id": "1234",
-        "step_id": "0",
         "job_name": "nupack",
         "state": "COMPLETED",
         "partition": "",
@@ -31,9 +30,7 @@ def test_record(simple_toml, monkeypatch):
         "memory_per_node": 0,
         "max_rss": 232,
     }
-    monkeypatch.setattr(
-        "slurmise.slurm.parse_slurm_job_metadata", lambda *args, **kwargs: mock_metadata
-    )
+    monkeypatch.setattr("slurmise.slurm.parse_slurm_job_metadata", lambda *args, **kwargs: mock_metadata)
 
     runner = CliRunner()
     result = runner.invoke(
@@ -53,7 +50,7 @@ def test_record(simple_toml, monkeypatch):
         excepted_results = [
             JobData(
                 job_name="nupack",
-                slurm_id="1234.0",
+                slurm_id="1234",
                 runtime=97201,
                 memory=232,
                 categorical={"complexity": "simple"},
@@ -86,9 +83,7 @@ def test_raw_record(simple_toml, monkeypatch):
         "memory_per_node": 0,
         "max_rss": 232,
     }
-    monkeypatch.setattr(
-        "slurmise.slurm.parse_slurm_job_metadata", lambda *args, **kwargs: mock_metadata
-    )
+    monkeypatch.setattr("slurmise.slurm.parse_slurm_job_metadata", lambda *args, **kwargs: mock_metadata)
 
     runner = CliRunner()
     result = runner.invoke(
@@ -188,9 +183,9 @@ def test_update_predict(nupack_toml):
     tmp_stdout = result.stdout.split("\n")
     predicted_runtime = tmp_stdout[0].split(":")
     predicted_memory = tmp_stdout[1].split(":")
-    assert "Predicted runtime" == predicted_runtime[0]
+    assert predicted_runtime[0] == "Predicted runtime"
     np.testing.assert_allclose(float(predicted_runtime[1]), 9.29, rtol=0.01)
-    assert "Predicted memory" == predicted_memory[0]
+    assert predicted_memory[0] == "Predicted memory"
     np.testing.assert_allclose(float(predicted_memory[1]), 10168.72, rtol=0.01)
 
     result = runner.invoke(
@@ -209,9 +204,9 @@ def test_update_predict(nupack_toml):
     tmp_stdout = result.stdout.split("\n")
     predicted_runtime = tmp_stdout[0].split(":")
     predicted_memory = tmp_stdout[1].split(":")
-    assert "Predicted runtime" == predicted_runtime[0]
+    assert predicted_runtime[0] == "Predicted runtime"
     np.testing.assert_allclose(float(predicted_runtime[1]), 9.29, rtol=0.01)
-    assert "Predicted memory" == predicted_memory[0]
+    assert predicted_memory[0] == "Predicted memory"
     np.testing.assert_allclose(float(predicted_memory[1]), 10168.72, rtol=0.01)
 
     # Test that slurmise returns the default values when the predicted values are not possible.
@@ -229,9 +224,9 @@ def test_update_predict(nupack_toml):
     tmp_stdout = result.stdout.split("\n")
     predicted_runtime = tmp_stdout[0].split(":")
     predicted_memory = tmp_stdout[1].split(":")
-    assert "Predicted runtime" == predicted_runtime[0]
+    assert predicted_runtime[0] == "Predicted runtime"
     assert float(predicted_runtime[1]) == 60
-    assert "Predicted memory" == predicted_memory[0]
+    assert predicted_memory[0] == "Predicted memory"
     assert float(predicted_memory[1]) == 1000
     assert "Warnings:" in result.stderr
 
@@ -252,9 +247,9 @@ def test_update_predict(nupack_toml):
     tmp_stdout = result.stdout.split("\n")
     predicted_runtime = tmp_stdout[0].split(":")
     predicted_memory = tmp_stdout[1].split(":")
-    assert "Predicted runtime" == predicted_runtime[0]
+    assert predicted_runtime[0] == "Predicted runtime"
     assert float(predicted_runtime[1]) == 60
-    assert "Predicted memory" == predicted_memory[0]
+    assert predicted_memory[0] == "Predicted memory"
     assert float(predicted_memory[1]) == 1000
     assert "Warnings:" in result.stderr
 
@@ -294,9 +289,9 @@ def test_update_all_predict(nupack_toml):
     tmp_stdout = result.stdout.split("\n")
     predicted_runtime = tmp_stdout[0].split(":")
     predicted_memory = tmp_stdout[1].split(":")
-    assert "Predicted runtime" == predicted_runtime[0]
+    assert predicted_runtime[0] == "Predicted runtime"
     np.testing.assert_allclose(float(predicted_runtime[1]), 9.29, rtol=0.01)
-    assert "Predicted memory" == predicted_memory[0]
+    assert predicted_memory[0] == "Predicted memory"
     np.testing.assert_allclose(float(predicted_memory[1]), 10168.72, rtol=0.01)
 
 
@@ -321,9 +316,9 @@ def test_predict_nomodel(nupackdefaults_toml):
     tmp_stdout = result.stdout.split("\n")
     predicted_runtime = tmp_stdout[0].split(":")
     predicted_memory = tmp_stdout[1].split(":")
-    assert "Predicted runtime" == predicted_runtime[0]
+    assert predicted_runtime[0] == "Predicted runtime"
     assert float(predicted_runtime[1]) == 80
-    assert "Predicted memory" == predicted_memory[0]
+    assert predicted_memory[0] == "Predicted memory"
     assert float(predicted_memory[1]) == 3000
     assert "Warnings:" in result.stderr
 

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import sys
 
@@ -5,6 +7,35 @@ import click
 
 from slurmise import job_data
 from slurmise.api import Slurmise
+
+
+def _parse_json_options(
+    categorical: str,
+    numerical: str,
+    job_name: str,
+    cmd: str,
+    slurm_id: str | None = None,
+) -> job_data.JobData:
+    categorical = json.loads("{" + categorical + "}") if categorical else {}
+    numerical = json.loads("{" + numerical + "}") if numerical else {}
+
+    return job_data.JobData(
+        job_name=job_name,
+        numerical=numerical,
+        categorical=categorical,
+        cmd=cmd,
+        slurm_id=slurm_id,
+    )
+
+
+def _report_prediction(query_jd: job_data.JobData, query_warns: list[str]) -> None:
+    """Helper function to report the prediction results."""
+    click.echo(f"Predicted runtime: {query_jd.runtime}")
+    click.echo(f"Predicted memory: {query_jd.memory}")
+    if query_warns:
+        click.echo(click.style("Warnings:", fg="yellow"), err=True, color="red")
+        for warn in query_warns:
+            click.echo(f"  {warn}", err=True)
 
 
 @click.group()
@@ -68,25 +99,16 @@ def parse(ctx, cmd, job_name):
 @click.pass_context
 def raw_record(ctx, job_name, slurm_id, step_id, numerical, categorical, cmd):
     """Record a job"""
-    # NOTE hack to get JSON parsing working with click who is too eager to try and process the args
-    categorical = json.loads("{" + categorical + "}") if categorical else {}
-    numerical = json.loads("{" + numerical + "}") if numerical else {}
     slurm_id = f"{slurm_id}.{step_id}" if step_id is not None else slurm_id
 
-    jd = job_data.JobData(
-        job_name=job_name,
-        slurm_id=slurm_id,
-        numerical=numerical,
-        categorical=categorical,
-        cmd=cmd,
-    )
+    jd = _parse_json_options(categorical, numerical, job_name, cmd, slurm_id)
 
     ctx.obj["slurmise"].raw_record(jd)
 
 
 @main.command()
 @click.pass_context
-def print(ctx):
+def print(ctx):  # noqa: A001
     ctx.obj["slurmise"].print()
 
 
@@ -96,12 +118,7 @@ def print(ctx):
 @click.pass_context
 def predict(ctx, cmd, job_name):
     query_jd, query_warns = ctx.obj["slurmise"].predict(cmd, job_name)
-    click.echo(f"Predicted runtime: {query_jd.runtime}")
-    click.echo(f"Predicted memory: {query_jd.memory}")
-    if query_warns:
-        click.echo(click.style("Warnings:", fg="yellow"), err=True, color="red")
-        for warn in query_warns:
-            click.echo(f"  {warn}", err=True)
+    _report_prediction(query_jd, query_warns)
 
 
 @main.command()
@@ -120,24 +137,11 @@ def predict(ctx, cmd, job_name):
 @click.pass_context
 def raw_predict(ctx, job_name, numerical, categorical, cmd):
     """predict a job"""
-    # NOTE hack to get JSON parsing working with click who is too eager to try and process the args
-    categorical = json.loads("{" + categorical + "}") if categorical else {}
-    numerical = json.loads("{" + numerical + "}") if numerical else {}
 
-    jd = job_data.JobData(
-        job_name=job_name,
-        numerical=numerical,
-        categorical=categorical,
-        cmd=cmd,
-    )
+    jd = _parse_json_options(categorical, numerical, job_name, cmd)
 
     query_jd, query_warns = ctx.obj["slurmise"].raw_predict(jd)
-    click.echo(f"Predicted runtime: {query_jd.runtime}")
-    click.echo(f"Predicted memory: {query_jd.memory}")
-    if query_warns:
-        click.echo(click.style("Warnings:", fg="yellow"), err=True, color="red")
-        for warn in query_warns:
-            click.echo(f"  {warn}", err=True)
+    _report_prediction(query_jd, query_warns)
 
 
 @main.command()

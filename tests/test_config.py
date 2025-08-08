@@ -1,4 +1,5 @@
 import pytest
+
 from slurmise.config import SlurmiseConfiguration
 from slurmise.job_parse import file_parsers
 
@@ -91,6 +92,7 @@ def basic_toml_no_spec(tmpdir):
     f.write(toml_str)
     return f
 
+
 @pytest.fixture
 def basic_toml_inconsistent_spec_type(tmpdir):
     d = tmpdir.mkdir("slurmise_dir")
@@ -107,6 +109,7 @@ def basic_toml_inconsistent_spec_type(tmpdir):
 
     f.write(toml_str)
     return f
+
 
 @pytest.fixture
 def basic_toml_inconsistent_spec_name(tmpdir):
@@ -125,6 +128,7 @@ def basic_toml_inconsistent_spec_name(tmpdir):
     f.write(toml_str)
     return f
 
+
 @pytest.fixture
 def basic_toml_variables_unknown_type(tmpdir):
     d = tmpdir.mkdir("slurmise_dir")
@@ -141,38 +145,33 @@ def basic_toml_variables_unknown_type(tmpdir):
     f.write(toml_str)
     return f
 
+
 def test_init_SlurmiseConfiguration(basic_toml):
     config = SlurmiseConfiguration(basic_toml)
     assert config.slurmise_base_dir == "slurmise_dir"
     assert len(config.jobs) == 4
-    assert config.jobs['with_ignore']['job_prefix'] == "nothing"
+    assert config.jobs["with_ignore"]["job_prefix"] == "nothing"
 
 
 def test_init_SlurmiseConfiguration_no_spec(basic_toml_no_spec):
     with pytest.raises(
-        ValueError,
-        match="Job nupack has no specification. A `job_spec` or `variables` entry is required."):
+        ValueError, match="Job nupack has no specification. A `job_spec` or `variables` entry is required."
+    ):
         SlurmiseConfiguration(basic_toml_no_spec)
 
 
 def test_init_SlurmiseConfiguration_wrong_name(basic_toml_inconsistent_spec_name):
-    with pytest.raises(
-        ValueError,
-        match="Unable to validate variables for nupack"):
+    with pytest.raises(ValueError, match="Unable to validate variables for nupack"):
         SlurmiseConfiguration(basic_toml_inconsistent_spec_name)
 
 
 def test_init_SlurmiseConfiguration_wrong_spec_type(basic_toml_inconsistent_spec_type):
-    with pytest.raises(
-        ValueError,
-        match="Unable to validate variables for nupack"):
+    with pytest.raises(ValueError, match="Unable to validate variables for nupack"):
         SlurmiseConfiguration(basic_toml_inconsistent_spec_type)
 
 
 def test_init_SlurmiseConfiguration_unknown_variable_type(basic_toml_variables_unknown_type):
-    with pytest.raises(
-        ValueError,
-        match="Unknown variable type asdf for variable complexity"):
+    with pytest.raises(ValueError, match="Unknown variable type asdf for variable complexity"):
         SlurmiseConfiguration(basic_toml_variables_unknown_type)
 
 
@@ -188,11 +187,7 @@ def test_parse_job_cmd(basic_toml):
 
 def test_parse_job_from_variables(basic_toml):
     config = SlurmiseConfiguration(basic_toml)
-    job_data = config.parse_job_from_dict(
-        {"threads": 3,
-         "runtype": "something",
-         "infile": "test.txt"
-         }, "dict_spec")
+    job_data = config.parse_job_from_dict({"threads": 3, "runtype": "something", "infile": "test.txt"}, "dict_spec")
 
     assert job_data.job_name == "dict_spec"
     assert job_data.categorical == {"runtype": "something", "infile_file_basename": "test.txt"}
@@ -208,22 +203,26 @@ def test_parse_job_cmd_with_ignore(basic_toml):
     assert job_data.categorical == {"complexity": "simple"}
     assert job_data.numerical == {"threads": 1}
 
+
 def test_parse_job_cmd_invalid(basic_toml):
     config = SlurmiseConfiguration(basic_toml)
     with pytest.raises(ValueError, match="Job spec for nupack does not match command:") as ve:
         config.parse_job_cmd("dimer -T 1 -C simple", "nupack", "1234")
-    print(f'\n{ve.value}')
+    print(f"\n{ve.value}")
+
 
 def test_parse_job_cmd_name_mismatch(basic_toml):
     config = SlurmiseConfiguration(basic_toml)
     with pytest.raises(ValueError, match="Job oldpack not found in configuration."):
         config.parse_job_cmd("monomer -T 1 -C simple", "oldpack", "1234")
 
+
 def test_parse_job_cmd_invalid_numeric(basic_toml):
     config = SlurmiseConfiguration(basic_toml)
     with pytest.raises(ValueError, match="Job spec for nupack does not match command:") as ve:
         config.parse_job_cmd("monomer -T 1A -C simple", "nupack", "1234")
-    print(f'\n{ve.value}')
+    print(f"\n{ve.value}")
+
 
 def test_parse_job_cmd_no_job_spec(basic_toml):
     config = SlurmiseConfiguration(basic_toml)
@@ -235,37 +234,39 @@ def test_awk_parsers(basic_toml):
     config = SlurmiseConfiguration(basic_toml)
 
     assert config.file_parsers == {
-        'file_size': file_parsers.FileSizeParser(),
-        'file_lines': file_parsers.FileLinesParser(),
-        'file_basename': file_parsers.FileBasename(),
-        'file_md5': file_parsers.FileMD5(),
-        'get_epochs': file_parsers.AwkParser('get_epochs', 'numerical', "'/^epochs:/ {print $2}'", False),
-        'fasta_lengths': file_parsers.AwkParser('fasta_lengths', 'numerical', "/a/path/to/file", True),
-        'script_string': file_parsers.AwkParser('script_string', 'categorical', "/^>/", False),
+        "file_size": file_parsers.FileSizeParser(),
+        "file_lines": file_parsers.FileLinesParser(),
+        "file_basename": file_parsers.FileBasename(),
+        "file_md5": file_parsers.FileMD5(),
+        "get_epochs": file_parsers.AwkParser("get_epochs", "numerical", "'/^epochs:/ {print $2}'", False),
+        "fasta_lengths": file_parsers.AwkParser("fasta_lengths", "numerical", "/a/path/to/file", True),
+        "script_string": file_parsers.AwkParser("script_string", "categorical", "/^>/", False),
     }
+
 
 def test_parse_job_cmd_inference(basic_toml):
     config = SlurmiseConfiguration(basic_toml)
     with pytest.raises(ValueError, match="Unable to match job name to 'sort infile'"):
-        config.parse_job_cmd('sort infile')
+        config.parse_job_cmd("sort infile")
 
-    match_prefix = config.parse_job_cmd('nothing -T 3 -C high -i something')
-    assert match_prefix.job_name == 'with_ignore'
+    match_prefix = config.parse_job_cmd("nothing -T 3 -C high -i something")
+    assert match_prefix.job_name == "with_ignore"
 
-    match_name = config.parse_job_cmd('nupack monomer -T 3 -C high')
-    assert match_name.job_name == 'nupack'
+    match_name = config.parse_job_cmd("nupack monomer -T 3 -C high")
+    assert match_name.job_name == "nupack"
+
 
 def test_default_resources_slurmise_base(basic_toml):
-    '''Test the default can be set at the slurmise level for all jobs without additional defaults.'''
+    """Test the default can be set at the slurmise level for all jobs without additional defaults."""
     config = SlurmiseConfiguration(basic_toml)
-    job_data = config.parse_job_cmd('nothing -T 3 -C high -i something')
+    job_data = config.parse_job_cmd("nothing -T 3 -C high -i something")
     config.add_defaults(job_data)
 
     assert job_data.memory == 2000
     assert job_data.runtime == 70
 
     # nupack job has defaults overwritten
-    job_data = config.parse_job_cmd('nupack monomer -T 3 -C high')
+    job_data = config.parse_job_cmd("nupack monomer -T 3 -C high")
     config.add_defaults(job_data)
 
     assert job_data.memory == 3000
@@ -273,9 +274,9 @@ def test_default_resources_slurmise_base(basic_toml):
 
 
 def test_default_resources_no_setting(basic_toml_no_default):
-    '''Test the default can be set at the slurmise level for all jobs without additional defaults.'''
+    """Test the default can be set at the slurmise level for all jobs without additional defaults."""
     config = SlurmiseConfiguration(basic_toml_no_default)
-    job_data = config.parse_job_cmd('nupack monomer -T 3 -C high')
+    job_data = config.parse_job_cmd("nupack monomer -T 3 -C high")
     config.add_defaults(job_data)
 
     assert job_data.memory == 1000

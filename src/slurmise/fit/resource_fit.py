@@ -1,8 +1,10 @@
+from __future__ import annotations
+
+import datetime
 import hashlib
 import json
 import pathlib
 from dataclasses import asdict, dataclass, field
-from datetime import datetime
 from typing import Optional
 
 import numpy as np
@@ -16,7 +18,7 @@ BASEMODELPATH = pathlib.Path.home() / ".slurmise/models/"
 class ResourceFit:
     query: JobData
     last_fit_dsize: int = 0
-    fit_timestamp: datetime = field(default_factory=datetime.now)
+    fit_timestamp: datetime.datetime = field(default_factory=datetime.datetime.now)
     model_metrics: dict = field(default_factory=dict)
     path: Optional[pathlib.Path] = None
 
@@ -43,9 +45,7 @@ class ResourceFit:
         hash_info_tuple = tuple(hash_info.items())
 
         # Get and MD5 hash of information
-        hash_val = hashlib.md5(str(hash_info_tuple).encode("utf-8")).hexdigest()
-
-        return hash_val
+        return hashlib.md5(str(hash_info_tuple).encode("utf-8")).hexdigest()  # noqa: S324
 
     @classmethod
     def _make_model_path(cls, query) -> pathlib.Path:
@@ -57,11 +57,14 @@ class ResourceFit:
         hash_val = cls._get_model_info_hash(query)
         return pathlib.Path(BASEMODELPATH) / cls.__name__ / hash_val
 
-    def save(self, model_params: dict = {}):
+    def save(self, model_params: dict | None = None):
         """This method saves the basic information of the model, such as its query,
         when it was last fit, the dataset size of the latest fit, and the type of
         the model.
         """
+        if model_params is None:
+            model_params = {}
+
         self.path.mkdir(parents=True, exist_ok=True)
         with open(str(self.path / "fits.json"), "w") as save_file:
             # This converts the dataclass to a dictionary. If it is called from a subclass,
@@ -78,9 +81,7 @@ class ResourceFit:
             json.dump(info, save_file)
 
     @classmethod
-    def load(
-        cls, query: JobData | None = None, path: str | None = None, **kwargs
-    ) -> "ResourceFit":
+    def load(cls, query: JobData | None = None, path: str | None = None, **kwargs) -> ResourceFit:
         """
         This method loads a model from a file. The model is loaded from the path
         provided, or from the path generated from the query.
@@ -107,12 +108,12 @@ class ResourceFit:
                 info = json.load(load_file)
 
             # Convert datetime from isoformat string to datetime object
-            info["fit_timestamp"] = datetime.fromisoformat(info["fit_timestamp"])
+            info["fit_timestamp"] = datetime.datetime.fromisoformat(info["fit_timestamp"])
         else:
             info = {
                 "query": query,
                 "last_fit_dsize": 0,
-                "fit_timestamp": datetime.now(),
+                "fit_timestamp": datetime.datetime.now(tz=datetime.UTC),
                 "model_metrics": {},
                 "path": path,
             }
@@ -127,7 +128,5 @@ class ResourceFit:
     def predict(self, job: JobData) -> tuple[JobData, list[str]]:
         raise NotImplementedError
 
-    def fit(
-        self, jobs: list[JobData], random_state: np.random.RandomState | None, **kwargs
-    ):
+    def fit(self, jobs: list[JobData], random_state: np.random.RandomState | None, **kwargs):
         raise NotImplementedError

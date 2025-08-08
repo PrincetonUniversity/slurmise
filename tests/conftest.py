@@ -1,10 +1,13 @@
-import pytest
-from pathlib import Path
 import shutil
-from collections import namedtuple
+from pathlib import Path
+from typing import NamedTuple
+
+import pytest
 
 
-TomlReturn = namedtuple('TomlReturn', ['toml', 'db'])
+class TomlReturn(NamedTuple):
+    toml: str
+    db: str
 
 
 @pytest.fixture
@@ -14,7 +17,7 @@ def simple_toml(tmp_path):
     p.write_text(
         f"""
     [slurmise]
-    base_dir = "{d/'slurmise_dir'}"
+    base_dir = "{d / "slurmise_dir"}"
 
     [slurmise.job.nupack]
     job_spec = "monomer -T {{threads:numeric}} -C {{complexity:category}}"
@@ -30,7 +33,7 @@ def nupack_toml(tmp_path):
     p.write_text(
         f"""
     [slurmise]
-    base_dir = "{d/'slurmise_dir'}"
+    base_dir = "{d / "slurmise_dir"}"
     db_filename = "nupack2.h5"
 
     [slurmise.job.nupack]
@@ -55,7 +58,7 @@ def nupackdefaults_toml(tmp_path):
     p.write_text(
         f"""
     [slurmise]
-    base_dir = "{d/'slurmise_dir'}"
+    base_dir = "{d / "slurmise_dir"}"
     db_filename = "nupack2.h5"
 
     [slurmise.job.nupack]
