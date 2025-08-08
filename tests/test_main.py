@@ -30,9 +30,7 @@ def test_record(simple_toml, monkeypatch):
         "memory_per_node": 0,
         "max_rss": 232,
     }
-    monkeypatch.setattr(
-        "slurmise.slurm.parse_slurm_job_metadata", lambda *args, **kwargs: mock_metadata
-    )
+    monkeypatch.setattr("slurmise.slurm.parse_slurm_job_metadata", lambda *args, **kwargs: mock_metadata)
 
     runner = CliRunner()
     result = runner.invoke(
@@ -85,9 +83,7 @@ def test_raw_record(simple_toml, monkeypatch):
         "memory_per_node": 0,
         "max_rss": 232,
     }
-    monkeypatch.setattr(
-        "slurmise.slurm.parse_slurm_job_metadata", lambda *args, **kwargs: mock_metadata
-    )
+    monkeypatch.setattr("slurmise.slurm.parse_slurm_job_metadata", lambda *args, **kwargs: mock_metadata)
 
     runner = CliRunner()
     result = runner.invoke(

@@ -214,13 +214,15 @@ class JobSpec:
         matches_to_display = []
         offset = 0
         for wc in re.finditer(r"{([^⇒]+)⇒([^}]*)}", display_spec):
-            matches_to_display.append((
-                wc.start() + offset,
-                wc.start() + offset + len(wc.group(2)),
-                wc.start(),  # start of match in display_spec
-                wc.end(),  # end of match in display_spec
-                wc.group(1),  # wc name
-            ))
+            matches_to_display.append(
+                (
+                    wc.start() + offset,
+                    wc.start() + offset + len(wc.group(2)),
+                    wc.start(),  # start of match in display_spec
+                    wc.end(),  # end of match in display_spec
+                    wc.group(1),  # wc name
+                )
+            )
             offset += len(wc.group(2)) - wc.end() + wc.start()
 
         # convert to list for slicing

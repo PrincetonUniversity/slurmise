@@ -103,7 +103,6 @@ dependencies = [
 
 [tool.ruff]
 line-length = 120
-indent-width = 4
 [tool.ruff.lint]
 ignore = ["ANN001",
           "SIM118",
@@ -158,3 +157,6 @@ known-first-party = ["slurmise"]
 [tool.ruff.lint.flake8-pytest-style]
 fixture-parentheses = false
 mark-parentheses = false
+
+[tool.isort]
+line_length = 120

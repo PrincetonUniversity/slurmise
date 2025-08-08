@@ -4,9 +4,11 @@ from typing import NamedTuple
 
 import pytest
 
+
 class TomlReturn(NamedTuple):
     toml: str
     db: str
+
 
 @pytest.fixture
 def simple_toml(tmp_path):
