@@ -25,7 +25,7 @@ def test_job_spec_named_ignore():
 
 
 def test_job_spec_unknown_kind():
-    with pytest.raises(ValueError, match="Token kind double is unknown"):
+    with pytest.raises(ValueError, match="Unknown variable type double for variable threads"):
         JobSpec("cmd -T {threads:double}")
 
 
@@ -39,6 +39,33 @@ def test_basic_job_spec():
 
     jd = spec.parse_job_cmd(JobData(job_name="test", cmd="cmd -T 3"))
     assert jd.numerical == {"threads": 3}
+
+
+def test_basic_job_spec_from_dict():
+    spec = JobSpec("cmd -T {threads:numeric}")
+
+    jd = spec.parse_job_from_dict({"threads": 3}, JobData(job_name="test"))
+    assert jd.numerical == {"threads": 3}
+
+
+def test_basic_job_spec_from_dict_extra_in_dict():
+    spec = JobSpec("cmd -T {threads:numeric}")
+
+    with pytest.raises(ValueError, match="Dict contained extra variable: 'extra'"):
+        spec.parse_job_from_dict(
+            {"threads": 3, "extra": "something"},
+            JobData(job_name="test"),
+        )
+
+
+def test_basic_job_spec_from_dict_missing_in_dict():
+    spec = JobSpec("cmd -T {threads:numeric}")
+
+    with pytest.raises(ValueError, match="Dict missing variable: 'threads'"):
+        spec.parse_job_from_dict(
+            {},
+            JobData(job_name="test"),
+        )
 
 
 def test_basic_job_spec_from_dict():
@@ -209,6 +236,16 @@ def test_job_spec_with_builtin_parsers_basename(tmp_path):
             job_name="test",
             cmd=command,
         )
+    )
+    assert jd.job_name == "test"
+    assert jd.numerical == {}
+    assert jd.categorical == {"input1_file_basename": "input.txt"}
+
+    jd = spec.parse_job_from_dict(
+        {"input1": input_file},
+        JobData(
+            job_name="test",
+        ),
     )
     assert jd.job_name == "test"
     assert jd.numerical == {}

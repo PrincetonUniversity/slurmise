@@ -23,7 +23,7 @@ NUMERICAL = "NUMERICAL"
 class JobSpec:
     def __init__(
         self,
-        job_spec: str,
+        job_spec: str | None,
         file_parsers: dict[str, str] | None = None,
         available_parsers: dict[str, FileParser] | None = None,
     ):
@@ -40,7 +40,29 @@ class JobSpec:
         self.token_kinds = {}
         self.file_parsers: dict[str, list[FileParser]] = {}
 
-        self.job_regex = self.build_regex(available_parsers, file_parsers)
+        self.job_regex = None
+        if job_spec is not None:
+            self.job_regex = self.build_regex(available_parsers, file_parsers)
+
+    @staticmethod
+    def from_variables(
+        variables: dict,
+        file_parsers: dict[str, str] | None = None,
+        available_parsers: dict[str, FileParser] | None = None,
+    ):
+        result = JobSpec(None, file_parsers, available_parsers)
+
+        for name, kind in variables.items():
+            if kind not in KIND_TO_REGEX:
+                raise ValueError(f"Unknown variable type {kind} for variable {name}")
+            result.token_kinds[name] = kind
+
+            if kind in ("file", "gzip_file", "file_list") and available_parsers and file_parsers:
+                result.file_parsers[name] = [
+                    available_parsers[parser_type] for parser_type in file_parsers[name].split(",")
+                ]
+
+        return result
 
     def build_regex(self, available_parsers=None, file_parsers=None, named_ignore=False):
         job_spec = self.job_spec_str
@@ -50,8 +72,7 @@ class JobSpec:
             name = match.group("name")
 
             if kind not in KIND_TO_REGEX:
-                msg = f"Token kind {kind} is unknown."
-                raise ValueError(msg)
+                raise ValueError(f"Unknown variable type {kind} for variable {name}")
 
             if kind == "ignore":
                 if named_ignore:
@@ -76,32 +97,44 @@ class JobSpec:
 
         return f"^{job_spec}$"
 
+    def validate_variables(self, variables: dict) -> str | None:
+        # check keys match
+        if set(variables.keys()) != set(self.token_kinds.keys()):
+            return (
+                "Variables do not match original specification\n"
+                f"From spec: {list(self.token_kinds.keys())}\n"
+                f"Variables: {list(variables.keys())}"
+            )
+        for name, kind in variables.items():
+            if kind != self.token_kinds[name]:
+                return (
+                    f"The type of variable {name} does not match original specification\n"
+                    f"From spec: {self.token_kinds[name]}\n"
+                    f"Variables: {kind}"
+                )
+        return None
+
     def parse_job_cmd(self, job: job_data.JobData) -> job_data.JobData:
+        if self.job_regex is None:
+            raise ValueError(f"Job {job.job_name} has no job spec entry for parsing commands")
         match = re.match(self.job_regex, job.cmd)
         if match is None:
             result = self.align_and_indicate_differences(job.cmd)
-            msg = f"Job spec for {job.job_name} does not match command:\n{result}"
-            raise ValueError(msg)
+            raise ValueError(f"Job spec for {job.job_name} does not match command:\n{result}")
         return self.parse_job_from_dict(match.groupdict(), job)
 
     def parse_job_from_dict(self, input_dict: dict, job: job_data.JobData):
         token_keys = set(self.token_kinds.keys())
         input_keys = set(input_dict.keys())
         if len(extras := token_keys - input_keys) != 0:
-            msg = f"Dict missing variable: {extras.pop()!r}"
-            raise ValueError(msg)
+            raise ValueError(f"Dict missing variable: {extras.pop()!r}")
         if len(extras := input_keys - token_keys) != 0:
-            msg = f"Dict contained extra variable: {extras.pop()!r}"
-            raise ValueError(msg)
+            raise ValueError(f"Dict contained extra variable: {extras.pop()!r}")
 
         for name, kind in self.token_kinds.items():
             if kind == "numeric":
                 job.numerical[name] = float(input_dict[name])
             elif kind == "category":
-                if "/" in input_dict[name]:
-                    raise ValueError(
-                        f"Invalid category value for {name}: {input_dict[name]}. Please use a file parser like file_md5."
-                    )
                 job.categorical[name] = input_dict[name]
             elif kind in ("file", "gzip_file", "file_list"):
                 for parser in self.file_parsers[name]:
