@@ -29,9 +29,7 @@ def test_model_path_creation(tmp_path, specify_path):
 
     # Check if the auto-generated path contains the class anem and the hash of the query
     if not specify_path:
-        assert str(
-            Path(fit.__class__.__name__) / Path(fit._get_model_info_hash(query))
-        ) in str(fit.path)
+        assert str(Path(fit.__class__.__name__) / Path(fit._get_model_info_hash(query))) in str(fit.path)
     else:
         assert tmp_path == fit.path
 
@@ -54,7 +52,7 @@ def nupack_data():
 
 
 @pytest.mark.parametrize(
-    "model, kwargs, expected_metrics",
+    ("model", "kwargs", "expected_metrics"),
     [
         (
             PolynomialFit,

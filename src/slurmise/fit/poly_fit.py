@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import InitVar, dataclass
 
 import joblib
@@ -8,13 +10,11 @@ from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
-
-# Generate a polynomial fit for the runtime data using sklearn
 from sklearn.preprocessing import OneHotEncoder, PolynomialFeatures, StandardScaler
 
+from slurmise.fit.resource_fit import ResourceFit
 from slurmise.job_data import JobData
 from slurmise.utils import jobs_to_pandas
-from slurmise.fit.resource_fit import ResourceFit
 
 
 @dataclass(kw_only=True)
@@ -39,12 +39,12 @@ class PolynomialFit(ResourceFit):
             joblib.dump(self.memory_model, str(modelpath))
 
     @classmethod
-    def load(cls, query: JobData | None = None, path: str | None = None)-> "PolynomialFit":
+    def load(cls, query: JobData | None = None, path: str | None = None) -> PolynomialFit:
         fit_obj = super().load(query=query, path=path, degree=2)
 
         runtime_model = fit_obj.path / "runtime_model.pkl"
         fit_obj.runtime_model = joblib.load(str(runtime_model)) if runtime_model.exists() else None
-        
+
         memory_model = fit_obj.path / "memory_model.pkl"
         fit_obj.memory_model = joblib.load(str(memory_model)) if memory_model.exists() else None
 
@@ -74,26 +74,18 @@ class PolynomialFit(ResourceFit):
         poly = PolynomialFeatures(degree=self.degree, include_bias=False)
         model = LinearRegression()
 
-        pipeline = Pipeline(
-            [("preprocessor", preprocessor), ("poly", poly), ("model", model)]
-        )
+        return Pipeline([("preprocessor", preprocessor), ("poly", poly), ("model", model)])
 
-        return pipeline
+    def fit(self, jobs: list[JobData], random_state: np.random.RandomState | None, **kwargs):  # noqa: ARG002
+        X, categorical_features, numerical_features = jobs_to_pandas(jobs)  # noqa: N806
 
-    def fit(
-        self, jobs: list[JobData], random_state: np.random.RandomState | None, **kwargs
-    ):
-        X, categorical_features, numerical_features = jobs_to_pandas(jobs)
-
-        Y = X[["runtime", "memory"]]
+        Y = X[["runtime", "memory"]]  # noqa: N806
 
         # Drop the runtime and memory columns
-        X = X.drop(columns=["runtime", "memory"])
+        X = X.drop(columns=["runtime", "memory"])  # noqa: N806
 
         # Split test and train data
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, Y, test_size=0.2, random_state=random_state
-        )
+        X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.2, random_state=random_state)  # noqa: N806
 
         self.last_fit_dsize = len(X_train)
 
@@ -104,8 +96,8 @@ class PolynomialFit(ResourceFit):
         self.memory_model.fit(X_train, y_train["memory"])
 
         # Evaluate the model on test
-        Y_pred_runtime = self.runtime_model.predict(X_test)
-        Y_pred_memory = self.memory_model.predict(X_test)
+        Y_pred_runtime = self.runtime_model.predict(X_test)  # noqa: N806
+        Y_pred_memory = self.memory_model.predict(X_test)  # noqa: N806
 
         def mean_percent_error(y_true, y_pred):
             return np.mean(np.abs((y_true - y_pred) / y_true)) * 100
@@ -126,13 +118,12 @@ class PolynomialFit(ResourceFit):
         # TODO: check if it can be abstracted.
 
         if self.last_fit_dsize < 10:
-
             return (
                 job,
                 "Not enough fitting data points in the fits. Returning default values.",
             )
 
-        X, _, _ = jobs_to_pandas([job])
+        X, _, _ = jobs_to_pandas([job])  # noqa: N806
         warnmsg = []
         if self.model_metrics["runtime"]["mpe"] < 10:
             warnmsg += [

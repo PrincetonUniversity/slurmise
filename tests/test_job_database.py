@@ -8,8 +8,7 @@ from slurmise.job_database import JobDatabase
 @pytest.fixture
 def empty_h5py_file(tmp_path):
     d = tmp_path
-    p = d / "slurmise.h5"
-    return p
+    return d / "slurmise.h5"
 
 
 @pytest.fixture
@@ -271,10 +270,10 @@ def test_rqd_with_emptydb(empty_h5py_file):
 def test_iterate_database(small_db):
     """Test access to all jobs and data through an iterator."""
     expected_queries = [
-        JobData(job_name='test_job', categorical={'option1': 'value1', 'option2': 'value2'}),
-        JobData(job_name='test_job', categorical={'option1': 'value1'}),
-        JobData(job_name='test_job', categorical={'option1': 'value2'}),
-        JobData(job_name='test_job'),
+        JobData(job_name="test_job", categorical={"option1": "value1", "option2": "value2"}),
+        JobData(job_name="test_job", categorical={"option1": "value1"}),
+        JobData(job_name="test_job", categorical={"option1": "value2"}),
+        JobData(job_name="test_job"),
     ]
 
     for (query, jobs), expected in zip(small_db.iterate_database(), expected_queries, strict=True):
@@ -357,11 +356,7 @@ def test_delete(small_db):
 
 
 def test_delete_all_children(small_db):
-    query_result = small_db.query(
-        JobData(
-            job_name="test_job", categorical={"option1": "value1", "option2": "value2"}
-        )
-    )
+    query_result = small_db.query(JobData(job_name="test_job", categorical={"option1": "value1", "option2": "value2"}))
     assert len(query_result)
 
     small_db.delete(
@@ -369,33 +364,25 @@ def test_delete_all_children(small_db):
         delete_all_children=True,
     )
 
-    query_result = small_db.query(
-        JobData(
-            job_name="test_job", categorical={"option1": "value1", "option2": "value2"}
-        )
-    )
+    query_result = small_db.query(JobData(job_name="test_job", categorical={"option1": "value1", "option2": "value2"}))
     assert query_result == []
 
     query_result = small_db.query(JobData(job_name="test_job"))
     assert len(query_result)
 
-    query_result = small_db.query(
-        JobData(job_name="test_job", categorical={"option1": "value2"})
-    )
+    query_result = small_db.query(JobData(job_name="test_job", categorical={"option1": "value2"}))
     assert len(query_result)
     small_db.delete(JobData(job_name="test_job"), delete_all_children=True)
 
     query_result = small_db.query(JobData(job_name="test_job"))
     assert query_result == []
 
-    query_result = small_db.query(
-        JobData(job_name="test_job", categorical={"option1": "value2"})
-    )
+    query_result = small_db.query(JobData(job_name="test_job", categorical={"option1": "value2"}))
     assert query_result == []
 
 
 def test_update_missing_mem_elapsed(empty_h5py_file, monkeypatch):
-    def mock_parse_slurm_job_metadata(slurm_id, step_id):
+    def mock_parse_slurm_job_metadata(slurm_id, step_id):  # noqa: ARG001
         return {
             "max_rss": 101,
             "elapsed_seconds": 100,

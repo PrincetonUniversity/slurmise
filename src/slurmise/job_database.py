@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 import contextlib
 import dataclasses
 import os
-from typing import Any
 import time
+from typing import Any
 
 import h5py
 import numpy as np
@@ -40,7 +42,7 @@ class JobDatabase:
 
     @staticmethod
     @contextlib.contextmanager
-    def get_database(db_file: str, max_retries: int = 5) -> "JobDatabase":
+    def get_database(db_file: str, max_retries: int = 5) -> JobDatabase:  # type: ignore
         """
         Use in context manager to automatically open and close db file.
 
@@ -92,7 +94,8 @@ class JobDatabase:
         return table_name in self.db
 
     def update(self, **kargs):
-        raise NotImplementedError("Later feature")
+        msg = "Later feature"
+        raise NotImplementedError(msg)
 
     def query(self, job_data: JobData, update_missing: bool = False) -> list[JobData]:
         """
@@ -144,13 +147,16 @@ class JobDatabase:
                         del job_group[slurm_id]
 
     def clear(self):
-        raise NotImplementedError("Empting the DB is not yet supported")
+        msg = "Empting the DB is not yet supported"
+        raise NotImplementedError(msg)
 
     def record_fit(self, fit):
-        raise NotImplementedError("Storing fits is not supported yet")
+        msg = "Storing fits is not supported yet"
+        raise NotImplementedError(msg)
 
     def query_fit(self, fit):
-        raise NotImplementedError("Storing fits is not supported yet")
+        msg = "Storing fits is not supported yet"
+        raise NotImplementedError(msg)
 
     def update_missing_data(self, jobs: list[JobData]) -> list[JobData]:
         """
@@ -166,7 +172,7 @@ class JobDatabase:
                     slurm_id, step_id = job.slurm_id.split(".")
                 else:
                     slurm_id, step_id = job.slurm_id, None
-                job_info = slurm.parse_slurm_job_metadata(slurm_id = slurm_id, step_id = step_id)
+                job_info = slurm.parse_slurm_job_metadata(slurm_id=slurm_id, step_id=step_id)
 
                 # job dataclass is immutable, so this creates a new object with the updated values
                 # ternary's are to avoid updating if the value is already present which causes a "dataset already exists" error
@@ -174,9 +180,7 @@ class JobDatabase:
                     dataclasses.replace(
                         job,
                         memory=job_info["max_rss"] if job.memory is None else None,
-                        runtime=(
-                            job_info["elapsed_seconds"] if job.runtime is None else None
-                        ),
+                        runtime=(job_info["elapsed_seconds"] if job.runtime is None else None),
                         numerical={},
                     )
                 )
@@ -184,11 +188,7 @@ class JobDatabase:
                 job = dataclasses.replace(
                     job,
                     memory=job_info["max_rss"] if job.memory is None else job.memory,
-                    runtime=(
-                        job_info["elapsed_seconds"]
-                        if job.runtime is None
-                        else job.runtime
-                    ),
+                    runtime=(job_info["elapsed_seconds"] if job.runtime is None else job.runtime),
                 )
 
             updated_jobs.append(job)
@@ -213,7 +213,7 @@ class JobDatabase:
         """
         Test if object is an h5py Dataset
         """
-        return type(f) == h5py._hl.dataset.Dataset
+        return isinstance(f, h5py._hl.dataset.Dataset)
 
     @staticmethod
     def is_slurm_job(f: Any) -> bool:
@@ -257,20 +257,18 @@ class JobDatabase:
     @staticmethod
     def iterate_jobs(h5py_obj, categoricals=None):
         if categoricals is None:
-            categoricals = tuple()
+            categoricals = ()
 
         jobs = {}
         for key, entry in h5py_obj.items():
             if JobDatabase.is_slurm_job(entry):
                 jobs[key] = entry
             else:
-                yield from JobDatabase.iterate_jobs(entry, categoricals + (key,))
+                yield from JobDatabase.iterate_jobs(entry, categoricals + (key,))  # noqa: RUF005
         yield categoricals, jobs
 
     @staticmethod
-    def print_hdf5(
-        h5py_obj, level=-1, print_full_name: bool = False, print_attrs: bool = True
-    ) -> None:
+    def print_hdf5(h5py_obj, level=-1, print_full_name: bool = False, print_attrs: bool = True) -> None:
         """Prints the name and shape of datasets in a H5py HDF5 file.
 
         Parameters
@@ -291,10 +289,10 @@ class JobDatabase:
         """
 
         def is_group(f):
-            return type(f) == h5py._hl.group.Group
+            return isinstance(f, h5py._hl.group.Group)
 
         def is_dataset(f):
-            return type(f) == h5py._hl.dataset.Dataset
+            return isinstance(f, h5py._hl.dataset.Dataset)
 
         def print_level(level, n_spaces=5) -> str:
             if level == -1:
@@ -308,16 +306,13 @@ class JobDatabase:
             entry = h5py_obj[key]
             name = entry.name if print_full_name else os.path.basename(entry.name)
             if is_group(entry):
-                print(f"{print_level(level)}{name}")
-                JobDatabase.print_hdf5(
-                    entry, level + 1, print_full_name=print_full_name
-                )
+                print(f"{print_level(level)}{name}")  # noqa: T201
+                JobDatabase.print_hdf5(entry, level + 1, print_full_name=print_full_name)
             elif is_dataset(entry):
                 shape = entry.shape
                 dtype = entry.dtype
-                print(f"{print_level(level)}{name}: {shape} {dtype} {entry[()]}")
-        if level == -1:
-            if print_attrs:
-                print("attrs: ")
-                for key, value in h5py_obj.attrs.items():
-                    print(f" {key}: {value}")
+                print(f"{print_level(level)}{name}: {shape} {dtype} {entry[()]}")  # noqa: T201
+        if level == -1 and print_attrs:
+            print("attrs: ")  # noqa: T201
+            for key, value in h5py_obj.attrs.items():
+                print(f" {key}: {value}")  # noqa: T201
