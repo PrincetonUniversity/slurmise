@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import ast
+import pathlib
+import warnings
 from dataclasses import astuple, dataclass, field
 
 import h5py
@@ -88,6 +91,56 @@ class JobData:
             categorical=categorical,
             memory=memory,
             runtime=runtime,
+        )
+
+    @staticmethod
+    def from_snakemake_benchmark_file(benchmark_path: pathlib.Path) -> JobData:
+        """
+        This method creates a JobData object from a benchmark file created by Snakemake benchmark: directive.
+        :arguments:
+
+            :benchmark_path: The path to the Snakemake benchmark file.
+        """
+        with benchmark_path.open() as f:
+            lines = f.readlines()
+
+        # Parse the header
+        header = lines[0].strip().split("\t")
+        data = lines[1].strip().split("\t")
+
+        # Map header to data
+        job_data = {key: value for key, value in zip(header, data)}
+
+        # Convert the wildcards and params into categorical and numerical
+        wildcards = ast.literal_eval(job_data.get("wildcards", "{}"))
+        params = ast.literal_eval(job_data.get("params", "{}"))
+        shared_keys = set(wildcards.keys()) & set(params.keys())
+
+        if shared_keys:
+            warnings.warn(f"Shared keys found in Snakemake wildcards and params: {shared_keys}")
+
+        categorical = {}
+        numerical = {}
+        for k,v in (wildcards | params).items():
+            try:
+                numerical[k] = float(v)
+            except ValueError:
+                categorical[k] = v
+
+        job_data["categorical"] = categorical
+        job_data["numerical"] = numerical
+
+        # Convert max_rss (in MBs) and cpu_time (seconds) to integer MBs and minutes
+        job_data["max_rss"] = int(float(job_data.get("max_rss", 0)))
+        job_data["cpu_time"] = int(float(job_data.get("cpu_time", 0))) // 60
+
+        return JobData(
+            job_name=job_data.get("rule_name"),
+            slurm_id=job_data.get("jobid"),
+            categorical=job_data.get("categorical"),
+            numerical=job_data.get("numerical"),
+            memory=job_data.get("max_rss"),
+            runtime=job_data.get("cpu_time"),
         )
 
     def __eq__(self, other):
