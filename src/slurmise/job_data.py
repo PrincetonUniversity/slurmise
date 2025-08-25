@@ -5,7 +5,7 @@ import pathlib
 import warnings
 from dataclasses import astuple, dataclass, field
 
-import h5py
+import h5py  # type: ignore
 import numpy as np
 
 
@@ -109,11 +109,11 @@ class JobData:
         data = lines[1].strip().split("\t")
 
         # Map header to data
-        job_data = {key: value for key, value in zip(header, data)}
+        smk_job_data = {key: value for key, value in zip(header, data)}
 
         # Convert the wildcards and params into categorical and numerical
-        wildcards = ast.literal_eval(job_data.get("wildcards", "{}"))
-        params = ast.literal_eval(job_data.get("params", "{}"))
+        wildcards = ast.literal_eval(smk_job_data.get("wildcards", "{}"))
+        params = ast.literal_eval(smk_job_data.get("params", "{}"))
         shared_keys = set(wildcards.keys()) & set(params.keys())
 
         if shared_keys:
@@ -127,20 +127,16 @@ class JobData:
             except ValueError:
                 categorical[k] = v
 
-        job_data["categorical"] = categorical
-        job_data["numerical"] = numerical
-
         # Convert max_rss (in MBs) and cpu_time (seconds) to integer MBs and minutes
-        job_data["max_rss"] = int(float(job_data.get("max_rss", 0)))
-        job_data["cpu_time"] = int(float(job_data.get("cpu_time", 0))) // 60
+        max_rss = int(float(smk_job_data.get("max_rss", 0)))
+        cpu_time = int(float(smk_job_data.get("cpu_time", 0))) // 60
 
         return JobData(
-            job_name=job_data.get("rule_name"),
-            slurm_id=job_data.get("jobid"),
-            categorical=job_data.get("categorical"),
-            numerical=job_data.get("numerical"),
-            memory=job_data.get("max_rss"),
-            runtime=job_data.get("cpu_time"),
+            job_name=smk_job_data["rule_name"],
+            categorical=categorical,
+            numerical=numerical,
+            memory=max_rss,
+            runtime=cpu_time,
         )
 
     def __eq__(self, other):

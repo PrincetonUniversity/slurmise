@@ -14,12 +14,11 @@ def snakemake_benchmark(tmp_path):
 
     return p
 
-@pytest.mark.xfail(reason="Implementation in progress")
 def test_from_snakemake_benchmark_file(snakemake_benchmark):
     job_data = JobData.from_snakemake_benchmark_file(snakemake_benchmark)
     assert job_data.job_name == "PRIME"
-    assert job_data.slurm_id == "0"
-    assert job_data.categorical == {'branch': 'test', 'properties': 'Random-5', 'gene_name': 'ZWINT'}
-    assert job_data.numerical == {'hyphy': '~/local/bin/hyphy'}
-    assert job_data.memory == 2048
-    assert job_data.runtime == 120
+    assert job_data.slurm_id is None
+    assert job_data.categorical == {'branch': 'test', 'properties': 'Random-5', 'gene_name': 'ZWINT', 'hyphy': '~/local/bin/hyphy'}
+    assert job_data.numerical == {}
+    assert job_data.memory == 46
+    assert job_data.runtime == 33
