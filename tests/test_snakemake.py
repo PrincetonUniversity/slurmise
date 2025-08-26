@@ -19,6 +19,6 @@ def test_from_snakemake_benchmark_file(snakemake_benchmark):
     assert job_data.job_name == "PRIME"
     assert job_data.slurm_id is None
     assert job_data.categorical == {'branch': 'test', 'properties': 'Random-5', 'gene_name': 'ZWINT', 'hyphy': '~/local/bin/hyphy'}
-    assert job_data.numerical == {}
+    assert job_data.numerical == {'input_size_mb_ZWINT.24primates.nh.emf': 0.001, 'input_size_mb_ZWINT_cds.fas': 0.042}
     assert job_data.memory == 46
     assert job_data.runtime == 33

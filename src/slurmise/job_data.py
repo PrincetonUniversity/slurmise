@@ -127,6 +127,13 @@ class JobData:
             except ValueError:
                 categorical[k] = v
 
+        # Add input file sizes to numerical dict
+        input_file_sizes = ast.literal_eval(smk_job_data.get("input_size_mb", "{}"))
+        for f in input_file_sizes:
+            numerical[f"input_size_mb_{f}"] = round(input_file_sizes[f], 3) # round to neareast 0.001 MB
+
+        # TODO should we add the number of CPUs, max allowed MEM, etc as numerical inputs?
+
         # Convert max_rss (in MBs) and cpu_time (seconds) to integer MBs and minutes
         max_rss = int(float(smk_job_data.get("max_rss", 0)))
         cpu_time = int(float(smk_job_data.get("cpu_time", 0))) // 60
