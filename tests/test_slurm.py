@@ -40,6 +40,7 @@ def generate_job_metadata(**kargs):
         ]
     }
 
+
 def test_parse_slurm_job_metadata(monkeypatch):
     def mock_get_slurm_job_sacct(slurm_id):  # noqa: ARG001
         return generate_job_metadata()
