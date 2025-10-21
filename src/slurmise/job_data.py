@@ -93,11 +93,10 @@ class JobData:
 
     def to_json(self):
         result = {
-            'categorical': self.categorical,
-            'numerical': self.numerical,
+            "categorical": self.categorical,
+            "numerical": self.numerical,
         }
         return json.dumps(result)
-
 
     def __eq__(self, other):
         return dc_eq(self, other)
