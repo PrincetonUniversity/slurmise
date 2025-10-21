@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-
 import pytest
 
 import slurmise.extras.snake_parsers as sp
