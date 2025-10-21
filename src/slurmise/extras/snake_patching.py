@@ -21,7 +21,7 @@ SLURMISE_DEFAULTS = {
 def patch_snakemake_workflow(
     slurmise: Slurmise,
     workflow: Workflow,
-    rules: dict[str, dict],
+    rules: list[str],
     benchmark_dir: str | Path = "slurmise/benchmarks",
     keep_benchmarks: bool = False,
     record_benchmarks: bool = True,
@@ -49,7 +49,6 @@ def patch_snakemake_workflow(
         for file in benchmark_dir.rglob("*.jsonl"):
             benchmark_data = json.loads(file.read_text())
             slurmise_data = json.loads(benchmark_data["params"]["slurmise_data"])
-
             try:
                 runtime = (float(benchmark_data["s"]) / 60,)
             except ValueError:
