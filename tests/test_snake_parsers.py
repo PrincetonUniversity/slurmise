@@ -63,7 +63,7 @@ def test_params():
 
     # invalid options and input
     match_result = (
-        f'Cannot use param {'target'!r} in slurmise.  ' 'Input functions may only depend on wildcards or input.'
+        f'Cannot use param {"target"!r} in slurmise.  ' 'Input functions may only depend on wildcards or input.'
     )
 
     callable_params = DummyRule(params={"target": lambda wildcards, output: wildcards})
