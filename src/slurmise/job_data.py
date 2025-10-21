@@ -4,6 +4,7 @@ from dataclasses import astuple, dataclass, field
 
 import h5py
 import numpy as np
+import json
 
 
 def array_safe_eq(a, b) -> bool:
@@ -89,6 +90,14 @@ class JobData:
             memory=memory,
             runtime=runtime,
         )
+
+    def to_json(self):
+        result = {
+            'categorical': self.categorical,
+            'numerical': self.numerical,
+        }
+        return json.dumps(result)
+
 
     def __eq__(self, other):
         return dc_eq(self, other)
