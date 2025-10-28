@@ -76,7 +76,10 @@ def patch_snakemake_workflow(
             job_data = slurmise.raw_predict(job_data)[0]
 
             exp = variables.get("SLURMISE_attempt_exp", 1)
-            scale = variables.get(f"SLURMISE_{resource}_scale", 1)
+            if resource == "memory":
+                scale = variables.get(f"SLURMISE_{resource}_scale", 1.1)
+            else:
+                scale = variables.get(f"SLURMISE_{resource}_scale", 1.25)
 
             # thread_scaling = variables['SLURMISE_thread_scaling']
             # if thread_scaling is not None:
