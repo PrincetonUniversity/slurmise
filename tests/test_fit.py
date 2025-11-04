@@ -3,6 +3,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from slurmise.fit.kneighbors_fit import KNNFit
 from slurmise.fit.poly_fit import PolynomialFit
 from slurmise.fit.resource_fit import ResourceFit
 from slurmise.job_data import JobData
@@ -34,7 +35,7 @@ def test_model_path_creation(tmp_path, specify_path):
         assert tmp_path == fit.path
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture()
 def nupack_data():
     query = JobData(job_name="nupack")
 
@@ -55,6 +56,57 @@ def nupack_data():
     ("model", "kwargs", "expected_metrics"),
     [
         (
+            KNNFit,
+            {"nneighbors": 5},
+            {
+                "runtime": {"mpe": 29.064831, "mse": 27.5574959},
+                "memory": {"mpe": 18.0107243, "mse": 121437.5881779},
+            },
+        )
+    ],
+)
+def test_knn_fit_and_predict(nupack_data, model, kwargs, expected_metrics):
+    """Test the fit classes on the nupack data"""
+
+    query, jobs = nupack_data
+
+    knn_fit = model(query=query, **kwargs)
+
+    random_state = np.random.RandomState(42)
+    knn_fit.fit(jobs, random_state=random_state)
+
+    # Predict the runtime and memory of a job
+    job = jobs[0]
+
+    predicted_job, _ = knn_fit.predict(job)
+
+    assert knn_fit.last_fit_dsize == int(len(jobs) * 0.8)
+
+    # Save the model
+    # knn_fit.save()
+
+    # Load the model
+    # knn_fit_loaded = KNNFit.load(query=query)
+    # assert knn_fit_loaded.last_fit_dsize == int(len(jobs) * 0.8)
+    # predicted_job2, _ = knn_fit_loaded.predict(job)
+    # assert predicted_job.runtime == predicted_job2.runtime
+    # assert predicted_job.memory == predicted_job2.memory
+
+    # for key in knn_fit.model_metrics.keys():
+    #     assert key in expected_metrics
+    #     for metric in knn_fit.model_metrics[key].keys():
+    #         assert metric in expected_metrics[key]
+    #         np.testing.assert_allclose(
+    #             knn_fit.model_metrics[key][metric],
+    #             expected_metrics[key][metric],
+    #             rtol=1e-6,
+    #         )
+
+
+@pytest.mark.parametrize(
+    ("model", "kwargs", "expected_metrics"),
+    [
+        (
             PolynomialFit,
             {"degree": 2},
             {
@@ -68,7 +120,6 @@ def test_fit_and_predict(nupack_data, model, kwargs, expected_metrics):
     """Test the fit classes on the nupack data"""
 
     query, jobs = nupack_data
-
     poly_fit = model(query=query, **kwargs)
 
     random_state = np.random.RandomState(42)
