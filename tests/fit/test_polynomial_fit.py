@@ -50,6 +50,7 @@ def nupack_data():
 
     return query, jobs
 
+
 @pytest.mark.parametrize(
     ("model", "kwargs", "expected_metrics"),
     [
