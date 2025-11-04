@@ -70,7 +70,6 @@ class KNNFit(ResourceFit):
             ]
         )
 
-        # We are doing polynomial regression, so we need to add polynomial features
         model = KNeighborsRegressor(self.nneighbors)
 
         return Pipeline([("preprocessor", preprocessor), ("model", model)])
@@ -80,7 +79,7 @@ class KNNFit(ResourceFit):
 
         Y = X[["runtime", "memory"]]  # noqa: N806
 
-        # Drop the runtime and memory columns
+        # Drop the runtime and memory columns as they are the target variables
         X = X.drop(columns=["runtime", "memory"])  # noqa: N806
 
         # Split test and train data
