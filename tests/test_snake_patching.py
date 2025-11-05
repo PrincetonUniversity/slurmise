@@ -6,7 +6,6 @@ import pytest
 from slurmise.api import Slurmise
 from slurmise.job_database import JobDatabase
 
-
 def has_snakemake():
     try:
         import snakemake  # noqa: F401
@@ -15,20 +14,17 @@ def has_snakemake():
     except ImportError:
         return False
 
-
 def make_snakefile(base_path, append="", slurmise_toml=None):
     snakefile = base_path / "Snakefile"
     if slurmise_toml is not None:
-        append = (
+        append =
             f"""
 from slurmise.api import Slurmise
 from slurmise.extras.snake_patching import patch_snakemake_workflow
 import slurmise.extras.snake_parsers as sp
 
 slurmise = Slurmise("{slurmise_toml}")
-        """
-            + append
-        )
+        """ + append
     snakefile.write_text(f"""
 workdir: "{base_path}"
 

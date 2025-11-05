@@ -61,6 +61,15 @@ def patch_snakemake_workflow(
             # if a value is a thread, update it to true value
             slurmise_data = _correct_threads(slurmise_data, benchmark_data)
 
+            try:
+                runtime=float(benchmark_data["s"]) / 60,
+            except ValueError:
+                runtime = 0
+            try:
+                memory=float(benchmark_data["max_rss"]),
+            except ValueError:
+                memory = 0
+
             job_data = JobData(
                 job_name=benchmark_data["rule_name"],
                 slurm_id=md5_parser.parse_file(file),
@@ -140,7 +149,11 @@ def patch_snakemake_workflow(
             if len(rule.wildcard_names) == 0:
                 benchmark_name = f"{rule.name}.jsonl"
             else:
-                benchmark_name = "~".join(f"{wc}:{{{wc}}}" for wc in sorted(rule.wildcard_names)) + ".jsonl"
+                benchmark_name = (
+                    "~".join(
+                        f"{wc}:{{{wc}}}"
+                        for wc in sorted(rule.wildcard_names)
+                    ) + ".jsonl")
 
             rule.benchmark = benchmark_dir / rule.name / benchmark_name
 
