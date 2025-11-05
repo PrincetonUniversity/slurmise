@@ -57,10 +57,8 @@ class JobSpec:
                 raise ValueError(f"Unknown variable type {kind} for variable {name}")
             result.token_kinds[name] = kind
 
-            if kind in ("file", "gzip_file", "file_list") and available_parsers and file_parsers:
-                result.file_parsers[name] = [
-                    available_parsers[parser_type] for parser_type in file_parsers[name].split(",")
-                ]
+            if kind in ("file", "gzip_file", "file_list"):
+                result.update_file_parsers(name, available_parsers, file_parsers)
 
         return result
 
@@ -90,12 +88,22 @@ class JobSpec:
                 self.token_kinds[name] = kind
                 job_spec = job_spec.replace(match.group(0), f"(?P<{name}>{KIND_TO_REGEX[kind]})", 1)
 
-                if kind in ("file", "gzip_file", "file_list") and available_parsers and file_parsers:
-                    self.file_parsers[name] = [
-                        available_parsers[parser_type] for parser_type in file_parsers[name].split(",")
-                    ]
+                if kind in ("file", "gzip_file", "file_list"):
+                    self.update_file_parsers(name, available_parsers, file_parsers)
 
         return f"^{job_spec}$"
+
+    def update_file_parsers(self, name, available_parsers, file_parsers):
+        try:
+            self.file_parsers[name] = [available_parsers[parser_type] for parser_type in file_parsers[name].split(",")]
+        except KeyError:
+            # find the missing parser
+            if name not in file_parsers:
+                raise ValueError(f"File {name!r} has no assigned file parser")
+            for parser_type in file_parsers[name].split(","):
+                if parser_type not in available_parsers:
+                    error = f"The parser {parser_type!r} is not available for file {name!r}"
+                    raise ValueError(error)
 
     def validate_variables(self, variables: dict) -> str | None:
         # check keys match
