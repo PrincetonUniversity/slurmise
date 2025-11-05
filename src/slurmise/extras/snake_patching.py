@@ -14,7 +14,7 @@ import json
 def patch_snakemake_workflow(
     slurmise: Slurmise,
     workflow,
-    rules: list[str],
+    rules: dict[str, dict],
     benchmark_dir: str | Path = "slurmise/benchmarks",
     keep_benchmarks: bool = False,
     record_benchmarks: bool = True,
@@ -43,13 +43,22 @@ def patch_snakemake_workflow(
             benchmark_data = json.loads(file.read_text())
             slurmise_data = json.loads(benchmark_data["params"]["slurmise_data"])
 
+            try:
+                runtime=float(benchmark_data["s"]) / 60,
+            except ValueError:
+                runtime = 0
+            try:
+                memory=float(benchmark_data["max_rss"]),
+            except ValueError:
+                memory = 0
+
             job_data = JobData(
                 job_name=benchmark_data["rule_name"],
                 slurm_id=md5_parser.parse_file(file),
                 categorical=slurmise_data["categorical"],
                 numerical=slurmise_data["numerical"],
-                runtime=float(benchmark_data["s"]) / 60,
-                memory=float(benchmark_data["max_rss"]),
+                runtime=runtime,
+                memory=memory,
             )
 
             slurmise.raw_record(job_data, processed_data=True)
@@ -115,7 +124,14 @@ def patch_snakemake_workflow(
                 )
 
             # wc1:val1~wc2:val2.jsonl
-            benchmark_name = "~".join(f"{wc}:{{{wc}}}" for wc in sorted(rule.wildcard_names)) + ".jsonl"
+            if len(rule.wildcard_names) == 0:
+                benchmark_name = f"{rule.name}.jsonl"
+            else:
+                benchmark_name = (
+                    "~".join(
+                        f"{wc}:{{{wc}}}"
+                        for wc in sorted(rule.wildcard_names)
+                    ) + ".jsonl")
 
             rule.benchmark = benchmark_dir / rule.name / benchmark_name
 

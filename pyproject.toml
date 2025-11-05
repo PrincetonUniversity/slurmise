@@ -50,6 +50,10 @@ docs = [
   "sphinx-rtd-theme"
   ]
 
+snakemake = [
+  "snakemake>=6",
+]
+
 [project.urls]
 Documentation = "https://github.com/PrincetonUniversity/slurmise#readme"
 Issues = "https://github.com/PrincetonUniversity/slurmise/issues"
