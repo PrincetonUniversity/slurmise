@@ -8,8 +8,11 @@ from dataclasses import asdict, dataclass, field
 from typing import Optional
 
 import numpy as np
+from sklearn.metrics import mean_squared_error
+from sklearn.model_selection import train_test_split
 
-from ..job_data import JobData
+from slurmise.job_data import JobData
+from slurmise.utils import jobs_to_pandas
 
 BASEMODELPATH = pathlib.Path.home() / ".slurmise/models/"
 
@@ -125,8 +128,84 @@ class ResourceFit:
 
         return cls(**info)
 
-    def predict(self, job: JobData) -> tuple[JobData, list[str]]:
-        raise NotImplementedError
+    @classmethod
+    def mean_percent_error(cls, y_true, y_pred):
+        return np.mean(np.abs((y_true - y_pred) / y_true)) * 100
 
-    def fit(self, jobs: list[JobData], random_state: np.random.RandomState | None, **kwargs):
-        raise NotImplementedError
+    def fit(self, jobs: list[JobData], random_state: np.random.RandomState | None, **kwargs):  # noqa: ARG002
+        X, categorical_features, numerical_features = jobs_to_pandas(jobs)  # noqa: N806
+
+        Y = X[["runtime", "memory"]]  # noqa: N806
+
+        # Drop the runtime and memory columns
+        X = X.drop(columns=["runtime", "memory"])  # noqa: N806
+
+        # Split test and train data
+        X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.2, random_state=random_state)  # noqa: N806
+
+        self.last_fit_dsize = len(X_train)
+
+        self.runtime_model = self._make_model(categorical_features, numerical_features)
+        self.memory_model = self._make_model(categorical_features, numerical_features)
+
+        self.runtime_model.fit(X_train, y_train["runtime"])
+        self.memory_model.fit(X_train, y_train["memory"])
+
+        # Evaluate the model on test
+        Y_pred_runtime = self.runtime_model.predict(X_test)  # noqa: N806
+        Y_pred_memory = self.memory_model.predict(X_test)  # noqa: N806
+
+        self.model_metrics = {
+            "runtime": {
+                "mpe": self.mean_percent_error(y_test["runtime"], Y_pred_runtime),
+                "mse": mean_squared_error(y_test["runtime"], Y_pred_runtime),
+            },
+            "memory": {
+                "mpe": self.mean_percent_error(y_test["memory"], Y_pred_memory),
+                "mse": mean_squared_error(y_test["memory"], Y_pred_memory),
+            },
+        }
+        # TODO: Warning if model metrics are larger than a threshold.
+
+    def predict(self, job: JobData) -> tuple[JobData, list[str]]:
+        # TODO: check if it can be abstracted.
+
+        if self.last_fit_dsize < 10:
+            return (
+                job,
+                "Not enough fitting data points in the fits. Returning default values.",
+            )
+
+        X, _, _ = jobs_to_pandas([job])  # noqa: N806
+        warnmsg = []
+        if self.model_metrics["runtime"]["mpe"] < 10:
+            warnmsg += [
+                f"Runtime prediction for job {job.job_name} is not within 10% of actual value.",
+                "Returing default runtime value.",
+            ]
+        else:
+            predicted_runtime = self.runtime_model.predict(X)[0]
+            if predicted_runtime > 0 and predicted_runtime < 100 * job.runtime:
+                job.runtime = predicted_runtime
+            else:
+                warnmsg += [
+                    f"Predicted runtime for job {job.job_name} is either negative or more than 100 times larger than default.",
+                    "Returing default runtime value.",
+                ]
+
+        if self.model_metrics["memory"]["mpe"] < 10:
+            warnmsg += [
+                f"Memory prediction for job {job.job_name} is not within 10% of actual value.",
+                "Returing default memory value.",
+            ]
+        else:
+            predicted_memory = self.memory_model.predict(X)[0]
+            if predicted_memory > 0 and predicted_memory < 100 * job.memory:
+                job.memory = predicted_memory
+            else:
+                warnmsg += [
+                    f"Predicted memory for job {job.job_name} is either negative or more than 100 times larger than default.",
+                    "Returing default memory value.",
+                ]
+
+        return job, warnmsg
