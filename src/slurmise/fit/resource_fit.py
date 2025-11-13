@@ -7,6 +7,7 @@ import pathlib
 from dataclasses import asdict, dataclass, field
 from typing import Optional
 
+import joblib
 import numpy as np
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
@@ -86,6 +87,14 @@ class ResourceFit:
 
             info.update(model_params)
             json.dump(info, save_file)
+
+        if self.runtime_model is not None:
+            modelpath = self.path / self._runtime_model_name
+            joblib.dump(self.runtime_model, str(modelpath))
+        if self.memory_model is not None:
+            modelpath = self.path / self._memory_model_name
+            joblib.dump(self.memory_model, str(modelpath))
+
 
     @classmethod
     def load(cls, query: JobData | None = None, path: str | None = None, **kwargs) -> ResourceFit:
