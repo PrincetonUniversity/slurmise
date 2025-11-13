@@ -138,9 +138,9 @@ awk_script = "/path/to/awk/file.awk"
 script_is_file = True
 
 # contents of file.awk
-# /^>/ {if (seq) print seq; seq=0} 
-# /^>/ {next} 
-# {seq = seq + length($0)} 
+# /^>/ {if (seq) print seq; seq=0}
+# /^>/ {next}
+# {seq = seq + length($0)}
 # END {if (seq) print seq}
 ```
 The first extracts the token after `epochs: ` as a number and could be used for

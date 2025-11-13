@@ -112,6 +112,23 @@ def basic_toml_inconsistent_spec_type(tmpdir):
 
 
 @pytest.fixture
+def basic_toml_file_no_parser(tmpdir):
+    d = tmpdir.mkdir("slurmise_dir")
+    f = d.join("basic.toml")
+
+    toml_str = """
+    [slurmise]
+    base_dir = "slurmise_dir"
+
+    [slurmise.job.nupack]
+    job_spec = "monomer -T {threads:numeric} -C {complexity:file}"
+    """
+
+    f.write(toml_str)
+    return f
+
+
+@pytest.fixture
 def basic_toml_inconsistent_spec_name(tmpdir):
     d = tmpdir.mkdir("slurmise_dir")
     f = d.join("basic.toml")
@@ -168,6 +185,11 @@ def test_init_SlurmiseConfiguration_wrong_name(basic_toml_inconsistent_spec_name
 def test_init_SlurmiseConfiguration_wrong_spec_type(basic_toml_inconsistent_spec_type):
     with pytest.raises(ValueError, match="Unable to validate variables for nupack"):
         SlurmiseConfiguration(basic_toml_inconsistent_spec_type)
+
+
+def test_init_SlurmiseConfiguration_missing_file(basic_toml_file_no_parser):
+    with pytest.raises(ValueError, match="File 'complexity' has no assigned file parser"):
+        SlurmiseConfiguration(basic_toml_file_no_parser)
 
 
 def test_init_SlurmiseConfiguration_unknown_variable_type(basic_toml_variables_unknown_type):

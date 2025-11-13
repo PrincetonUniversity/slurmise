@@ -175,6 +175,41 @@ def test_long_job_spec():
     print(f"\n{ve.value}")
 
 
+def test_job_spec_with_no_file_parser(tmp_path):
+    """
+    [slurmise.job.builtin_files]
+    job_spec = "--input1 {input1:file}"
+    """
+    available_parsers = {
+        "file_basename": file_parsers.FileBasename(),
+    }
+
+    with pytest.raises(ValueError, match="File 'input1' has no assigned file parser"):
+        JobSpec(
+            "--input1 {input1:file}",
+            file_parsers={},
+            available_parsers=available_parsers,
+        )
+
+
+def test_job_spec_with_parser_not_available(tmp_path):
+    """
+    [slurmise.job.builtin_files]
+    job_spec = "--input1 {input1:file}"
+    file_parsers.input1 = "file_basename"
+    """
+    available_parsers = {
+        "file_basename": file_parsers.FileBasename(),
+    }
+
+    with pytest.raises(ValueError, match=("The parser 'file_bassname' is not available for file 'input1'")):
+        JobSpec(
+            "--input1 {input1:file}",
+            file_parsers={"input1": "file_bassname"},
+            available_parsers=available_parsers,
+        )
+
+
 def test_job_spec_with_builtin_parsers_basename(tmp_path):
     """
     [slurmise.job.builtin_files]
