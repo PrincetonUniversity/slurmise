@@ -3,12 +3,9 @@ from __future__ import annotations
 from dataclasses import InitVar, dataclass
 
 import joblib
-import numpy as np
-from sklearn.compose import ColumnTransformer
-from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LinearRegression
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder, PolynomialFeatures, StandardScaler
+from sklearn.preprocessing import PolynomialFeatures
 
 from slurmise.fit.resource_fit import ResourceFit
 from slurmise.job_data import JobData
@@ -47,26 +44,11 @@ class PolynomialFit(ResourceFit):
 
         return fit_obj
 
-    def _make_model(self, categorical_features, numerical_features):
-        categorical_transformer = Pipeline(
-            steps=[
-                ("encoder", OneHotEncoder(handle_unknown="infrequent_if_exist")),
-            ]
-        )
-        numeric_transformer = Pipeline(
-            steps=[
-                ("imputer", SimpleImputer(strategy=np.max)),
-                ("scaler", StandardScaler()),
-            ]
-        )
+    def _make_model(self, categorical_features, numerical_features) -> Pipeline:
 
-        preprocessor = ColumnTransformer(
-            transformers=[
-                ("num", numeric_transformer, numerical_features),
-                ("cat", categorical_transformer, categorical_features),
-            ]
+        preprocessor = self._get_preprocessor(
+            categorical_features=categorical_features, numerical_features=numerical_features
         )
-
         # We are doing polynomial regression, so we need to add polynomial features
         poly = PolynomialFeatures(degree=self.degree, include_bias=False)
         model = LinearRegression()

@@ -58,8 +58,8 @@ def nupack_data():
             KNNFit,
             {"nneighbors": 5},
             {
-                "runtime": {"mpe": 29.219869, "mse": 33.474729},
-                "memory": {"mpe": 12.834444, "mse": 551520.403101},
+                "runtime": {"mpe": 29.064831, "mse": 33.393488},
+                "memory": {"mpe": 12.846928, "mse": 551656.102016},
             },
         )
     ],

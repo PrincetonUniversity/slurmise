@@ -8,8 +8,12 @@ from dataclasses import asdict, dataclass, field
 from typing import Optional
 
 import numpy as np
+from sklearn.compose import ColumnTransformer
+from sklearn.impute import SimpleImputer
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 from slurmise.job_data import JobData
 from slurmise.utils import jobs_to_pandas
@@ -129,8 +133,30 @@ class ResourceFit:
         return cls(**info)
 
     @classmethod
-    def mean_percent_error(cls, y_true, y_pred):
+    def mean_percent_error(cls, y_true, y_pred) -> ColumnTransformer:
         return np.mean(np.abs((y_true - y_pred) / y_true)) * 100
+
+    def _get_preprocessor(self, categorical_features, numerical_features):
+        categorical_transformer = Pipeline(
+            steps=[
+                ("encoder", OneHotEncoder(handle_unknown="infrequent_if_exist")),
+            ]
+        )
+        numeric_transformer = Pipeline(
+            steps=[
+                ("imputer", SimpleImputer(strategy=np.max)),
+                ("scaler", StandardScaler()),
+            ]
+        )
+
+        preprocessor = ColumnTransformer(
+            transformers=[
+                ("num", numeric_transformer, numerical_features),
+                ("cat", categorical_transformer, categorical_features),
+            ]
+        )
+
+        return preprocessor
 
     def fit(self, jobs: list[JobData], random_state: np.random.RandomState | None, **kwargs):  # noqa: ARG002
         X, categorical_features, numerical_features = jobs_to_pandas(jobs)  # noqa: N806
