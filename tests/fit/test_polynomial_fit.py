@@ -34,7 +34,7 @@ def test_model_path_creation(tmp_path, specify_path):
         assert tmp_path == fit.path
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture()
 def nupack_data():
     query = JobData(job_name="nupack")
 
@@ -68,7 +68,6 @@ def test_fit_and_predict(nupack_data, model, kwargs, expected_metrics):
     """Test the fit classes on the nupack data"""
 
     query, jobs = nupack_data
-
     poly_fit = model(query=query, **kwargs)
 
     random_state = np.random.RandomState(42)
