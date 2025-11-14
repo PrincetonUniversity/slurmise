@@ -2,6 +2,7 @@ import pytest
 
 from slurmise.config import SlurmiseConfiguration
 from slurmise.job_parse import file_parsers
+from slurmise.job_data import JobData
 
 
 def write_toml(tmp_path, toml_str):
@@ -255,3 +256,44 @@ def test_default_resources_slurmise_base(basic_toml):
     assert job_data.runtime == 80
 
 
+def test_minimum_resources_slurmise_base(basic_toml):
+    """Test the minimum resource correction has a default of 0."""
+    config = SlurmiseConfiguration(basic_toml)
+    job_data = JobData("test", memory=10, runtime=20)
+    # should do nothing as default is set to 0
+    config.correct_minimum(job_data)
+
+    assert job_data.memory == 10
+    assert job_data.runtime == 20
+
+    job_data = JobData("test", memory=-10, runtime=-20)
+    # negative values are set to 0
+    config.correct_minimum(job_data)
+
+    assert job_data.memory == 0
+    assert job_data.runtime == 0
+
+
+def test_minimum_resources_non_default(tmpdir):
+    """Test the minimum resource correction can be set in toml."""
+    toml_str = """
+    [slurmise]
+    base_dir = "slurmise_dir"
+    minimum_time = 5
+    minimum_mem = 100
+    """
+    toml = write_toml(tmpdir, toml_str)
+    config = SlurmiseConfiguration(toml)
+    job_data = JobData("test", memory=10, runtime=20)
+    # should do nothing as default is set to 0
+    config.correct_minimum(job_data)
+
+    assert job_data.memory == 100
+    assert job_data.runtime == 20  # not effected
+
+    job_data = JobData("test", memory=-10, runtime=-20)
+    # negative values are set to 0
+    config.correct_minimum(job_data)
+
+    assert job_data.memory == 100
+    assert job_data.runtime == 5

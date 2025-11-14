@@ -68,6 +68,7 @@ class Slurmise:
         query_jd = self.configuration.add_defaults(query_jd)
         query_model = PolynomialFit.load(query=query_jd, path=self.configuration.slurmise_base_dir)
         query_jd, query_warns = query_model.predict(query_jd)
+        query_jd = self.configuration.correct_minimum(query_jd)
         return query_jd, query_warns
 
     def update_model(self, cmd, job_name):
