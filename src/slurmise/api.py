@@ -13,6 +13,7 @@ class Slurmise:
     """
 
     def __init__(self, toml_path=None):
+        self.toml_path = toml_path
         self.configuration = SlurmiseConfiguration(toml_path)
 
     def record(
@@ -39,18 +40,19 @@ class Slurmise:
             job_name=job_name,
         )
 
-    def raw_record(self, job_data):
-        if "." in job_data.slurm_id:
-            # If the slurm_id is in the format "1234.0", split it to get the step_id
-            slurm_id, step_name = job_data.slurm_id.split(".")
-        else:
-            # If no step_id is provided, use the slurm_id as is
-            slurm_id, step_name = job_data.slurm_id, None
+    def raw_record(self, job_data, processed_data=False):
+        if not processed_data:
+            if "." in job_data.slurm_id:
+                # If the slurm_id is in the format "1234.0", split it to get the step_id
+                slurm_id, step_name = job_data.slurm_id.split(".")
+            else:
+                # If no step_id is provided, use the slurm_id as is
+                slurm_id, step_name = job_data.slurm_id, None
 
-        metadata_json = slurm.parse_slurm_job_metadata(slurm_id=slurm_id, step_name=step_name)
+            metadata_json = slurm.parse_slurm_job_metadata(slurm_id=slurm_id, step_name=step_name)
 
-        job_data.memory = metadata_json["max_rss"]
-        job_data.runtime = metadata_json["elapsed_seconds"]
+            job_data.memory = metadata_json["max_rss"]
+            job_data.runtime = metadata_json["elapsed_seconds"]
 
         with job_database.JobDatabase.get_database(self.configuration.db_filename) as database:
             database.record(job_data)
