@@ -44,6 +44,9 @@ class SlurmiseConfiguration:
             self.default_runtime = defaultdict(lambda: int(toml_data["slurmise"].get("default_time", 60)))
             self.default_memory = defaultdict(lambda: int(toml_data["slurmise"].get("default_mem", 1000)))
 
+            self.minimum_runtime = toml_data["slurmise"].get("minimum_time", 0)
+            self.minimum_memory = toml_data["slurmise"].get("minimum_mem", 0)
+
             for job_name, job in self.jobs.items():
                 if "job_spec" in job:
                     self.jobs[job_name]["job_spec_obj"] = JobSpec(
@@ -153,4 +156,10 @@ class SlurmiseConfiguration:
         """Add default values to a job data object."""
         job_data.memory = self.default_memory[job_data.job_name]
         job_data.runtime = self.default_runtime[job_data.job_name]
+        return job_data
+
+    def correct_minimum(self, job_data: job_data.JobData) -> job_data.JobData:
+        """Ensure predicted values are larger than set minimum."""
+        job_data.memory = max(job_data.memory, self.minimum_memory)
+        job_data.runtime = max(job_data.runtime, self.minimum_runtime)
         return job_data
