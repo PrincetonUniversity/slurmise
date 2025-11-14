@@ -35,10 +35,28 @@ rule shell_rule:
         "echo runtime {{resources.runtime}} > {{output}}\\n"
         "echo memory {{resources.mem_mb}} >> {{output}}\\n"
         "echo threads {{threads}} >> {{output}}"
+
+rule run_rule:
+    output:
+        "run.txt"
+    resources:
+        runtime=10,
+        mem_mb=20,
+    run:
+        with open(output[0], 'w') as outfile:
+            outfile.write(f"runtime {{resources.runtime}}\\n")
+            outfile.write(f"memory {{resources.mem_mb}}\\n")
+            outfile.write(f"threads {{threads}}\\n")
+
 {append}
     """)
 
     return snakefile
+
+SNAKE_RULES = [
+    'shell',
+    'run',
+]
 
 def make_slurmise_toml(base_path, append=""):
     toml = base_path / "slurmise.toml"
@@ -50,13 +68,20 @@ base_dir="{base_path}/slurmise"
 default_mem = 1000
 default_time = 30
 variables.threads = "numeric"
+
+[slurmise.job.run_rule]
+default_mem = 1000
+default_time = 30
+variables.threads = "numeric"
+{append}
 """)
 
     return toml
 
 
 @pytest.mark.skipif(not has_snakemake(), reason="Requires snakemake")
-def test_snakemake_shell_no_slurmise(tmp_path):
+@pytest.mark.parametrize("snake_rule", SNAKE_RULES)
+def test_snakemake_shell_no_slurmise(snake_rule, tmp_path):
     """Test if this snakefile will be valid for the version of snakemake."""
     snakefile = make_snakefile(tmp_path)
     result = subprocess.run([
@@ -65,10 +90,10 @@ def test_snakemake_shell_no_slurmise(tmp_path):
         "1",
         "--snakefile",
         snakefile,
-        "shell.txt",
+        f"{snake_rule}.txt",
     ])
     assert result.returncode == 0
-    outfile = snakefile.parent / "shell.txt"
+    outfile = snakefile.parent / f"{snake_rule}.txt"
     shell_output = outfile.read_text().split("\n")
     assert shell_output[0] == "runtime 10"
     assert shell_output[1] == "memory 20"
@@ -76,16 +101,19 @@ def test_snakemake_shell_no_slurmise(tmp_path):
 
 
 @pytest.mark.skipif(not has_snakemake(), reason="Requires snakemake")
-def test_snakemake_shell_slurmise_updates_defaults_no_record(tmp_path):
+@pytest.mark.parametrize("snake_rule", SNAKE_RULES)
+def test_snakemake_shell_slurmise_updates_defaults_no_record(snake_rule, tmp_path):
     toml = make_slurmise_toml(tmp_path)
-    snakefile = make_snakefile(tmp_path, slurmise_toml=toml, append="""
+    snakefile = make_snakefile(tmp_path, slurmise_toml=toml, append=f"""
 patch_snakemake_workflow(
         slurmise,
         workflow,
-        {"shell_rule": {
-            "threads": sp.threads(),
-            "SLURMISE_runtime_scale": 1,
-            "SLURMISE_memory_scale": 1,
+        {{
+            "{snake_rule}_rule": {{
+                "threads": sp.threads(),
+                "SLURMISE_runtime_scale": 1,
+                "SLURMISE_memory_scale": 1,
+            }},
         }},
         record_benchmarks=False,
         )
@@ -97,10 +125,10 @@ patch_snakemake_workflow(
         "1",
         "--snakefile",
         snakefile,
-        "shell.txt",
+        f"{snake_rule}.txt",
     ])
     assert result.returncode == 0
-    outfile = snakefile.parent / "shell.txt"
+    outfile = snakefile.parent / f"{snake_rule}.txt"
     shell_output = outfile.read_text().split("\n")
     assert shell_output[0] == "runtime 30"
     assert shell_output[1] == "memory 1000"
@@ -117,16 +145,19 @@ patch_snakemake_workflow(
 
 
 @pytest.mark.skipif(not has_snakemake(), reason="Requires snakemake")
-def test_snakemake_shell_slurmise_updates_defaults_with_record(tmp_path):
+@pytest.mark.parametrize("snake_rule", SNAKE_RULES)
+def test_snakemake_shell_slurmise_updates_defaults_with_record(snake_rule, tmp_path):
     toml = make_slurmise_toml(tmp_path)
-    snakefile = make_snakefile(tmp_path, slurmise_toml=toml, append="""
+    snakefile = make_snakefile(tmp_path, slurmise_toml=toml, append=f"""
 patch_snakemake_workflow(
         slurmise,
         workflow,
-        {"shell_rule": {
-            "threads": sp.threads(),
-            "SLURMISE_runtime_scale": 1,
-            "SLURMISE_memory_scale": 1,
+        {{
+            "{snake_rule}_rule": {{
+                "threads": sp.threads(),
+                "SLURMISE_runtime_scale": 1,
+                "SLURMISE_memory_scale": 1,
+            }},
         }},
         keep_benchmarks=True,
         )
@@ -138,10 +169,10 @@ patch_snakemake_workflow(
         "1",
         "--snakefile",
         snakefile,
-        "shell.txt",
+        f"{snake_rule}.txt",
     ])
     assert result.returncode == 0
-    outfile = snakefile.parent / "shell.txt"
+    outfile = snakefile.parent / f"{snake_rule}.txt"
     shell_output = outfile.read_text().split("\n")
     assert shell_output[0] == "runtime 30"
     assert shell_output[1] == "memory 1000"
@@ -151,7 +182,7 @@ patch_snakemake_workflow(
     assert (toml.parent / "slurmise/slurmise.h5").exists() is True
     # should be no benchmark files
     assert (toml.parent / "slurmise/benchmarks").exists() is True
-    bm_file = toml.parent / "slurmise/benchmarks/shell_rule/shell_rule.jsonl"
+    bm_file = toml.parent / f"slurmise/benchmarks/{snake_rule}_rule/{snake_rule}_rule.jsonl"
     benchmark_data = json.loads(bm_file.read_text())
 
     # should have one record matching the file
@@ -163,7 +194,7 @@ patch_snakemake_workflow(
         assert len(jobs) == 1
         job = jobs[0]
 
-        assert job.job_name == 'shell_rule'
+        assert job.job_name == f'{snake_rule}_rule'
         assert job.categorical == {}
         assert job.numerical == {'threads': 1}
 
