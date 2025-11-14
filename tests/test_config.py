@@ -1,8 +1,8 @@
 import pytest
 
 from slurmise.config import SlurmiseConfiguration
-from slurmise.job_parse import file_parsers
 from slurmise.job_data import JobData
+from slurmise.job_parse import file_parsers
 
 
 def write_toml(tmp_path, toml_str):
@@ -104,7 +104,9 @@ def test_init_SlurmiseConfiguration_unknown_variable_type(tmpdir):
 
 @pytest.fixture
 def basic_toml(tmpdir):
-    return write_toml(tmpdir, """
+    return write_toml(
+        tmpdir,
+        """
     [slurmise]
     base_dir = "slurmise_dir"
     default_mem = 2000
@@ -148,7 +150,8 @@ def basic_toml(tmpdir):
     [slurmise.file_parsers.unknown_type]
     no_awk_script = "/^>/"
     script_is_file = false
-    """)
+    """,
+    )
 
 
 def test_init_SlurmiseConfiguration(basic_toml):
