@@ -556,7 +556,7 @@ some more text"""
 
 
 @pytest.mark.skipif(
-    sys.platform != "linux", #I have awk on my mac, maybe make this `sys.platform =="windows"`?
+    sys.platform != "linux",  # I have awk on my mac, maybe make this `sys.platform =="windows"`?
     reason="AWK is not available on this system",
 )
 def test_job_spec_with_awk_file(tmp_path):

@@ -3,6 +3,7 @@ import numpy as np
 from slurmise.job_data import JobData
 from slurmise.job_database import JobDatabase
 
+
 def test_close(empty_h5py_file):
     """Test opening and closing an empty database."""
     with JobDatabase.get_database(empty_h5py_file):

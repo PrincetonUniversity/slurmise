@@ -4,9 +4,8 @@ from typing import NamedTuple
 
 import pytest
 
-from slurmise.api import Slurmise
-from slurmise.job_database import JobDatabase
 from slurmise.job_data import JobData
+from slurmise.job_database import JobDatabase
 
 
 class TomlReturn(NamedTuple):
@@ -81,6 +80,7 @@ def nupackdefaults_toml(tmp_path):
 
     return TomlReturn(p, db_path)
 
+
 @pytest.fixture
 def empty_h5py_file(tmp_path):
     d = tmp_path
@@ -144,6 +144,7 @@ def small_db(empty_h5py_file):
             )
         )
         yield db
+
 
 @pytest.fixture
 def small_db_toml(tmp_path, small_db):

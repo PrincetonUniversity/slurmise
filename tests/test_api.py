@@ -5,8 +5,6 @@ from unittest import mock
 import pytest
 
 from slurmise.api import Slurmise
-from slurmise.job_data import JobData
-from slurmise.job_database import JobDatabase
 
 
 def slurmise_record(toml, process_id, error_queue):
