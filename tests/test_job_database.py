@@ -281,6 +281,11 @@ def test_iterate_database(small_db):
         expected_result = small_db.query(query)
         assert jobs == expected_result
 
+        # Are we ok with possibly getting empty jobs from iterate_database?
+        # Ran into issue starting from api.Slurmise.update_all_models passing
+        # empty list of jobs to utils.jobs_to_pandas
+        assert len(jobs) > 0
+
 
 def test_delete(small_db):
     """Test deletion of jobs with categorical where delete_all_children is False."""

@@ -103,7 +103,7 @@ class JobDatabase:
         The returned jobs match the query JobData's job name and categoricals.
         `update_missing` will try to get maxRSS and elapsed from sacct if not found in the DB.
 
-        Note: It does not decent into all child categories, only the highest matching leaves
+        Note: It does not descend into all child categories, only the highest matching leaves
         """
         group_name = JobDatabase.get_group_name(job_data)
 
