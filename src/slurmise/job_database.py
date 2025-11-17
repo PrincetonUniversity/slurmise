@@ -21,7 +21,7 @@ class JobDatabase:
 
     def __init__(self, db_file: str, max_retries: int = 5):
         """
-        The DB file is and HDF5 file.
+        The DB file is an HDF5 file.
         Use **get_database** and a context manager to have the file automatically
         closed.
         """
@@ -30,6 +30,7 @@ class JobDatabase:
         while True:
             attempt += 1
             try:
+                self._db_file = db_file
                 self.db = h5py.File(db_file, "a")
                 break
             except BlockingIOError:
@@ -39,6 +40,10 @@ class JobDatabase:
 
     def _close(self):
         self.db.close()
+
+    @property
+    def db_file(self):
+        return self._db_file
 
     @staticmethod
     @contextlib.contextmanager

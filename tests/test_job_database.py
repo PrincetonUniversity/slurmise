@@ -1,74 +1,7 @@
 import numpy as np
-import pytest
 
 from slurmise.job_data import JobData
 from slurmise.job_database import JobDatabase
-
-
-@pytest.fixture
-def empty_h5py_file(tmp_path):
-    d = tmp_path
-    return d / "slurmise.h5"
-
-
-@pytest.fixture
-def small_db(empty_h5py_file):
-    with JobDatabase.get_database(empty_h5py_file) as db:
-        db.record(
-            JobData(
-                job_name="test_job",
-                slurm_id="1",
-                runtime=5,
-                memory=100,
-            )
-        )
-
-        db.record(
-            JobData(
-                job_name="test_job",
-                slurm_id="2",
-                runtime=6,
-                memory=128,
-                numerical={"filesizes": [123, 512, 128]},
-            )
-        )
-
-        db.record(
-            JobData(
-                job_name="test_job",
-                slurm_id="1",
-                runtime=5,
-                memory=100,
-                categorical={"option1": "value1", "option2": "value2"},
-            )
-        )
-
-        db.record(
-            JobData(
-                job_name="test_job",
-                slurm_id="2",
-                numerical={"filesizes": [123, 512, 128]},
-                categorical={"option1": "value2"},
-            )
-        )
-
-        db.record(
-            JobData(
-                job_name="test_job",
-                slurm_id="3",
-            )
-        )
-        db.record(
-            JobData(
-                job_name="test_job",
-                slurm_id="4",
-                runtime=7,
-                memory=100,
-                categorical={"option2": "value2", "option1": "value1"},
-            )
-        )
-        yield db
-
 
 def test_close(empty_h5py_file):
     """Test opening and closing an empty database."""

@@ -31,7 +31,7 @@ def jobs_to_pandas(jobs: list[JobData]):
     # Rename the categorical columns, drop .categorical prefix
     df.columns = [col.replace("categorical.", "") for col in df.columns]
 
-    # Do the same for numerical columns
+    # If a column is numerical, but it's dtype is object, it may be a numpy array
     for col in df.columns:
         new_col_name = col.replace("numerical.", "")
 
@@ -39,11 +39,11 @@ def jobs_to_pandas(jobs: list[JobData]):
             # Check if they are all numpy arrays
             if all(isinstance(row, np.ndarray) for row in df[col]):
                 # Check if the column is a numpy array of all the same size
-                sizes = {row.shape for row in df[col]}
+                unique_sizes = {row.shape for row in df[col]}
 
-                if len(sizes) == 1:
+                if len(unique_sizes) == 1:
                     # If all the same size, expand each element of the numpy array into a new column
-                    col_df = pd.DataFrame(np.vstack([s.flatten() for s in df.loc[0:10, "numerical.sequences"]]))
+                    col_df = df[col].apply(pd.Series)
                     col_df.columns = [f"{new_col_name}_{i}" for i in range(col_df.shape[1])]
 
                     # Drop the original column and add the new columns

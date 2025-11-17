@@ -85,6 +85,7 @@ class PolynomialFit(ResourceFit):
         X = X.drop(columns=["runtime", "memory"])  # noqa: N806
 
         # Split test and train data
+        # TODO: If only one job we cannot split and the next line fails
         X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.2, random_state=random_state)  # noqa: N806
 
         self.last_fit_dsize = len(X_train)
