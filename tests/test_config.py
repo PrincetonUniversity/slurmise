@@ -1,15 +1,112 @@
 import pytest
 
 from slurmise.config import SlurmiseConfiguration
+from slurmise.job_data import JobData
 from slurmise.job_parse import file_parsers
+
+
+def write_toml(tmp_path, toml_str):
+    d = tmp_path.mkdir("slurmise_dir")
+    f = d.join("basic.toml")
+    f.write(toml_str)
+    return f
+
+
+def test_default_resources_no_setting(tmpdir):
+    """Test the default can be set at the slurmise level for all jobs without additional defaults."""
+    toml_str = """
+    [slurmise]
+    base_dir = "slurmise_dir"
+
+    [slurmise.job.nupack]
+    job_spec = "monomer -T {threads:numeric} -C {complexity:category}"
+    """
+    toml = write_toml(tmpdir, toml_str)
+
+    config = SlurmiseConfiguration(toml)
+    job_data = config.parse_job_cmd("nupack monomer -T 3 -C high")
+    config.add_defaults(job_data)
+
+    assert job_data.memory == 1000
+    assert job_data.runtime == 60
+
+
+def test_init_SlurmiseConfiguration_no_spec(tmpdir):
+    toml_str = """
+    [slurmise]
+    base_dir = "slurmise_dir"
+
+    [slurmise.job.nupack]
+    default_mem = 1234
+    """
+    toml = write_toml(tmpdir, toml_str)
+
+    with pytest.raises(
+        ValueError, match="Job nupack has no specification. A `job_spec` or `variables` entry is required."
+    ):
+        SlurmiseConfiguration(toml)
+
+
+def test_init_SlurmiseConfiguration_wrong_spec_type(tmpdir):
+    toml_str = """
+    [slurmise]
+    base_dir = "slurmise_dir"
+
+    [slurmise.job.nupack]
+    job_spec = "monomer -T {threads:numeric} -C {complexity:category}"
+    variables = {threads="numeric", complexity="numeric"}
+    """
+    toml = write_toml(tmpdir, toml_str)
+
+    with pytest.raises(ValueError, match="Unable to validate variables for nupack"):
+        SlurmiseConfiguration(toml)
+
+
+def test_init_SlurmiseConfiguration_missing_file(tmpdir):
+    toml_str = """
+    [slurmise]
+    base_dir = "slurmise_dir"
+
+    [slurmise.job.nupack]
+    job_spec = "monomer -T {threads:numeric} -C {complexity:file}"
+    """
+    toml = write_toml(tmpdir, toml_str)
+    with pytest.raises(ValueError, match="File 'complexity' has no assigned file parser"):
+        SlurmiseConfiguration(toml)
+
+
+def test_init_SlurmiseConfiguration_wrong_name(tmpdir):
+    toml_str = """
+    [slurmise]
+    base_dir = "slurmise_dir"
+
+    [slurmise.job.nupack]
+    job_spec = "monomer -T {threads:numeric} -C {complexity:category}"
+    variables = {threads="numeric", complxity="category"}
+    """
+    toml = write_toml(tmpdir, toml_str)
+    with pytest.raises(ValueError, match="Unable to validate variables for nupack"):
+        SlurmiseConfiguration(toml)
+
+
+def test_init_SlurmiseConfiguration_unknown_variable_type(tmpdir):
+    toml_str = """
+    [slurmise]
+    base_dir = "slurmise_dir"
+
+    [slurmise.job.nupack]
+    variables = {threads="numeric", complexity="asdf"}
+    """
+    toml = write_toml(tmpdir, toml_str)
+    with pytest.raises(ValueError, match="Unknown variable type asdf for variable complexity"):
+        SlurmiseConfiguration(toml)
 
 
 @pytest.fixture
 def basic_toml(tmpdir):
-    d = tmpdir.mkdir("slurmise_dir")
-    f = d.join("basic.toml")
-
-    toml_str = """
+    return write_toml(
+        tmpdir,
+        """
     [slurmise]
     base_dir = "slurmise_dir"
     default_mem = 2000
@@ -53,114 +150,8 @@ def basic_toml(tmpdir):
     [slurmise.file_parsers.unknown_type]
     no_awk_script = "/^>/"
     script_is_file = false
-    """
-
-    f.write(toml_str)
-    return f
-
-
-@pytest.fixture
-def basic_toml_no_default(tmpdir):
-    d = tmpdir.mkdir("slurmise_dir")
-    f = d.join("basic.toml")
-
-    toml_str = """
-    [slurmise]
-    base_dir = "slurmise_dir"
-
-    [slurmise.job.nupack]
-    job_spec = "monomer -T {threads:numeric} -C {complexity:category}"
-    """
-
-    f.write(toml_str)
-    return f
-
-
-@pytest.fixture
-def basic_toml_no_spec(tmpdir):
-    d = tmpdir.mkdir("slurmise_dir")
-    f = d.join("basic.toml")
-
-    toml_str = """
-    [slurmise]
-    base_dir = "slurmise_dir"
-
-    [slurmise.job.nupack]
-    default_mem = 1234
-    """
-
-    f.write(toml_str)
-    return f
-
-
-@pytest.fixture
-def basic_toml_inconsistent_spec_type(tmpdir):
-    d = tmpdir.mkdir("slurmise_dir")
-    f = d.join("basic.toml")
-
-    toml_str = """
-    [slurmise]
-    base_dir = "slurmise_dir"
-
-    [slurmise.job.nupack]
-    job_spec = "monomer -T {threads:numeric} -C {complexity:category}"
-    variables = {threads="numeric", complexity="numeric"}
-    """
-
-    f.write(toml_str)
-    return f
-
-
-@pytest.fixture
-def basic_toml_file_no_parser(tmpdir):
-    d = tmpdir.mkdir("slurmise_dir")
-    f = d.join("basic.toml")
-
-    toml_str = """
-    [slurmise]
-    base_dir = "slurmise_dir"
-
-    [slurmise.job.nupack]
-    job_spec = "monomer -T {threads:numeric} -C {complexity:file}"
-    """
-
-    f.write(toml_str)
-    return f
-
-
-@pytest.fixture
-def basic_toml_inconsistent_spec_name(tmpdir):
-    d = tmpdir.mkdir("slurmise_dir")
-    f = d.join("basic.toml")
-
-    toml_str = """
-    [slurmise]
-    base_dir = "slurmise_dir"
-
-    [slurmise.job.nupack]
-    job_spec = "monomer -T {threads:numeric} -C {complexity:category}"
-    variables = {threads="numeric", complxity="category"}
-    """
-
-    f.write(toml_str)
-    return f
-
-
-@pytest.fixture
-def basic_toml_variables_unknown_type(tmpdir):
-    d = tmpdir.mkdir("slurmise_dir")
-    f = d.join("basic.toml")
-
-    toml_str = """
-    [slurmise]
-    base_dir = "slurmise_dir"
-
-    [slurmise.job.nupack]
-    variables = {threads="numeric", complexity="asdf"}
-    """
-
-    f.write(toml_str)
-    return f
+    """,
+    )
 
 
 def test_init_SlurmiseConfiguration(basic_toml):
@@ -168,33 +159,6 @@ def test_init_SlurmiseConfiguration(basic_toml):
     assert config.slurmise_base_dir == "slurmise_dir"
     assert len(config.jobs) == 4
     assert config.jobs["with_ignore"]["job_prefix"] == "nothing"
-
-
-def test_init_SlurmiseConfiguration_no_spec(basic_toml_no_spec):
-    with pytest.raises(
-        ValueError, match="Job nupack has no specification. A `job_spec` or `variables` entry is required."
-    ):
-        SlurmiseConfiguration(basic_toml_no_spec)
-
-
-def test_init_SlurmiseConfiguration_wrong_name(basic_toml_inconsistent_spec_name):
-    with pytest.raises(ValueError, match="Unable to validate variables for nupack"):
-        SlurmiseConfiguration(basic_toml_inconsistent_spec_name)
-
-
-def test_init_SlurmiseConfiguration_wrong_spec_type(basic_toml_inconsistent_spec_type):
-    with pytest.raises(ValueError, match="Unable to validate variables for nupack"):
-        SlurmiseConfiguration(basic_toml_inconsistent_spec_type)
-
-
-def test_init_SlurmiseConfiguration_missing_file(basic_toml_file_no_parser):
-    with pytest.raises(ValueError, match="File 'complexity' has no assigned file parser"):
-        SlurmiseConfiguration(basic_toml_file_no_parser)
-
-
-def test_init_SlurmiseConfiguration_unknown_variable_type(basic_toml_variables_unknown_type):
-    with pytest.raises(ValueError, match="Unknown variable type asdf for variable complexity"):
-        SlurmiseConfiguration(basic_toml_variables_unknown_type)
 
 
 def test_parse_job_cmd(basic_toml):
@@ -295,11 +259,44 @@ def test_default_resources_slurmise_base(basic_toml):
     assert job_data.runtime == 80
 
 
-def test_default_resources_no_setting(basic_toml_no_default):
-    """Test the default can be set at the slurmise level for all jobs without additional defaults."""
-    config = SlurmiseConfiguration(basic_toml_no_default)
-    job_data = config.parse_job_cmd("nupack monomer -T 3 -C high")
-    config.add_defaults(job_data)
+def test_minimum_resources_slurmise_base(basic_toml):
+    """Test the minimum resource correction has a default of 0."""
+    config = SlurmiseConfiguration(basic_toml)
+    job_data = JobData("test", memory=10, runtime=20)
+    # should do nothing as default is set to 0
+    config.correct_minimum(job_data)
 
-    assert job_data.memory == 1000
-    assert job_data.runtime == 60
+    assert job_data.memory == 10
+    assert job_data.runtime == 20
+
+    job_data = JobData("test", memory=-10, runtime=-20)
+    # negative values are set to 0
+    config.correct_minimum(job_data)
+
+    assert job_data.memory == 0
+    assert job_data.runtime == 0
+
+
+def test_minimum_resources_non_default(tmpdir):
+    """Test the minimum resource correction can be set in toml."""
+    toml_str = """
+    [slurmise]
+    base_dir = "slurmise_dir"
+    minimum_time = 5
+    minimum_mem = 100
+    """
+    toml = write_toml(tmpdir, toml_str)
+    config = SlurmiseConfiguration(toml)
+    job_data = JobData("test", memory=10, runtime=20)
+    # should do nothing as default is set to 0
+    config.correct_minimum(job_data)
+
+    assert job_data.memory == 100
+    assert job_data.runtime == 20  # not effected
+
+    job_data = JobData("test", memory=-10, runtime=-20)
+    # negative values are set to 0
+    config.correct_minimum(job_data)
+
+    assert job_data.memory == 100
+    assert job_data.runtime == 5
