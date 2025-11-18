@@ -86,7 +86,8 @@ class AwkParser(FileParser):
 
     def parse_file(self, path: Path, gzip_file: bool = False):
         if gzip_file:
-            zcat = subprocess.Popen(("zcat", path), stdout=subprocess.PIPE)
+            # Use `gunzip -c` instead of `zcat` because zcat fails on macos expecting a .gz.Z extension
+            zcat = subprocess.Popen(("gunzip", "-c", path), stdout=subprocess.PIPE)
             result = subprocess.check_output(self.args, stdin=zcat.stdout, text=True)
             zcat.wait()
         else:
