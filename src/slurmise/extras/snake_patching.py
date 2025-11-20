@@ -52,6 +52,9 @@ def patch_snakemake_workflow(
             except ValueError:
                 memory = 0
 
+            # if a value is a thread, update it to true value
+            slurmise_data = _correct_threads(slurmise_data, benchmark_data)
+
             job_data = JobData(
                 job_name=benchmark_data["rule_name"],
                 slurm_id=md5_parser.parse_file(file),
@@ -81,7 +84,17 @@ def patch_snakemake_workflow(
             }
             job_data = slurmise.job_data_from_dict(vars, rule.name)
             if resource == "logging":
+
+                # if we are reocrding threads need to mark in benchmark file
+                for name, func in variables.items():
+                    if name.startswith('SLURMISE'):
+                        continue
+                    if func.__name__ == 'get_threads':
+                        # update name to flag as thread
+                        job_data = _mark_threads(job_data, name)
+
                 return job_data.to_json()
+
             job_data = slurmise.raw_predict(job_data)[0]
 
             exp = variables.get("SLURMISE_attempt_exp", 1)
@@ -141,3 +154,26 @@ def patch_snakemake_workflow(
 
         rule.resources["mem_mb"] = make_predictor(variables, rule, "memory")
         rule.resources["runtime"] = make_predictor(variables, rule, "runtime")
+
+
+def _mark_threads(job_data, variable_name):
+    if variable_name in job_data.categorical:
+        job_data.categorical[f'SLURMISETHREAD_{variable_name}'] = job_data.categorical[variable_name]
+        job_data.categorical.pop(variable_name)
+    if variable_name in job_data.numerical:
+        job_data.numerical[f'SLURMISETHREAD_{variable_name}'] = job_data.numerical[variable_name]
+        job_data.numerical.pop(variable_name)
+    return job_data
+
+
+def _correct_threads(slurmise_data, benchmark_data):
+    result = {}
+    for key, values in slurmise_data.items():
+        result[key] = {}
+        for name, value in values.items():
+            if name.startswith('SLURMISETHREAD'):
+                name = name.removeprefix('SLURMISETHREAD_')
+                value = benchmark_data['threads']
+            result[key][name] = value
+
+    return result
