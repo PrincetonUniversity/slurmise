@@ -70,6 +70,9 @@ def patch_snakemake_workflow(
             except ValueError:
                 memory = 0
 
+            # if a value is a thread, update it to true value
+            slurmise_data = _correct_threads(slurmise_data, benchmark_data)
+
             job_data = JobData(
                 job_name=benchmark_data["rule_name"],
                 slurm_id=md5_parser.parse_file(file),
