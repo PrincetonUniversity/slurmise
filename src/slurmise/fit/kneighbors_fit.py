@@ -38,8 +38,9 @@ class KNNFit(ResourceFit):
         return fit_obj
 
     def _make_model(self, categorical_features, numerical_features) -> Pipeline:
-        preprocessor = self._get_preprocessor(categorical_features=categorical_features,
-                                              numerical_features=numerical_features)
+        preprocessor = self._get_preprocessor(
+            categorical_features=categorical_features, numerical_features=numerical_features
+        )
         model = KNeighborsRegressor(self.nneighbors)
 
         return Pipeline([("preprocessor", preprocessor), ("model", model)])
