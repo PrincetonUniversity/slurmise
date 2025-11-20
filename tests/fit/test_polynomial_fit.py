@@ -85,6 +85,7 @@ def test_fit_and_predict(nupack_data, model, kwargs, expected_metrics):
 
     # Load the model
     poly_fit_loaded = PolynomialFit.load(query=query)
+    assert isinstance(poly_fit_loaded, PolynomialFit)
     assert poly_fit_loaded.last_fit_dsize == int(len(jobs) * 0.8)
     predicted_job2, _ = poly_fit_loaded.predict(job)
     assert predicted_job.runtime == predicted_job2.runtime

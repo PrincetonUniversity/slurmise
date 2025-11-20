@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import ClassVar, InitVar, dataclass
+from dataclasses import InitVar, dataclass
+from typing import ClassVar
 
 import joblib
 from sklearn.linear_model import LinearRegression
