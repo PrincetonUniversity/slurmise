@@ -69,8 +69,8 @@ def jobs_to_pandas(jobs: list[JobData]):
 
     # Transform features
     categorical_features = sorted([name for name in df.columns if df[name].dtype == "category"])
-    numerical_features = sorted([
-        name for name in df.columns if name not in categorical_features and name not in ["memory", "runtime"]
-    ])
+    numerical_features = sorted(
+        [name for name in df.columns if name not in categorical_features and name not in ["memory", "runtime"]]
+    )
 
     return df, categorical_features, numerical_features

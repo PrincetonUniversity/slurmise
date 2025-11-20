@@ -95,7 +95,6 @@ class ResourceFit:
             modelpath = self.path / self._memory_model_name
             joblib.dump(self.memory_model, str(modelpath))
 
-
     @classmethod
     def load(cls, query: JobData | None = None, path: str | None = None, **kwargs) -> ResourceFit:
         """
