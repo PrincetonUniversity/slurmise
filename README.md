@@ -40,6 +40,10 @@ base_dir = "slurmise_dir"
 default_mem = 2000
 default_time = 70
 
+# minimum values of time or memory for any prediction.  Default is 0 for each.
+minimum_mem = 2000
+minimum_time = 70
+
 # for each job you want to track, give a unique job name
 [slurmise.job.job_name]
 # the job spec determines how to parse commands to extract their relevant,
@@ -138,9 +142,9 @@ awk_script = "/path/to/awk/file.awk"
 script_is_file = True
 
 # contents of file.awk
-# /^>/ {if (seq) print seq; seq=0} 
-# /^>/ {next} 
-# {seq = seq + length($0)} 
+# /^>/ {if (seq) print seq; seq=0}
+# /^>/ {next}
+# {seq = seq + length($0)}
 # END {if (seq) print seq}
 ```
 The first extracts the token after `epochs: ` as a number and could be used for
