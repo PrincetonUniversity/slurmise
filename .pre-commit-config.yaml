@@ -8,6 +8,8 @@ repos:
     rev: v0.12.5
     hooks:
       - id: ruff
+      - id: ruff-format
+        args: [--check, --diff]
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
