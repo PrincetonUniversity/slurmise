@@ -1,5 +1,5 @@
 import gzip
-import sys
+import shutil
 
 import pytest
 
@@ -556,7 +556,7 @@ some more text"""
 
 
 @pytest.mark.skipif(
-    sys.platform != "linux",
+    not shutil.which("awk"),
     reason="AWK is not available on this system",
 )
 def test_job_spec_with_awk_file(tmp_path):
@@ -633,7 +633,7 @@ END {if (seq) print seq}
 
 
 @pytest.mark.skipif(
-    sys.platform != "linux",
+    not shutil.which("awk"),
     reason="AWK is not available on this system",
 )
 def test_job_spec_with_awk_gzip_file(tmp_path):
