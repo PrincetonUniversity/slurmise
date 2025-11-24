@@ -40,6 +40,10 @@ base_dir = "slurmise_dir"
 default_mem = 2000
 default_time = 70
 
+# minimum values of time or memory for any prediction.  Default is 0 for each.
+minimum_mem = 2000
+minimum_time = 70
+
 # for each job you want to track, give a unique job name
 [slurmise.job.job_name]
 # the job spec determines how to parse commands to extract their relevant,
