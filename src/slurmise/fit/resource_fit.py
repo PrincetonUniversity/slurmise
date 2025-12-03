@@ -48,7 +48,7 @@ class ResourceFit:
         hash_info = {
             "class": cls.__name__,
             "job_name": query.job_name,
-            **query.categorical,
+            **query.categories,
         }
         hash_info_tuple = tuple(hash_info.items())
 
@@ -144,8 +144,8 @@ class ResourceFit:
     def mean_percent_error(cls, y_true, y_pred) -> ColumnTransformer:
         return np.mean(np.abs((y_true - y_pred) / y_true)) * 100
 
-    def _get_preprocessor(self, categorical_features, numerical_features):
-        categorical_transformer = Pipeline(
+    def _get_preprocessor(self, categories, numerics):
+        category_transformer = Pipeline(
             steps=[
                 ("encoder", OneHotEncoder(handle_unknown="infrequent_if_exist")),
             ]
@@ -159,15 +159,15 @@ class ResourceFit:
 
         preprocessor = ColumnTransformer(
             transformers=[
-                ("num", numeric_transformer, numerical_features),
-                ("cat", categorical_transformer, categorical_features),
+                ("num", numeric_transformer, numerics),
+                ("cat", category_transformer, categories),
             ]
         )
 
         return preprocessor
 
     def fit(self, jobs: list[JobData], random_state: np.random.RandomState | None, **kwargs):  # noqa: ARG002
-        X, categorical_features, numerical_features = jobs_to_pandas(jobs)  # noqa: N806
+        X, categories, numerics = jobs_to_pandas(jobs)  # noqa: N806
 
         Y = X[["runtime", "memory"]]  # noqa: N806
 
@@ -179,8 +179,8 @@ class ResourceFit:
 
         self.last_fit_dsize = len(X_train)
 
-        self.runtime_model = self._make_model(categorical_features, numerical_features)
-        self.memory_model = self._make_model(categorical_features, numerical_features)
+        self.runtime_model = self._make_model(categories, numerics)
+        self.memory_model = self._make_model(categories, numerics)
 
         self.runtime_model.fit(X_train, y_train["runtime"])
         self.memory_model.fit(X_train, y_train["memory"])
