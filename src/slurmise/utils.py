@@ -28,7 +28,7 @@ def jobs_to_pandas(jobs: list[JobData]):
         if col.startswith("category."):
             df[col] = df[col].astype("category")
 
-    # Rename the categorical columns, drop .categorical prefix
+    # Rename the categories, drop .category prefix
     df.columns = [col.replace("category.", "") for col in df.columns]
 
     # Do the same for numeric columns

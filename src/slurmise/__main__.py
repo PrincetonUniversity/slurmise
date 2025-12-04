@@ -93,7 +93,7 @@ def parse(ctx, cmd, job_name):
 @click.option(
     "--categories",
     type=str,
-    help="Categorical run parameters in JSON format without outer {}",
+    help="Category run parameters in JSON format without outer {}",
 )
 @click.option("--cmd", type=str, help="Actual command run")
 @click.pass_context
@@ -131,7 +131,7 @@ def predict(ctx, cmd, job_name):
 @click.option(
     "--categories",
     type=str,
-    help="Categorical run parameters in JSON format without outer {}",
+    help="Category run parameters in JSON format without outer {}",
 )
 @click.option("--cmd", type=str, help="Actual command run")
 @click.pass_context

@@ -29,3 +29,29 @@ repos:
       - id: conventional-pre-commit
         stages: [commit-msg]
         args: [] # default: [feat, fix, ci, chore, docs, style, refactor, perf, test, build, revert]
+
+  - repo: https://github.com/pre-commit/pygrep-hooks
+    rev: v1.10.0
+    hooks:
+    - id: python-check-blanket-noqa
+    - id: python-no-eval
+
+  - repo: local
+    hooks:
+      - id: forbid-categorical
+        name: Prevent usage of categorical
+        types: [text]
+        entry: categorical
+        args: ['-i']
+        language: pygrep
+        exclude: \.pre-commit-config\.yaml$
+
+  - repo: local
+    hooks:
+      - id: forbid-numerical
+        name: Prevent usage of numerical
+        types: [text]
+        entry: numerical
+        args: ['-i']
+        language: pygrep
+        exclude: \.pre-commit-config\.yaml$
