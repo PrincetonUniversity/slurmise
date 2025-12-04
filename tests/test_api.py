@@ -59,5 +59,5 @@ def test_job_data_from_dict(simple_toml):
         {"threads": 3, "complexity": "simple"},
         "nupack",
     )
-    assert result.categorical == {"complexity": "simple"}
-    assert result.numerical == {"threads": 3}
+    assert result.categories == {"complexity": "simple"}
+    assert result.numerics == {"threads": 3}

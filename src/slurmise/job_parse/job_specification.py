@@ -4,7 +4,7 @@ import re
 from pathlib import Path
 
 from slurmise import job_data
-from slurmise.job_parse.file_parsers import FileParser
+from slurmise.job_parse.file_parsers import NUMERIC, FileParser
 
 # matches tokens like {threads:numeric}
 JOB_SPEC_REGEX = re.compile(r"{(?:(?P<name>[^:}]+):)?(?P<kind>[^}]+)}")
@@ -16,8 +16,6 @@ KIND_TO_REGEX = {
     "category": ".+?",
     "ignore": ".+?",
 }
-CATEGORICAL = "CATEGORICAL"
-NUMERICAL = "NUMERICAL"
 
 
 class JobSpec:
@@ -141,9 +139,9 @@ class JobSpec:
 
         for name, kind in self.token_kinds.items():
             if kind == "numeric":
-                job.numerical[name] = float(input_dict[name])
+                job.numerics[name] = float(input_dict[name])
             elif kind == "category":
-                job.categorical[name] = input_dict[name]
+                job.categories[name] = input_dict[name]
             elif kind in ("file", "gzip_file", "file_list"):
                 for parser in self.file_parsers[name]:
                     match kind:
@@ -157,10 +155,10 @@ class JobSpec:
                                 for file in f:
                                     file_value.append(parser.parse_file(Path(file.strip())))
 
-                    if parser.return_type == NUMERICAL:
-                        job.numerical[f"{name}_{parser.name}"] = file_value
+                    if parser.return_type == NUMERIC:
+                        job.numerics[f"{name}_{parser.name}"] = file_value
                     else:
-                        job.categorical[f"{name}_{parser.name}"] = file_value
+                        job.categories[f"{name}_{parser.name}"] = file_value
 
             else:
                 raise ValueError(f"Unknown kind {kind}.")

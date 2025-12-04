@@ -47,29 +47,29 @@ class JobData:
 
         :job_name: The unique command name to execute under slurm.
         :slurm_id: The slurm job id assigned by the sceduler for a job run.
-        :categorical: the CLI parameters of this job. This has parameter that affect the performance of the job and are fit seperately.
-        :numerical: These are parameters that are used as the free variables for fits, such input size, number of iterations etc.
+        :categories: the CLI parameters of this job. This has parameter that affect the performance of the job and are fit seperately.
+        :numerics: These are parameters that are used as the free variables for fits, such input size, number of iterations etc.
         :memory: The maximum amount of memory in MBs this job used.
         :runtime: The time this job needed to complete in minutes.
     """
 
     job_name: str
     slurm_id: str | None = None
-    categorical: dict = field(default_factory=dict)
-    numerical: dict = field(default_factory=dict)
+    categories: dict = field(default_factory=dict)
+    numerics: dict = field(default_factory=dict)
     memory: int | None = None  # in MBs
     runtime: int | None = None  # in minutes
     cmd: str | None = None  # TODO: NOT STORED OR RETURNED
 
     @staticmethod
-    def from_dataset(job_name: str, slurm_id: str, dataset: h5py.Dataset, categorical: dict) -> JobData:
+    def from_dataset(job_name: str, slurm_id: str, dataset: h5py.Dataset, categories: dict) -> JobData:
         """
         This method creates a JobData object from a HDF5 dataset that describes a job.
         :arguments:
 
             :job_name: The unique command name to execute under slurm.
             :slurm_id: The slurm job id assigned by the sceduler for a job run.
-            :dataset: The HDF5 dataset used to populate numerical, memory and runtime information of the job.
+            :dataset: The HDF5 dataset used to populate numerics, memory and runtime information of the job.
         """
 
         runtime = dataset.get("runtime", None)
@@ -78,14 +78,14 @@ class JobData:
         memory = dataset.get("memory", None)
         if memory is not None:
             memory = memory[()]
-        numerical = {key: value[()] for key, value in dataset.items() if key not in ("runtime", "memory")}
-        categorical = dict(**categorical)
+        numerics = {key: value[()] for key, value in dataset.items() if key not in ("runtime", "memory")}
+        categories = dict(**categories)
 
         return JobData(
             job_name=job_name,
             slurm_id=slurm_id,
-            numerical=numerical,
-            categorical=categorical,
+            numerics=numerics,
+            categories=categories,
             memory=memory,
             runtime=runtime,
         )

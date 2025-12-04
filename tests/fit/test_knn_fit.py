@@ -50,7 +50,7 @@ def nupack_data():
     jobs = sorted(jobs, key=lambda job: job.slurm_id)
 
     # Only take jobs where sequences is len = 10
-    # jobs = [job for job in jobs if job.numerical['sequences'].shape[0] == 10]
+    # jobs = [job for job in jobs if job.numerics['sequences'].shape[0] == 10]
 
     return query, jobs
 

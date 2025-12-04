@@ -41,10 +41,8 @@ class PolynomialFit(ResourceFit):
 
         return fit_obj
 
-    def _make_model(self, categorical_features, numerical_features) -> Pipeline:
-        preprocessor = self._get_preprocessor(
-            categorical_features=categorical_features, numerical_features=numerical_features
-        )
+    def _make_model(self, categories, numerics) -> Pipeline:
+        preprocessor = self._get_preprocessor(categories=categories, numerics=numerics)
         # We are doing polynomial regression, so we need to add polynomial features
         poly = PolynomialFeatures(degree=self.degree, include_bias=False)
         model = LinearRegression()

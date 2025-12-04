@@ -46,7 +46,7 @@ def nupack_data():
     jobs = [job for job in jobs if job.runtime > 0 and job.memory > 0]
 
     # Only take jobs where sequences is len = 10
-    # jobs = [job for job in jobs if job.numerical['sequences'].shape[0] == 10]
+    # jobs = [job for job in jobs if job.numerics['sequences'].shape[0] == 10]
 
     return query, jobs
 

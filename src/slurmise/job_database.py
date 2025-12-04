@@ -68,8 +68,8 @@ class JobDatabase:
     def record(self, job_data: JobData, ignore_existing_job: bool = False) -> None:
         """
         It records JobData information in the database. A tree is created based
-        on the job name, categorical values and slurm id. The leaves of the tree
-        are the memory, runtime and numericals of the JobData.
+        on the job name, categories and slurm id. The leaves of the tree
+        are the memory, runtime and numerics of the JobData.
         """
         table_name = JobDatabase.get_table_name(job_data)
         if ignore_existing_job and self.job_exists(job_data):
@@ -85,7 +85,7 @@ class JobDatabase:
             val = np.asarray(job_data.runtime)
             _ = table.create_dataset(name="runtime", shape=val.shape, data=val)
 
-        for var, value in job_data.numerical.items():
+        for var, value in job_data.numerics.items():
             val = np.asarray(value)
             _ = table.create_dataset(name=var, shape=val.shape, data=val)
 
@@ -100,7 +100,7 @@ class JobDatabase:
     def query(self, job_data: JobData, update_missing: bool = False) -> list[JobData]:
         """
         Query returns a list of JobData objects based on the requested JobData.
-        The returned jobs match the query JobData's job name and categoricals.
+        The returned jobs match the query JobData's job name and categories.
         `update_missing` will try to get maxRSS and elapsed from sacct if not found in the DB.
 
         Note: It does not decent into all child categories, only the highest matching leaves
@@ -115,7 +115,7 @@ class JobDatabase:
                     JobData.from_dataset(
                         job_name=job_data.job_name,
                         slurm_id=slurm_id,
-                        categorical=job_data.categorical,
+                        categories=job_data.categories,
                         dataset=slurm_data,
                     )
                 )
@@ -127,11 +127,11 @@ class JobDatabase:
 
     def delete(self, job_data: JobData, delete_all_children: bool = False) -> None:
         """
-        Delete jobs with matching job name and categoricals.
+        Delete jobs with matching job name and categories.
 
         :arguments:
 
-            :job_data: JobData object with name and categorical which should be removed.
+            :job_data: JobData object with name and categories which should be removed.
             :delete_all_children: When true, will delete recursively any matching jobs
         """
         group_name = JobDatabase.get_group_name(job_data)
@@ -181,7 +181,7 @@ class JobDatabase:
                         job,
                         memory=job_info["max_rss"] if job.memory is None else None,
                         runtime=(job_info["elapsed_seconds"] if job.runtime is None else None),
-                        numerical={},
+                        numerics={},
                     )
                 )
 
@@ -204,8 +204,8 @@ class JobDatabase:
     @staticmethod
     def get_group_name(job_data: JobData) -> str:
         group_name = f"/{job_data.job_name}"
-        for key in sorted(job_data.categorical.keys()):
-            group_name += f"/{key}={job_data.categorical[key]}"
+        for key in sorted(job_data.categories.keys()):
+            group_name += f"/{key}={job_data.categories[key]}"
         return group_name
 
     @staticmethod
@@ -237,14 +237,14 @@ class JobDatabase:
         """
         for job_name in self.db.keys():
             entry = self.db[job_name]
-            for categoricals, jobs in JobDatabase.iterate_jobs(entry):
-                categoricals = dict(cat.split("=") for cat in categoricals)
-                query = JobData(job_name=job_name, categorical=categoricals)
+            for categories, jobs in JobDatabase.iterate_jobs(entry):
+                categories = dict(cat.split("=") for cat in categories)
+                query = JobData(job_name=job_name, categories=categories)
                 jobs = [
                     JobData.from_dataset(
                         job_name=query.job_name,
                         slurm_id=slurm_id,
-                        categorical=query.categorical,
+                        categories=query.categories,
                         dataset=slurm_data,
                     )
                     for slurm_id, slurm_data in jobs.items()
@@ -255,17 +255,17 @@ class JobDatabase:
                 yield query, jobs
 
     @staticmethod
-    def iterate_jobs(h5py_obj, categoricals=None):
-        if categoricals is None:
-            categoricals = ()
+    def iterate_jobs(h5py_obj, categories=None):
+        if categories is None:
+            categories = ()
 
         jobs = {}
         for key, entry in h5py_obj.items():
             if JobDatabase.is_slurm_job(entry):
                 jobs[key] = entry
             else:
-                yield from JobDatabase.iterate_jobs(entry, categoricals + (key,))  # noqa: RUF005
-        yield categoricals, jobs
+                yield from JobDatabase.iterate_jobs(entry, categories + (key,))  # noqa: RUF005
+        yield categories, jobs
 
     @staticmethod
     def print_hdf5(h5py_obj, level=-1, print_full_name: bool = False, print_attrs: bool = True) -> None:

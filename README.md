@@ -125,19 +125,19 @@ Slurmise comes with several built-in options for parsing files:
 Additionally, custom file parsers can be made using awk.  While somewhat limited,
 awk prevents security issues with running arbitrary code.  File parsers require
 a unique name in the `slurmise.file_parsers` collection.  The return type is
-categorical by default.  The awk command can be supplied as a string or file path,
+category by default.  The awk command can be supplied as a string or file path,
 which is used with the `-f` flag of awk.  Here are some examples:
 ```toml
 [slurmise.file_parsers.epochs]
-return_type = "numerical"
+return_type = "numeric"
 awk_script = "/^epochs:/ {print $2}"
 
 [slurmise.file_parsers.network]
-return_type = "categorical"
+return_type = "category"
 awk_script = "/^network type:/ {print $3}"
 
 [slurmise.file_parsers.fasta_length]
-return_type = "numerical"
+return_type = "numeric"
 awk_script = "/path/to/awk/file.awk"
 script_is_file = True
 

@@ -10,19 +10,19 @@ from slurmise.api import Slurmise
 
 
 def _parse_json_options(
-    categorical: str,
-    numerical: str,
+    categories: str,
+    numerics: str,
     job_name: str,
     cmd: str,
     slurm_id: str | None = None,
 ) -> job_data.JobData:
-    categorical = json.loads("{" + categorical + "}") if categorical else {}
-    numerical = json.loads("{" + numerical + "}") if numerical else {}
+    categories = json.loads("{" + categories + "}") if categories else {}
+    numerics = json.loads("{" + numerics + "}") if numerics else {}
 
     return job_data.JobData(
         job_name=job_name,
-        numerical=numerical,
-        categorical=categorical,
+        numerics=numerics,
+        categories=categories,
         cmd=cmd,
         slurm_id=slurm_id,
     )
@@ -86,22 +86,22 @@ def parse(ctx, cmd, job_name):
 @click.option("--slurm-id", type=str, required=True, help="SLURM id of job")
 @click.option("--step-id", type=str, required=False, default=None, help="SLURM step id")
 @click.option(
-    "--numerical",
+    "--numerics",
     type=str,
-    help="Numerical run parameters in JSON format without outer {}, such as 'n:3,q:17.4'",
+    help="Numeric run parameters in JSON format without outer {}, such as 'n:3,q:17.4'",
 )
 @click.option(
-    "--categorical",
+    "--categories",
     type=str,
-    help="Categorical run parameters in JSON format without outer {}",
+    help="Category run parameters in JSON format without outer {}",
 )
 @click.option("--cmd", type=str, help="Actual command run")
 @click.pass_context
-def raw_record(ctx, job_name, slurm_id, step_id, numerical, categorical, cmd):
+def raw_record(ctx, job_name, slurm_id, step_id, numerics, categories, cmd):
     """Record a job"""
     slurm_id = f"{slurm_id}.{step_id}" if step_id is not None else slurm_id
 
-    jd = _parse_json_options(categorical, numerical, job_name, cmd, slurm_id)
+    jd = _parse_json_options(categories, numerics, job_name, cmd, slurm_id)
 
     ctx.obj["slurmise"].raw_record(jd)
 
@@ -124,21 +124,21 @@ def predict(ctx, cmd, job_name):
 @main.command()
 @click.option("--job-name", type=str, required=True, help="Name of the job")
 @click.option(
-    "--numerical",
+    "--numerics",
     type=str,
-    help="Numerical run parameters in JSON format without outer {}, such as 'n:3,q:17.4'",
+    help="Numeric run parameters in JSON format without outer {}, such as 'n:3,q:17.4'",
 )
 @click.option(
-    "--categorical",
+    "--categories",
     type=str,
-    help="Categorical run parameters in JSON format without outer {}",
+    help="Category run parameters in JSON format without outer {}",
 )
 @click.option("--cmd", type=str, help="Actual command run")
 @click.pass_context
-def raw_predict(ctx, job_name, numerical, categorical, cmd):
+def raw_predict(ctx, job_name, numerics, categories, cmd):
     """predict a job"""
 
-    jd = _parse_json_options(categorical, numerical, job_name, cmd)
+    jd = _parse_json_options(categories, numerics, job_name, cmd)
 
     query_jd, query_warns = ctx.obj["slurmise"].raw_predict(jd)
     _report_prediction(query_jd, query_warns)

@@ -53,15 +53,15 @@ def test_record(simple_toml, monkeypatch):
                 slurm_id="1234",
                 runtime=97201,
                 memory=232,
-                categorical={"complexity": "simple"},
-                numerical={"threads": 2},
+                categories={"complexity": "simple"},
+                numerics={"threads": 2},
                 cmd=None,
             ),
         ]
 
         query = JobData(
             job_name="nupack",
-            categorical={"complexity": "simple"},
+            categories={"complexity": "simple"},
         )
         query_result = db.query(query)
 
@@ -96,9 +96,9 @@ def test_raw_record(simple_toml, monkeypatch):
             "test",
             "--slurm-id",
             "1234",
-            "--numerical",
+            "--numerics",
             '"n":3,"q":17.4',
-            "--categorical",
+            "--categories",
             '"a":1,"b":2',
             "--cmd",
             "sleep 2",
@@ -113,8 +113,8 @@ def test_raw_record(simple_toml, monkeypatch):
             JobData(
                 job_name="test",
                 slurm_id="1234",
-                categorical={"a": 1, "b": 2},
-                numerical={"n": 3, "q": 17.4},
+                categories={"a": 1, "b": 2},
+                numerics={"n": 3, "q": 17.4},
                 memory=232,
                 runtime=97201,
                 cmd=None,
@@ -123,7 +123,7 @@ def test_raw_record(simple_toml, monkeypatch):
 
         query = JobData(
             job_name="test",
-            categorical={"a": 1, "b": 2},
+            categories={"a": 1, "b": 2},
         )
         query_result = db.query(query)
 
@@ -195,7 +195,7 @@ def test_update_predict(nupack_toml):
             nupack_toml.toml,
             "raw-predict",
             "--job-name=nupack",
-            '--numerical="cpus":3,"sequences":6543',
+            '--numerics="cpus":3,"sequences":6543',
             "--cmd='nupack monomer -c 3 -S 6543'",
         ],
     )
@@ -238,7 +238,7 @@ def test_update_predict(nupack_toml):
             nupack_toml.toml,
             "raw-predict",
             "--job-name=nupack",
-            '--numerical="cpus":987654,"sequences":4985',
+            '--numerics="cpus":987654,"sequences":4985',
             "--cmd='nupack monomer -c 987654 -S 4985'",
         ],
         catch_exceptions=True,
