@@ -56,7 +56,7 @@ def jobs_to_pandas(jobs: list[JobData]):
                     raise ValueError(msg)
 
             else:
-                msg = "NNumeric columns must be scalars or equal length numpy arrays"
+                msg = "Numeric columns must be scalars or equal length numpy arrays"
                 raise ValueError(msg)
 
     df.columns = [col.replace("numeric.", "") for col in df.columns]
