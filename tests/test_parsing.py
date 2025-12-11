@@ -20,7 +20,7 @@ def test_job_spec_named_ignore():
     assert jd == JobData(
         job_name="test",
         cmd="cmd -T 10 -i asdf",
-        numerical={"threads": 10},
+        numerics={"threads": 10},
     )
 
 
@@ -38,14 +38,14 @@ def test_basic_job_spec():
     spec = JobSpec("cmd -T {threads:numeric}")
 
     jd = spec.parse_job_cmd(JobData(job_name="test", cmd="cmd -T 3"))
-    assert jd.numerical == {"threads": 3}
+    assert jd.numerics == {"threads": 3}
 
 
 def test_basic_job_spec_from_dict():
     spec = JobSpec("cmd -T {threads:numeric}")
 
     jd = spec.parse_job_from_dict({"threads": 3}, JobData(job_name="test"))
-    assert jd.numerical == {"threads": 3}
+    assert jd.numerics == {"threads": 3}
 
 
 def test_basic_job_spec_from_dict_extra_in_dict():
@@ -236,8 +236,8 @@ def test_job_spec_with_builtin_parsers_basename(tmp_path):
         )
     )
     assert jd.job_name == "test"
-    assert jd.numerical == {}
-    assert jd.categorical == {"input1_file_basename": "input.txt"}
+    assert jd.numerics == {}
+    assert jd.categories == {"input1_file_basename": "input.txt"}
 
     jd = spec.parse_job_from_dict(
         {"input1": input_file},
@@ -246,8 +246,8 @@ def test_job_spec_with_builtin_parsers_basename(tmp_path):
         ),
     )
     assert jd.job_name == "test"
-    assert jd.numerical == {}
-    assert jd.categorical == {"input1_file_basename": "input.txt"}
+    assert jd.numerics == {}
+    assert jd.categories == {"input1_file_basename": "input.txt"}
 
     jd = spec.parse_job_from_dict(
         {"input1": input_file},
@@ -256,8 +256,8 @@ def test_job_spec_with_builtin_parsers_basename(tmp_path):
         ),
     )
     assert jd.job_name == "test"
-    assert jd.numerical == {}
-    assert jd.categorical == {"input1_file_basename": "input.txt"}
+    assert jd.numerics == {}
+    assert jd.categories == {"input1_file_basename": "input.txt"}
 
 
 def test_job_spec_with_builtin_parsers_md5hash(tmp_path):
@@ -297,7 +297,7 @@ def test_job_spec_with_builtin_parsers_md5hash(tmp_path):
         )
     )
     assert jd.job_name == "test"
-    assert jd.numerical == {}
+    assert jd.numerics == {}
 
     jd_test = spec.parse_job_cmd(
         JobData(
@@ -306,7 +306,7 @@ def test_job_spec_with_builtin_parsers_md5hash(tmp_path):
         )
     )
     # test that md5 digest reflects file content
-    assert jd.categorical == jd_test.categorical
+    assert jd.categories == jd_test.categories
 
 
 def test_job_spec_with_builtin_parsers(tmp_path):
@@ -343,7 +343,7 @@ def test_job_spec_with_builtin_parsers(tmp_path):
         )
     )
     assert jd.job_name == "test"
-    assert jd.numerical == {"lines_file_lines": 3, "filesize_file_size": 42}
+    assert jd.numerics == {"lines_file_lines": 3, "filesize_file_size": 42}
 
 
 def test_job_spec_with_builtin_parsers_gzipped(tmp_path):
@@ -382,7 +382,7 @@ def test_job_spec_with_builtin_parsers_gzipped(tmp_path):
         )
     )
     assert jd.job_name == "test"
-    assert jd.numerical == {"lines_file_lines": 201, "filesize_file_size": 99}
+    assert jd.numerics == {"lines_file_lines": 201, "filesize_file_size": 99}
 
 
 def test_job_spec_with_builtin_parsers_file_list(tmp_path):
@@ -423,7 +423,7 @@ def test_job_spec_with_builtin_parsers_file_list(tmp_path):
         )
     )
     assert jd.job_name == "test"
-    assert jd.numerical == {
+    assert jd.numerics == {
         "lines_file_lines": [10 * i + 1 for i in range(1, 6)],
         "lines_file_size": [290 * i for i in range(1, 6)],
     }
@@ -462,7 +462,7 @@ def test_job_spec_with_multiple_builtin_parsers(tmp_path):
         )
     )
     assert jd.job_name == "test"
-    assert jd.numerical == {"input1_file_lines": 3, "input1_file_size": 42}
+    assert jd.numerics == {"input1_file_lines": 3, "input1_file_size": 42}
 
 
 def test_job_spec_with_awk_parsers(tmp_path):
@@ -474,17 +474,17 @@ def test_job_spec_with_awk_parsers(tmp_path):
     file_parsers.input1 = "epochs,network"
 
     [slurmise.file_parsers.epochs]
-    return_type = "numerical"
+    return_type = "numeric"
     awk_script = "/^epochs:/ {print $2}"
 
     [slurmise.file_parsers.network]
-    return_type = "categorical"
+    return_type = "category"
     awk_script = "/^network type:/ {print $3}"
     """
 
     available_parsers = {
-        "epochs": file_parsers.AwkParser("epochs", "numerical", "/^epochs:/ {print $2 ; exit}"),
-        "network": file_parsers.AwkParser("network", "categorical", "/^network type:/ {print $3 ; exit}"),
+        "epochs": file_parsers.AwkParser("epochs", "numeric", "/^epochs:/ {print $2 ; exit}"),
+        "network": file_parsers.AwkParser("network", "category", "/^network type:/ {print $3 ; exit}"),
     }
 
     spec = JobSpec(
@@ -509,8 +509,8 @@ some more text"""
         )
     )
     assert jd.job_name == "test"
-    assert jd.categorical == {"input1_network": "conv_NN"}
-    assert jd.numerical == {"input1_epochs": [12]}
+    assert jd.categories == {"input1_network": "conv_NN"}
+    assert jd.numerics == {"input1_epochs": [12]}
 
 
 def test_job_spec_with_awk_parsers_multiple_numerics(tmp_path):
@@ -520,12 +520,12 @@ def test_job_spec_with_awk_parsers_multiple_numerics(tmp_path):
     file_parsers.input1 = "layers"
 
     [slurmise.file_parsers.layers]
-    return_type = "numerical"
+    return_type = "numeric"
     awk_script = "/^layers:/ {print $2}"
     """
 
     available_parsers = {
-        "layers": file_parsers.AwkParser("layers", "numerical", '/^layers:/ {$1="" ; print $0}'),
+        "layers": file_parsers.AwkParser("layers", "numeric", '/^layers:/ {$1="" ; print $0}'),
     }
 
     spec = JobSpec(
@@ -551,8 +551,8 @@ some more text"""
         )
     )
     assert jd.job_name == "test"
-    assert jd.categorical == {}
-    assert jd.numerical == {"input1_layers": [12, 14, 16, 18, 24, 36]}
+    assert jd.categories == {}
+    assert jd.numerics == {"input1_layers": [12, 14, 16, 18, 24, 36]}
 
 
 @pytest.mark.skipif(
@@ -566,11 +566,11 @@ def test_job_spec_with_awk_file(tmp_path):
     file_parsers.input1 = "fasta_inline,fasta_script"
 
     [slurmise.file_parsers.fasta_inline]
-    return_type = "numerical"
+    return_type = "numeric"
     awk_script = "/^layers:/ {print $2}"
 
     [slurmise.file_parsers.fasta_script]
-    return_type = "numerical"
+    return_type = "numeric"
     awk_script = "/path/to/awk/file.awk"
     script_is_file = True
     """
@@ -585,8 +585,8 @@ END {if (seq) print seq}
     awk_file.write_text(awk_script)
 
     available_parsers = {
-        "fasta_inline": file_parsers.AwkParser("fasta_inline", "numerical", awk_script),
-        "fasta_script": file_parsers.AwkParser("fasta_script", "numerical", awk_file, script_is_file=True),
+        "fasta_inline": file_parsers.AwkParser("fasta_inline", "numeric", awk_script),
+        "fasta_script": file_parsers.AwkParser("fasta_script", "numeric", awk_file, script_is_file=True),
     }
 
     spec = JobSpec(
@@ -625,8 +625,8 @@ END {if (seq) print seq}
         )
     )
     assert jd.job_name == "test"
-    assert jd.categorical == {}
-    assert jd.numerical == {
+    assert jd.categories == {}
+    assert jd.numerics == {
         "input1_fasta_inline": [40, 25, 43, 1],
         "input1_fasta_script": [40, 25, 43, 1],
     }
@@ -643,11 +643,11 @@ def test_job_spec_with_awk_gzip_file(tmp_path):
     file_parsers.input1 = "fasta_inline,fasta_script"
 
     [slurmise.file_parsers.fasta_inline]
-    return_type = "numerical"
+    return_type = "numeric"
     awk_script = "/^layers:/ {print $2}"
 
     [slurmise.file_parsers.fasta_script]
-    return_type = "numerical"
+    return_type = "numeric"
     awk_script = "/path/to/awk/file.awk"
     script_is_file = True
     """
@@ -661,8 +661,8 @@ END {if (seq) print seq}
     awk_file.write_text(awk_script)
 
     available_parsers = {
-        "fasta_inline": file_parsers.AwkParser("fasta_inline", "numerical", awk_script),
-        "fasta_script": file_parsers.AwkParser("fasta_script", "numerical", awk_file, script_is_file=True),
+        "fasta_inline": file_parsers.AwkParser("fasta_inline", "numeric", awk_script),
+        "fasta_script": file_parsers.AwkParser("fasta_script", "numeric", awk_file, script_is_file=True),
     }
 
     spec = JobSpec(
@@ -702,8 +702,8 @@ END {if (seq) print seq}
         )
     )
     assert jd.job_name == "test"
-    assert jd.categorical == {}
-    assert jd.numerical == {
+    assert jd.categories == {}
+    assert jd.numerics == {
         "input1_fasta_inline": [40, 25, 43, 1],
         "input1_fasta_script": [40, 25, 43, 1],
     }

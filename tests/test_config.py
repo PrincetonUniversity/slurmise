@@ -133,15 +133,15 @@ def basic_toml(tmpdir):
     # builtins will include file_size and file_lines
     # specify custom options here
     [slurmise.file_parsers.get_epochs]
-    return_type = "numerical"
+    return_type = "numeric"
     awk_script = "'/^epochs:/ {print $2}'"
 
     [slurmise.file_parsers.fasta_lengths]
-    return_type = "numerical"
+    return_type = "numeric"
     awk_script = "/a/path/to/file"
     script_is_file = true
 
-    # categorical default return type
+    # category default return type
     [slurmise.file_parsers.script_string]
     awk_script = "/^>/"
     script_is_file = false
@@ -167,8 +167,8 @@ def test_parse_job_cmd(basic_toml):
 
     assert job_data.job_name == "nupack"
     assert job_data.slurm_id == "1234"
-    assert job_data.categorical == {"complexity": "simple"}
-    assert job_data.numerical == {"threads": 1}
+    assert job_data.categories == {"complexity": "simple"}
+    assert job_data.numerics == {"threads": 1}
 
 
 def test_parse_job_from_variables(basic_toml):
@@ -176,8 +176,8 @@ def test_parse_job_from_variables(basic_toml):
     job_data = config.parse_job_from_dict({"threads": 3, "runtype": "something", "infile": "test.txt"}, "dict_spec")
 
     assert job_data.job_name == "dict_spec"
-    assert job_data.categorical == {"runtype": "something", "infile_file_basename": "test.txt"}
-    assert job_data.numerical == {"threads": 3}
+    assert job_data.categories == {"runtype": "something", "infile_file_basename": "test.txt"}
+    assert job_data.numerics == {"threads": 3}
 
 
 def test_parse_job_cmd_with_ignore(basic_toml):
@@ -186,8 +186,8 @@ def test_parse_job_cmd_with_ignore(basic_toml):
 
     assert job_data.job_name == "with_ignore"
     assert job_data.slurm_id == "1234"
-    assert job_data.categorical == {"complexity": "simple"}
-    assert job_data.numerical == {"threads": 1}
+    assert job_data.categories == {"complexity": "simple"}
+    assert job_data.numerics == {"threads": 1}
 
 
 def test_parse_job_cmd_invalid(basic_toml):
@@ -224,9 +224,9 @@ def test_awk_parsers(basic_toml):
         "file_lines": file_parsers.FileLinesParser(),
         "file_basename": file_parsers.FileBasename(),
         "file_md5": file_parsers.FileMD5(),
-        "get_epochs": file_parsers.AwkParser("get_epochs", "numerical", "'/^epochs:/ {print $2}'", False),
-        "fasta_lengths": file_parsers.AwkParser("fasta_lengths", "numerical", "/a/path/to/file", True),
-        "script_string": file_parsers.AwkParser("script_string", "categorical", "/^>/", False),
+        "get_epochs": file_parsers.AwkParser("get_epochs", "numeric", "'/^epochs:/ {print $2}'", False),
+        "fasta_lengths": file_parsers.AwkParser("fasta_lengths", "numeric", "/a/path/to/file", True),
+        "script_string": file_parsers.AwkParser("script_string", "category", "/^>/", False),
     }
 
 

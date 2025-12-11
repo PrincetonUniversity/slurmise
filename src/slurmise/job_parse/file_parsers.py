@@ -6,14 +6,14 @@ import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 
-NUMERICAL = "NUMERICAL"
-CATEGORICAL = "CATEGORICAL"
+NUMERIC = "NUMERIC"
+CATEGORY = "CATEGORY"
 
 
 @dataclass()
 class FileParser:
     name: str = "UNK"
-    return_type: str = NUMERICAL
+    return_type: str = NUMERIC
 
     def parse_file(self, path: Path, gzip_file: bool = False):  # pragma: no cover
         raise NotImplementedError
@@ -22,7 +22,7 @@ class FileParser:
 @dataclass()
 class FileBasename(FileParser):
     def __init__(self):
-        super().__init__(name="file_basename", return_type=CATEGORICAL)
+        super().__init__(name="file_basename", return_type=CATEGORY)
 
     def parse_file(self, path: Path, gzip_file: bool = False):  # noqa: ARG002
         return path.name
@@ -31,7 +31,7 @@ class FileBasename(FileParser):
 @dataclass()
 class FileMD5(FileParser):
     def __init__(self):
-        super().__init__(name="file_md5", return_type=CATEGORICAL)
+        super().__init__(name="file_md5", return_type=CATEGORY)
 
     def parse_file(self, path: Path, gzip_file: bool = False):  # noqa: ARG002
         md5_hash = hashlib.md5()  # noqa: S324
@@ -42,7 +42,7 @@ class FileMD5(FileParser):
 @dataclass()
 class FileSizeParser(FileParser):
     def __init__(self):
-        super().__init__(name="file_size", return_type=NUMERICAL)
+        super().__init__(name="file_size", return_type=NUMERIC)
 
     def parse_file(self, path: Path, gzip_file: bool = False):  # noqa: ARG002
         return path.stat().st_size  # in bytes
@@ -51,7 +51,7 @@ class FileSizeParser(FileParser):
 @dataclass()
 class FileLinesParser(FileParser):
     def __init__(self):
-        super().__init__(name="file_lines", return_type=NUMERICAL)
+        super().__init__(name="file_lines", return_type=NUMERIC)
 
     def parse_file(self, path: Path, gzip_file: bool = False):
         if gzip_file:
@@ -93,6 +93,6 @@ class AwkParser(FileParser):
         else:
             result = subprocess.check_output(self.args + [path], text=True)  # noqa: RUF005
 
-        if self.return_type == NUMERICAL:
+        if self.return_type == NUMERIC:
             return [float(token) for token in result.split()]
         return result.strip()

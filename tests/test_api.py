@@ -59,8 +59,8 @@ def test_job_data_from_dict(simple_toml):
         {"threads": 3, "complexity": "simple"},
         "nupack",
     )
-    assert result.categorical == {"complexity": "simple"}
-    assert result.numerical == {"threads": 3}
+    assert result.categories == {"complexity": "simple"}
+    assert result.numerics == {"threads": 3}
 
 
 @pytest.mark.parametrize(
@@ -75,6 +75,6 @@ def test_update_all_models(toml_fixture, request):
     except ValueError as e:
         # If there is not enough data to fit a model, a ValueError is raised
         # by sklearn train_test_split. Currently happening with small_db_toml fixture
-        # because there is only one job with "filesizes" numerical feature.
+        # because there is only one job with "filesizes" numeric feature.
         if str(e).startswith("Cannot have number of splits n_splits="):
             pass

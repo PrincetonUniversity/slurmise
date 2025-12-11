@@ -105,7 +105,7 @@ def small_db(empty_h5py_file):
                 slurm_id="2",
                 runtime=6,
                 memory=128,
-                numerical={"filesizes": [123, 512, 128]},
+                numerics={"filesizes": [123, 512, 128]},
             )
         )
 
@@ -115,7 +115,7 @@ def small_db(empty_h5py_file):
                 slurm_id="1",
                 runtime=5,
                 memory=100,
-                categorical={"option1": "value1", "option2": "value2"},
+                categories={"option1": "value1", "option2": "value2"},
             )
         )
 
@@ -123,8 +123,8 @@ def small_db(empty_h5py_file):
             JobData(
                 job_name="test_job",
                 slurm_id="2",
-                numerical={"filesizes": [123, 512, 128]},
-                categorical={"option1": "value2"},
+                numerics={"filesizes": [123, 512, 128]},
+                categories={"option1": "value2"},
             )
         )
 
@@ -140,7 +140,7 @@ def small_db(empty_h5py_file):
                 slurm_id="4",
                 runtime=7,
                 memory=100,
-                categorical={"option2": "value2", "option1": "value1"},
+                categories={"option2": "value2", "option1": "value1"},
             )
         )
         yield db
