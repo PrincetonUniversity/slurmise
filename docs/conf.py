@@ -23,7 +23,6 @@ extensions = [
     "sphinx.ext.mathjax",
     "sphinx.ext.ifconfig",
     "sphinx.ext.githubpages",
-    "sphinx_rtd_theme",
     "sphinx.ext.napoleon",
     "sphinx.ext.imgconverter",
 ]

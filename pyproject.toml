@@ -47,8 +47,8 @@ dev = [
 ]
 docs = [
   "sphinx",
-  "sphinx-rtd-theme"
-  ]
+  "sphinx-rtd-theme",
+]
 
 snakemake = [
   "snakemake>=6",
@@ -72,6 +72,7 @@ fmt-check = {shell = "ruff format --check . && ruff check ."}
 smk-test-v7 = "uv run --python 3.11 --with 'snakemake==7.32.4' --with 'pulp<2.8.0' pytest"
 smk-test-v8 = "uv run --python 3.12 --with 'snakemake>=8.0,<9.0' pytest"
 smk-test-v9 = "uv run --python 3.13 --with 'snakemake>=9.0' pytest"
+docs = {shell = "uv run --group docs sphinx-build docs docs/_build/html", help = "Build HTML documentation"}
 
 [tool.coverage.run]
 source_pkgs = ["slurmise", "tests"]
