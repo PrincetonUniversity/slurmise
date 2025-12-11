@@ -23,7 +23,7 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: Install dependencies
-        run: uv sync --python ${{ matrix.python-version }} --group dev
+        run: uv sync --python ${{ matrix.python-version }} --group dev --group docs
 
       - name: Run tests
         run: |
@@ -31,6 +31,9 @@ jobs:
 
       - name: Run linter
         run: uv run poe fmt-check
+
+      - name: Build documentation
+        run: uv run poe docs
 
       - name: Upload coverage report
         run: uv run coveralls
