@@ -252,6 +252,9 @@ class JobDatabase:
                 if update_missing:
                     jobs = self.update_missing_data(jobs)
 
+                if len(jobs) == 0:
+                    continue
+
                 yield query, jobs
 
     @staticmethod

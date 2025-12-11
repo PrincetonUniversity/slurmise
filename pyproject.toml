@@ -46,6 +46,10 @@ dev = [
   "isort"
 ]
 
+snakemake = [
+  "snakemake>=6",
+]
+
 [project.urls]
 Documentation = "https://github.com/PrincetonUniversity/slurmise#readme"
 Issues = "https://github.com/PrincetonUniversity/slurmise/issues"
@@ -90,15 +94,24 @@ exclude_lines = [
 config-path = "lint_config.toml"
 
 [tool.hatch.envs.test]
-dependencies = [
-  "pytest",
-  "pytest-cov",
-  "ruff",
-  "coverage",
-  "pytest-random-order",
-  "coveralls",
-  "pre-commit",
-  "isort"
+features = ["dev"]
+
+# this is the dedicated environment for tests requiring snakemake
+# run with hatch run test-snakemake:test
+[tool.hatch.envs.test-snakemake]
+features = ["dev"]
+scripts = { test = "pytest {args:tests}" }
+
+[[tool.hatch.envs.test-snakemake.matrix]]
+snakemake = ["v6", "v7", "v8", "v9", "latest"]
+
+[tool.hatch.envs.test-snakemake.overrides]
+matrix.snakemake.dependencies = [
+    { value = "snakemake==6.15.5", if = ["v6"] },
+    { value = "snakemake==7.32.4", if = ["v7"] },
+    { value = "snakemake==8.29.3", if = ["v8"] },
+    { value = "snakemake==9.13.4", if = ["v9"] },
+    { value = "snakemake", if = ["latest"] }
 ]
 
 [tool.ruff]
