@@ -1,0 +1,73 @@
+name: Build and Deploy Documentation
+
+on:
+  # Build docs on all PRs to main (merge prerequisite)
+  pull_request:
+    branches:
+      - main
+
+  # Build and deploy on pushes to main
+  push:
+    branches:
+      - main
+      # Build docs on branches starting with "docs/" or "**/docs"
+      - 'docs/**'
+      - '**/docs'
+
+# Sets permissions for GitHub Pages deployment
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Hatch
+        run: pip install hatch
+
+      - name: Create docs environment
+        run: hatch env create docs
+
+      - name: Build documentation
+        run: hatch run docs:build
+
+      - name: Check for broken links
+        run: hatch run docs:linkcheck
+        continue-on-error: true  # Don't fail build on broken external links
+
+      - name: Upload artifact for GitHub Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/_build/html
+
+  deploy:
+    # Only deploy to GitHub Pages on pushes to main
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    needs: build
+    runs-on: ubuntu-latest
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
