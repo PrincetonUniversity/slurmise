@@ -267,12 +267,10 @@ def test_rqd_with_emptydb(empty_h5py_file):
         )
 
 
-@pytest.mark.xfail(reason="Iterate database gives empty jobs lists which needs to be fixed")
 def test_iterate_database(small_db):
     """Test access to all jobs and data through an iterator."""
     expected_queries = [
         JobData(job_name="test_job", categories={"option1": "value1", "option2": "value2"}),
-        JobData(job_name="test_job", categories={"option1": "value1"}),
         JobData(job_name="test_job", categories={"option1": "value2"}),
         JobData(job_name="test_job"),
     ]
@@ -282,7 +280,6 @@ def test_iterate_database(small_db):
         expected_result = small_db.query(query)
         assert jobs == expected_result
 
-        # NOTE we are getting empty jobs list from iterate_database which we don't want
         assert len(jobs) > 0
 
 

@@ -270,7 +270,9 @@ class JobDatabase:
                 jobs[key] = entry
             else:
                 yield from JobDatabase.iterate_jobs(entry, categories + (key,))  # noqa: RUF005
-        yield categories, jobs
+
+        if jobs:
+            yield categories, jobs
 
     @staticmethod
     def print_hdf5(h5py_obj, level=-1, print_full_name: bool = False, print_attrs: bool = True) -> None:
