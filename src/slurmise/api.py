@@ -94,8 +94,7 @@ class Slurmise:
     def update_all_models(self):
         with job_database.JobDatabase.get_database(self.configuration.db_filename) as database:
             for query_jd, jobs in database.iterate_database():
-                if jobs:
-                    self._update_model(query_jd, jobs)
+                self._update_model(query_jd, jobs)
 
     def job_data_from_dict(
         self,
