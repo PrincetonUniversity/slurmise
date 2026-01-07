@@ -12,7 +12,7 @@ def jobs_to_pandas(jobs: list[JobData]):
     """
     Convert a list of JobData objects to a pandas DataFrame. The DataFrame will have
     columns for each category and numeric feature, and will not include the job_name,
-    slurm_id, memory, or runtime columns.
+    slurm_id, or cmd fields since they are not features.
 
     :param jobs: A list of JobData objects
     :type jobs: list[JobData]
@@ -25,17 +25,17 @@ def jobs_to_pandas(jobs: list[JobData]):
 
     # Convert category columns to category type
     for col in df.columns:
-        if col.startswith("category."):
+        if col.startswith("categories."):
             df[col] = df[col].astype("category")
 
     # Rename the categories, drop .category prefix
-    df.columns = [col.replace("category.", "") for col in df.columns]
+    df.columns = [col.replace("categories.", "") for col in df.columns]
 
     # If a column is numeric, but it's dtype is object, it may be a numpy array
     for col in df.columns:
-        new_col_name = col.replace("numeric.", "")
+        new_col_name = col.replace("numerics.", "")
 
-        if col.startswith("numeric.") and df[col].dtype == "object":
+        if col.startswith("numerics.") and df[col].dtype == "object":
             # Check if they are all numpy arrays
             if all(isinstance(row, np.ndarray) for row in df[col]):
                 # Check if the column is a numpy array of all the same size
@@ -51,18 +51,19 @@ def jobs_to_pandas(jobs: list[JobData]):
                     df = pd.concat([df, col_df], axis=1)
 
                 else:
-                    msg = f"Numeric feature {new_col_name} is an a numpy array of different sizes. "
+                    msg = f"Numerics feature {new_col_name} is a numpy array of different sizes. "
                     msg += "Numpy arrays are supported only if they are all the same size."
                     raise ValueError(msg)
 
             else:
-                msg = "Numeric columns must be scalars or equal length numpy arrays"
+                msg = "Numerics columns must be scalars or equal length numpy arrays"
                 raise ValueError(msg)
 
-    df.columns = [col.replace("numeric.", "") for col in df.columns]
+    df.columns = [col.replace("numerics.", "") for col in df.columns]
 
-    # Get the numeric columns
-    df = df.drop(columns=["job_name", "slurm_id", "cmd"])
+    # Drop job_name and slurm_id columns since they are not features
+    cols_to_drop = {"job_name", "slurm_id", "cmd"}.intersection(df.columns)
+    df = df.drop(columns=cols_to_drop)
 
     # Sort columns to ensure consistent ordering across platforms
     df = df[sorted(df.columns)]
