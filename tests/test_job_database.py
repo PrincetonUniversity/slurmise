@@ -267,6 +267,38 @@ def test_rqd_with_emptydb(empty_h5py_file):
         )
 
 
+def test_iterate_jobs(empty_h5py_file):
+    """Test that the iterate_jobs function correctly iterates through the database and yields the expected categories and job groups."""
+    with JobDatabase.get_database(empty_h5py_file) as slurmise_db:
+        job_data_inputs = [
+            JobData(job_name="test_job", slurm_id="1", categories={"option1": "value1", "option2": "value2"}),
+            JobData(job_name="test_job", slurm_id="2", categories={"option1": "value2"}),
+            JobData(job_name="another_test_job", slurm_id="3", runtime=5),
+            JobData(job_name="another_test_job", slurm_id="4", runtime=8),
+        ]
+
+        # Add the jobs one by one, checking each time that the iterate_jobs function yields the expected jobs in the database
+        expected_jobs = []
+        for job_data_input in job_data_inputs:
+            slurmise_db.record(job_data_input)
+            expected_jobs.append(job_data_input)
+
+            matched_retrieved_slurm_ids = set()
+            for retrieved_job in JobDatabase.iterate_jobs(slurmise_db.db):
+                retrieved_categories, retrieved_job_dict = retrieved_job
+
+                for expected_job in expected_jobs:
+                    if expected_job.slurm_id in retrieved_job_dict:
+                        expected_categories = (expected_job.job_name,) + tuple(
+                            f"{key}={value}" for key, value in expected_job.categories.items()
+                        )
+                        assert retrieved_categories == expected_categories
+                        assert expected_job.slurm_id in retrieved_job_dict
+                        matched_retrieved_slurm_ids.add(expected_job.slurm_id)
+
+            assert matched_retrieved_slurm_ids == set(job.slurm_id for job in expected_jobs)
+
+
 def test_iterate_database(small_db):
     """Test access to all jobs and data through an iterator."""
     expected_queries = [

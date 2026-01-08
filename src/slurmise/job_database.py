@@ -4,7 +4,7 @@ import contextlib
 import dataclasses
 import os
 import time
-from typing import Any
+from typing import Any, Generator
 
 import h5py
 import numpy as np
@@ -236,7 +236,7 @@ class JobDatabase:
     def print(self):
         JobDatabase.print_hdf5(self.db)
 
-    def iterate_database(self, update_missing: bool = False):
+    def iterate_database(self, update_missing: bool = False) -> Generator[tuple[JobData, list[JobData]]]:
         """
         Yield key (query job) value (list of jobs) pairs of entire database.
         """
@@ -247,9 +247,9 @@ class JobDatabase:
                 query = JobData(job_name=job_name, categories=categories)
                 jobs = [
                     JobData.from_dataset(
-                        job_name=query.job_name,
+                        job_name=job_name,
                         slurm_id=slurm_id,
-                        categories=query.categories,
+                        categories=categories,
                         dataset=slurm_data,
                     )
                     for slurm_id, slurm_data in jobs.items()
@@ -260,7 +260,23 @@ class JobDatabase:
                 yield query, jobs
 
     @staticmethod
-    def iterate_jobs(h5py_obj, categories=None):
+    def iterate_jobs(h5py_obj, categories=None) -> Generator[tuple[tuple[str, ...], dict[str, h5py.Group]]]:
+        """
+        Helper function to recursively iterate through the database and yield job groups with their categories as tuples.
+        Note, jobs are NOT yielded ordred by slurm-id.
+
+        :arguments:
+
+            :h5py_obj: the current h5py object to check for jobs
+            :categories: the categories found on the way to the current h5py object as a tuple of strings
+
+        :yields:
+
+            Tuple of categories and dict of slurm_id to h5py dataset for each job in the database
+            For example two jobs that have the same name and categories: (("test_job", "option1=value1", "option2=value2"), {"123": <h5py dataset>, "456": <h5py dataset>}).
+
+
+        """
         if categories is None:
             categories = ()
 
