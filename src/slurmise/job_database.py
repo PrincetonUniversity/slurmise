@@ -4,7 +4,7 @@ import contextlib
 import dataclasses
 import os
 import time
-from typing import Any
+from typing import Any, Generator
 
 import h5py
 import numpy as np
@@ -21,7 +21,7 @@ class JobDatabase:
 
     def __init__(self, db_file: str, max_retries: int = 5):
         """
-        The DB file is and HDF5 file.
+        The DB file is an HDF5 file.
         Use **get_database** and a context manager to have the file automatically
         closed.
         """
@@ -30,6 +30,7 @@ class JobDatabase:
         while True:
             attempt += 1
             try:
+                self._db_file = db_file
                 self.db = h5py.File(db_file, "a")
                 break
             except BlockingIOError:
@@ -39,6 +40,10 @@ class JobDatabase:
 
     def _close(self):
         self.db.close()
+
+    @property
+    def db_file(self):
+        return self._db_file
 
     @staticmethod
     @contextlib.contextmanager
@@ -103,7 +108,7 @@ class JobDatabase:
         The returned jobs match the query JobData's job name and categories.
         `update_missing` will try to get maxRSS and elapsed from sacct if not found in the DB.
 
-        Note: It does not decent into all child categories, only the highest matching leaves
+        Note: It does not descend into all child categories, only the highest matching leaves
         """
         group_name = JobDatabase.get_group_name(job_data)
 
@@ -231,7 +236,7 @@ class JobDatabase:
     def print(self):
         JobDatabase.print_hdf5(self.db)
 
-    def iterate_database(self, update_missing: bool = False):
+    def iterate_database(self, update_missing: bool = False) -> Generator[tuple[JobData, list[JobData]]]:
         """
         Yield key (query job) value (list of jobs) pairs of entire database.
         """
@@ -242,9 +247,9 @@ class JobDatabase:
                 query = JobData(job_name=job_name, categories=categories)
                 jobs = [
                     JobData.from_dataset(
-                        job_name=query.job_name,
+                        job_name=job_name,
                         slurm_id=slurm_id,
-                        categories=query.categories,
+                        categories=categories,
                         dataset=slurm_data,
                     )
                     for slurm_id, slurm_data in jobs.items()
@@ -255,7 +260,23 @@ class JobDatabase:
                 yield query, jobs
 
     @staticmethod
-    def iterate_jobs(h5py_obj, categories=None):
+    def iterate_jobs(h5py_obj, categories=None) -> Generator[tuple[tuple[str, ...], dict[str, h5py.Group]]]:
+        """
+        Helper function to recursively iterate through the database and yield job groups with their categories as tuples.
+        Note, jobs are NOT yielded ordred by slurm-id.
+
+        :arguments:
+
+            :h5py_obj: the current h5py object to check for jobs
+            :categories: the categories found on the way to the current h5py object as a tuple of strings
+
+        :yields:
+
+            Tuple of categories and dict of slurm_id to h5py dataset for each job in the database
+            For example two jobs that have the same name and categories: (("test_job", "option1=value1", "option2=value2"), {"123": <h5py dataset>, "456": <h5py dataset>}).
+
+
+        """
         if categories is None:
             categories = ()
 
@@ -265,7 +286,9 @@ class JobDatabase:
                 jobs[key] = entry
             else:
                 yield from JobDatabase.iterate_jobs(entry, categories + (key,))  # noqa: RUF005
-        yield categories, jobs
+
+        if jobs:
+            yield categories, jobs
 
     @staticmethod
     def print_hdf5(h5py_obj, level=-1, print_full_name: bool = False, print_attrs: bool = True) -> None:
