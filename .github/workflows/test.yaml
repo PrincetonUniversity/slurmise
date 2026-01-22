@@ -36,6 +36,6 @@ jobs:
         run: uv run task fmt-check
 
       - name: Upload coverage report
-        uses: coverallsapp/github-action@v2
-        with:
-          file: .coverage
+        run: uv run coveralls
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
