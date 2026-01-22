@@ -146,3 +146,4 @@ mark-parentheses = false
 
 [tool.isort]
 line_length = 120
+skip = ["__about__.py"]
