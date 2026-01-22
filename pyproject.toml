@@ -87,6 +87,8 @@ exclude_lines = [
 
 [tool.ruff]
 line-length = 120
+exclude = ["__about__.py"]
+
 [tool.ruff.lint]
 ignore = ["ANN001",
           "SIM118",
