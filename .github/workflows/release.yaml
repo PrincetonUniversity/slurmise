@@ -7,32 +7,25 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      id-token: write
     strategy:
       matrix:
         python-version: ["3.11", "3.12"]
-    environment: release
-    permissions:
-      id-token: write # IMPORTANT: this permission is mandatory for trusted publishing
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
 
-      - name: Cache Python dependencies
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ matrix.python-version }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-      - name: Install Hatch
-        run: pip install hatch
+      - name: Set up Python
+        run: uv python install ${{ matrix.python-version }}
 
       - name: Build package
-        run: hatch build
+        run: uv build
+
       - name: Publish package distributions to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
