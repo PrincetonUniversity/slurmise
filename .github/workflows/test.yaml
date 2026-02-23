@@ -27,10 +27,10 @@ jobs:
 
       - name: Run tests
         run: |
-          uv run task test
+          uv run poe test
 
       - name: Run linter
-        run: uv run task fmt-check
+        run: uv run poe fmt-check
 
       - name: Upload coverage report
         run: uv run coveralls

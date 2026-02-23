@@ -43,7 +43,7 @@ dev = [
   "pre-commit",
   "isort",
   "mypy>=1.0.0",
-  "taskipy",
+  "poethepoet",
 ]
 docs = [
   "sphinx",
@@ -61,7 +61,7 @@ slurmise = "slurmise.__main__:main"
 [tool.setuptools_scm]
 version_file = "src/slurmise/__about__.py"
 
-[tool.taskipy.tasks]
+[tool.poe.tasks]
 check = "mypy --install-types --non-interactive src/slurmise tests"
 test = "pytest --cov=slurmise --random-order"
 fmt-check = "ruff format --check . && ruff check ."
