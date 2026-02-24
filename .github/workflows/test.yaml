@@ -14,31 +14,25 @@ jobs:
 
     strategy:
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.11", "3.12"]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v2
-        with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Install Hatch
-        run: pip install hatch
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
 
       - name: Install dependencies
-        run: hatch env create test
+        run: uv sync --python ${{ matrix.python-version }} --group dev
 
       - name: Run tests
         run: |
-          hatch run test:test -- --cov --random-order --cov-append
+          uv run poe test
 
       - name: Run linter
-        run: hatch fmt --check
-      - name: Install coverage
-        run: pip install coverage
+        run: uv run poe fmt-check
+
       - name: Upload coverage report
-        uses: coverallsapp/github-action@v2
-        with:
-          file: .coverage
+        run: uv run coveralls
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

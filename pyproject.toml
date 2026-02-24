@@ -1,6 +1,6 @@
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["setuptools>=61", "setuptools-scm>=8"]
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "slurmise"
@@ -30,11 +30,9 @@ dependencies = [
   "scikit-learn",
   "joblib",
   "regex",
-  "sphinx",
-  "sphinx-rtd-theme"
 ]
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
   "pytest",
   "pytest-cov",
@@ -43,8 +41,14 @@ dev = [
   "pytest-random-order",
   "coveralls",
   "pre-commit",
-  "isort"
+  "isort",
+  "mypy>=1.0.0",
+  "poethepoet",
 ]
+docs = [
+  "sphinx",
+  "sphinx-rtd-theme"
+  ]
 
 [project.urls]
 Documentation = "https://github.com/PrincetonUniversity/slurmise#readme"
@@ -54,23 +58,18 @@ Source = "https://github.com/PrincetonUniversity/slurmise"
 [project.scripts]
 slurmise = "slurmise.__main__:main"
 
-[tool.hatch.version]
-path = "src/slurmise/__about__.py"
+[tool.setuptools_scm]
+version_file = "src/slurmise/__about__.py"
 
-[tool.hatch.envs.types]
-extra-dependencies = [
-  "mypy>=1.0.0",
-]
-[tool.hatch.envs.types.scripts]
-check = "mypy --install-types --non-interactive {args:src/slurmise tests}"
-
-[tool.hatch.envs.test.scripts]
-test = "pytest {args}"
+[tool.poe.tasks]
+check = "mypy --install-types --non-interactive src/slurmise tests"
+test = "pytest --cov=slurmise --random-order"
+fmt-check = {shell = "ruff format --check . && ruff check ."}
 
 [tool.coverage.run]
 source_pkgs = ["slurmise", "tests"]
 branch = true
-parallel = true
+parallel = false
 omit = [
   "src/slurmise/__about__.py",
 ]
@@ -86,23 +85,10 @@ exclude_lines = [
   "if TYPE_CHECKING:",
 ]
 
-[tool.hatch.envs.hatch-static-analysis]
-config-path = "lint_config.toml"
-
-[tool.hatch.envs.test]
-dependencies = [
-  "pytest",
-  "pytest-cov",
-  "ruff",
-  "coverage",
-  "pytest-random-order",
-  "coveralls",
-  "pre-commit",
-  "isort"
-]
-
 [tool.ruff]
 line-length = 120
+exclude = ["__about__.py"]
+
 [tool.ruff.lint]
 ignore = ["ANN001",
           "SIM118",
@@ -160,3 +146,4 @@ mark-parentheses = false
 
 [tool.isort]
 line_length = 120
+skip = ["__about__.py"]
