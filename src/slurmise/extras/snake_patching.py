@@ -1,14 +1,14 @@
-from slurmise.api import Slurmise
-from slurmise.job_data import JobData
-from slurmise.job_parse.file_parsers import FileMD5
-from slurmise.extras import snake_parsers
-
-from snakemake.path_modifier import PathModifier
-from snakemake.logging import logger
-
+import json
 import shutil
 from pathlib import Path
-import json
+
+from snakemake.logging import logger
+from snakemake.path_modifier import PathModifier
+
+from slurmise.api import Slurmise
+from slurmise.extras import snake_parsers
+from slurmise.job_data import JobData
+from slurmise.job_parse.file_parsers import FileMD5
 
 
 def patch_snakemake_workflow(
@@ -44,11 +44,11 @@ def patch_snakemake_workflow(
             slurmise_data = json.loads(benchmark_data["params"]["slurmise_data"])
 
             try:
-                runtime=float(benchmark_data["s"]) / 60,
+                runtime = (float(benchmark_data["s"]) / 60,)
             except ValueError:
                 runtime = 0
             try:
-                memory=float(benchmark_data["max_rss"]),
+                memory = (float(benchmark_data["max_rss"]),)
             except ValueError:
                 memory = 0
 
@@ -58,8 +58,8 @@ def patch_snakemake_workflow(
             job_data = JobData(
                 job_name=benchmark_data["rule_name"],
                 slurm_id=md5_parser.parse_file(file),
-                categorical=slurmise_data["categorical"],
-                numerical=slurmise_data["numerical"],
+                categories=slurmise_data["categories"],
+                numerics=slurmise_data["numerics"],
                 runtime=runtime,
                 memory=memory,
             )
@@ -84,12 +84,11 @@ def patch_snakemake_workflow(
             }
             job_data = slurmise.job_data_from_dict(vars, rule.name)
             if resource == "logging":
-
                 # if we are reocrding threads need to mark in benchmark file
                 for name, func in variables.items():
-                    if name.startswith('SLURMISE'):
+                    if name.startswith("SLURMISE"):
                         continue
-                    if func.__name__ == 'get_threads':
+                    if func.__name__ == "get_threads":
                         # update name to flag as thread
                         job_data = _mark_threads(job_data, name)
 
@@ -124,9 +123,7 @@ def patch_snakemake_workflow(
         if record_benchmarks:
             # set benchmark to record stats
             if rule.benchmark is not None:
-                raise ValueError(
-                    "Slurmise needs to set benchmark locations, " f"remove benchmark for rule {rule.name}."
-                )
+                raise ValueError(f"Slurmise needs to set benchmark locations, remove benchmark for rule {rule.name}.")
 
             old_modifier = rule.benchmark_modifier
             if old_modifier is None:
@@ -140,11 +137,7 @@ def patch_snakemake_workflow(
             if len(rule.wildcard_names) == 0:
                 benchmark_name = f"{rule.name}.jsonl"
             else:
-                benchmark_name = (
-                    "~".join(
-                        f"{wc}:{{{wc}}}"
-                        for wc in sorted(rule.wildcard_names)
-                    ) + ".jsonl")
+                benchmark_name = "~".join(f"{wc}:{{{wc}}}" for wc in sorted(rule.wildcard_names)) + ".jsonl"
 
             rule.benchmark = benchmark_dir / rule.name / benchmark_name
 
@@ -157,12 +150,12 @@ def patch_snakemake_workflow(
 
 
 def _mark_threads(job_data, variable_name):
-    if variable_name in job_data.categorical:
-        job_data.categorical[f'SLURMISETHREAD_{variable_name}'] = job_data.categorical[variable_name]
-        job_data.categorical.pop(variable_name)
-    if variable_name in job_data.numerical:
-        job_data.numerical[f'SLURMISETHREAD_{variable_name}'] = job_data.numerical[variable_name]
-        job_data.numerical.pop(variable_name)
+    if variable_name in job_data.categories:
+        job_data.categories[f"SLURMISETHREAD_{variable_name}"] = job_data.categories[variable_name]
+        job_data.categories.pop(variable_name)
+    if variable_name in job_data.numerics:
+        job_data.numerics[f"SLURMISETHREAD_{variable_name}"] = job_data.numerics[variable_name]
+        job_data.numerics.pop(variable_name)
     return job_data
 
 
@@ -171,9 +164,9 @@ def _correct_threads(slurmise_data, benchmark_data):
     for key, values in slurmise_data.items():
         result[key] = {}
         for name, value in values.items():
-            if name.startswith('SLURMISETHREAD'):
-                name = name.removeprefix('SLURMISETHREAD_')
-                value = benchmark_data['threads']
+            if name.startswith("SLURMISETHREAD"):
+                name = name.removeprefix("SLURMISETHREAD_")
+                value = benchmark_data["threads"]
             result[key][name] = value
 
     return result

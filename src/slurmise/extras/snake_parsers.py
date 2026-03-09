@@ -1,7 +1,9 @@
 import inspect
-import numpy as np
-from slurmise.job_data import JobData
 from dataclasses import dataclass, replace
+
+import numpy as np
+
+from slurmise.job_data import JobData
 
 
 def input(index: str | int | None = None):
@@ -44,9 +46,7 @@ def params(name: str):
         call_params = inspect.signature(param).parameters
         arg_list = [wildcards]
         if any(input_type in call_params for input_type in ("output", "threads", "resources")):
-            message = (
-                f"Cannot use param {name!r} in slurmise.  " "Input functions may only depend on wildcards or input."
-            )
+            message = f"Cannot use param {name!r} in slurmise.  Input functions may only depend on wildcards or input."
             raise ValueError(message)
         if "input" in call_params:
             arg_list.append(input)

@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+
 import pytest
 
 import slurmise.extras.snake_parsers as sp
@@ -62,9 +63,7 @@ def test_params():
     assert params(callable_params, "wc", "inpt") == ("wc", "inpt")
 
     # invalid options and input
-    match_result = (
-        f'Cannot use param {"target"!r} in slurmise.  ' 'Input functions may only depend on wildcards or input.'
-    )
+    match_result = f"Cannot use param {'target'!r} in slurmise.  Input functions may only depend on wildcards or input."
 
     callable_params = DummyRule(params={"target": lambda wildcards, output: wildcards})
     with pytest.raises(ValueError, match=match_result):
