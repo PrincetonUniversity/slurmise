@@ -1,10 +1,10 @@
 from __future__ import annotations
 
+import json
 from dataclasses import astuple, dataclass, field
 
 import h5py
 import numpy as np
-import json
 
 
 def array_safe_eq(a, b) -> bool:
@@ -93,8 +93,8 @@ class JobData:
 
     def to_json(self):
         result = {
-            "categorical": self.categorical,
-            "numerical": self.numerical,
+            "categories": self.categories,
+            "numerics": self.numerics,
         }
         return json.dumps(result)
 

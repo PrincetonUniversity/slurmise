@@ -6,6 +6,10 @@ import numpy as np
 
 from slurmise.job_data import JobData
 
+import numpy as np
+
+from slurmise.job_data import JobData
+
 
 class ResourceFunction(Protocol):
     def __call__(self, rule: Any, wildcards: Any, input: Any) -> Any: ...

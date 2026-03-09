@@ -62,11 +62,11 @@ def patch_snakemake_workflow(
             slurmise_data = _correct_threads(slurmise_data, benchmark_data)
 
             try:
-                runtime=float(benchmark_data["s"]) / 60,
+                runtime = (float(benchmark_data["s"]) / 60,)
             except ValueError:
                 runtime = 0
             try:
-                memory=float(benchmark_data["max_rss"]),
+                memory = (float(benchmark_data["max_rss"]),)
             except ValueError:
                 memory = 0
 
@@ -152,11 +152,7 @@ def patch_snakemake_workflow(
             if len(rule.wildcard_names) == 0:
                 benchmark_name = f"{rule.name}.jsonl"
             else:
-                benchmark_name = (
-                    "~".join(
-                        f"{wc}:{{{wc}}}"
-                        for wc in sorted(rule.wildcard_names)
-                    ) + ".jsonl")
+                benchmark_name = "~".join(f"{wc}:{{{wc}}}" for wc in sorted(rule.wildcard_names)) + ".jsonl"
 
             rule.benchmark = benchmark_dir / rule.name / benchmark_name
 

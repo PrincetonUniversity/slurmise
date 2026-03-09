@@ -6,6 +6,7 @@ import pytest
 from slurmise.api import Slurmise
 from slurmise.job_database import JobDatabase
 
+
 def has_snakemake():
     try:
         import snakemake  # noqa: F401
@@ -14,16 +15,20 @@ def has_snakemake():
     except ImportError:
         return False
 
+
 def make_snakefile(base_path, append="", slurmise_toml=None):
     snakefile = base_path / "Snakefile"
     if slurmise_toml is not None:
-        append = f"""
+        append = (
+            f"""
 from slurmise.api import Slurmise
 from slurmise.extras.snake_patching import patch_snakemake_workflow
 import slurmise.extras.snake_parsers as sp
 
 slurmise = Slurmise("{slurmise_toml}")
-        """ + append
+        """
+            + append
+        )
     snakefile.write_text(f"""
 workdir: "{base_path}"
 
@@ -539,10 +544,7 @@ patch_snakemake_workflow(
     assert benchmark_dir.exists() is True
     assert len(list(benchmark_dir.rglob("*.jsonl"))) == 3
 
-    benchmark_data = {
-        thrd: json.loads((benchmark_dir / f"thrd:{thrd}.jsonl").read_text())
-        for thrd in range(1, 4)
-    }
+    benchmark_data = {thrd: json.loads((benchmark_dir / f"thrd:{thrd}.jsonl").read_text()) for thrd in range(1, 4)}
 
     # should have one record matching the file
     slurmise = Slurmise(toml)
