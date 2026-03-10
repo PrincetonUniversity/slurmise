@@ -474,11 +474,11 @@ def test_job_spec_with_awk_parsers(tmp_path):
     file_parsers.input1 = "epochs,network"
 
     [slurmise.file_parsers.epochs]
-    return_type = "numeric"
+    type = "numeric"
     awk_script = "/^epochs:/ {print $2}"
 
     [slurmise.file_parsers.network]
-    return_type = "category"
+    type = "category"
     awk_script = "/^network type:/ {print $3}"
     """
 
@@ -520,7 +520,7 @@ def test_job_spec_with_awk_parsers_multiple_numerics(tmp_path):
     file_parsers.input1 = "layers"
 
     [slurmise.file_parsers.layers]
-    return_type = "numeric"
+    type = "numeric"
     awk_script = "/^layers:/ {print $2}"
     """
 
@@ -566,11 +566,11 @@ def test_job_spec_with_awk_file(tmp_path):
     file_parsers.input1 = "fasta_inline,fasta_script"
 
     [slurmise.file_parsers.fasta_inline]
-    return_type = "numeric"
+    type = "numeric"
     awk_script = "/^layers:/ {print $2}"
 
     [slurmise.file_parsers.fasta_script]
-    return_type = "numeric"
+    type = "numeric"
     awk_script = "/path/to/awk/file.awk"
     script_is_file = True
     """
@@ -643,11 +643,11 @@ def test_job_spec_with_awk_gzip_file(tmp_path):
     file_parsers.input1 = "fasta_inline,fasta_script"
 
     [slurmise.file_parsers.fasta_inline]
-    return_type = "numeric"
+    type = "numeric"
     awk_script = "/^layers:/ {print $2}"
 
     [slurmise.file_parsers.fasta_script]
-    return_type = "numeric"
+    type = "numeric"
     awk_script = "/path/to/awk/file.awk"
     script_is_file = True
     """

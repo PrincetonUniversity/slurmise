@@ -283,7 +283,7 @@ def test_jobs_to_pandas_column_sorting():
     assert numerics == sorted(numerics)
 
 
-def test_jobs_to_pandas_return_types():
+def test_jobs_to_pandas_types():
     """Test that the return types are correct."""
     jobs = [
         JobData(

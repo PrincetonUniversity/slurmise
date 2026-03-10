@@ -29,12 +29,12 @@ class SlurmiseConfiguration:
             parsers = toml_data["slurmise"].get("file_parsers", {})
 
             for parser_name, config in parsers.items():
-                return_type = config.get("return_type", "category")
+                type = config.get("type", "category")
                 if "awk_script" in config:
                     script_is_file = config.get("script_is_file", False)
                     self.file_parsers[parser_name] = file_parsers.AwkParser(
                         parser_name,
-                        return_type,
+                        type,
                         config["awk_script"],
                         script_is_file,
                     )
