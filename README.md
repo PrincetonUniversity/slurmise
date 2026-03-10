@@ -129,15 +129,15 @@ category by default.  The awk command can be supplied as a string or file path,
 which is used with the `-f` flag of awk.  Here are some examples:
 ```toml
 [slurmise.file_parsers.epochs]
-return_type = "numeric"
+type = "numeric"
 awk_script = "/^epochs:/ {print $2}"
 
 [slurmise.file_parsers.network]
-return_type = "category"
+type = "category"
 awk_script = "/^network type:/ {print $3}"
 
 [slurmise.file_parsers.fasta_length]
-return_type = "numeric"
+type = "numeric"
 awk_script = "/path/to/awk/file.awk"
 script_is_file = True
 

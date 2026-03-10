@@ -133,11 +133,11 @@ def basic_toml(tmpdir):
     # builtins will include file_size and file_lines
     # specify custom options here
     [slurmise.file_parsers.get_epochs]
-    return_type = "numeric"
+    type = "numeric"
     awk_script = "'/^epochs:/ {print $2}'"
 
     [slurmise.file_parsers.fasta_lengths]
-    return_type = "numeric"
+    type = "numeric"
     awk_script = "/a/path/to/file"
     script_is_file = true
 
