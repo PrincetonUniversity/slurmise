@@ -6,7 +6,7 @@ import numpy as np
 from slurmise.job_data import JobData
 
 
-def input(index: str | int | None = None):
+def input(index: str | int | None = None) -> Callable:
     def get_input(rule, wildcards, input):
         if index is None:
             return input[0]
@@ -15,14 +15,14 @@ def input(index: str | int | None = None):
     return get_input
 
 
-def wildcards(name: str):
+def wildcards(name: str) -> Callable:
     def get_wildcard(rule, wildcards, input):
         return wildcards[name]
 
     return get_wildcard
 
 
-def threads():
+def threads() -> Callable:
     def get_threads(rule, wildcards, input):
         threads = rule.resources["_cores"]
         # not a function
