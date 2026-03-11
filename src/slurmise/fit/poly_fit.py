@@ -14,7 +14,7 @@ from slurmise.job_data import JobData
 
 @dataclass(kw_only=True)
 class PolynomialFit(ResourceFit):
-    degree: int
+    degree: int = 2
     runtime_model: InitVar[Pipeline | None] = None
     memory_model: InitVar[Pipeline | None] = None
     _runtime_model_name: ClassVar[str] = "poly_runtime_model.pkl"
