@@ -2,6 +2,7 @@ import inspect
 from dataclasses import dataclass, replace
 
 import numpy as np
+from typing import Callable
 
 from slurmise.job_data import JobData
 
