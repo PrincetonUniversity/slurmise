@@ -54,7 +54,9 @@ def test_init_SlurmiseConfiguration_wrong_spec_type(tmpdir):
 
     [slurmise.job.nupack]
     job_spec = "monomer -T {threads:numeric} -C {complexity:category}"
-    variables = {threads="numeric", complexity="numeric"}
+    [slurmise.job.nupack.variables]
+    threads = {type = "numeric"}
+    complexity = {type = "numeric"}
     """
     toml = write_toml(tmpdir, toml_str)
 
@@ -82,7 +84,9 @@ def test_init_SlurmiseConfiguration_wrong_name(tmpdir):
 
     [slurmise.job.nupack]
     job_spec = "monomer -T {threads:numeric} -C {complexity:category}"
-    variables = {threads="numeric", complxity="category"}
+    [slurmise.job.nupack.variables]
+    threads = {type = "numeric"}
+    complxity = {type = "category"}
     """
     toml = write_toml(tmpdir, toml_str)
     with pytest.raises(ValueError, match="Unable to validate variables for nupack"):
@@ -94,8 +98,9 @@ def test_init_SlurmiseConfiguration_unknown_variable_type(tmpdir):
     [slurmise]
     base_dir = "slurmise_dir"
 
-    [slurmise.job.nupack]
-    variables = {threads="numeric", complexity="asdf"}
+    [slurmise.job.nupack.variables]
+    threads = {type = "numeric"}
+    complexity = {type = "asdf"}
     """
     toml = write_toml(tmpdir, toml_str)
     with pytest.raises(ValueError, match="Unknown variable type asdf for variable complexity"):
@@ -122,13 +127,18 @@ def basic_toml(tmpdir):
     job_spec = "-T {threads:numeric} -C {complexity:category} -i {ignore}"
 
     [slurmise.job.dict_spec]
-    variables = { threads = "numeric", runtype = "category", infile = "file"}
-    file_parsers.infile = "file_basename"
+    [slurmise.job.dict_spec.variables]
+    threads = {type = "numeric"}
+    runtype = {type = "category"}
+    infile = {type = "file", file_parsers = "file_basename"}
 
     [slurmise.job.both_specs]
     job_spec = "-T {threads:numeric} -C {runtype:category} -i {infile:file}"
-    variables = { threads = "numeric", runtype = "category", infile = "file"}
     file_parsers.infile = "file_basename"
+    [slurmise.job.both_specs.variables]
+    threads = {type = "numeric"}
+    runtype = {type = "category"}
+    infile = {type = "file", file_parsers = "file_basename"}
 
     # builtins will include file_size and file_lines
     # specify custom options here
