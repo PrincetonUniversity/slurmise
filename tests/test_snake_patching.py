@@ -99,7 +99,7 @@ base_dir="{base_path}/slurmise"
 [slurmise.job.{rule}_rule]
 default_mem = 1000
 default_time = 30
-variables.threads = "numeric"
+variables.threads = {{type = "numeric"}}
 """
     toml_text += append
 
@@ -139,7 +139,7 @@ def test_snakemake_slurmise_error_benchmark(tmp_path):
 [slurmise.job.bench_rule]
 default_mem = 1000
 default_time = 30
-variables.param = "category"
+variables.param = {type = "category"}
     """,
     )
     snakefile = make_snakefile(
@@ -196,7 +196,7 @@ def test_snakemake_slurmise_no_error_benchmark(tmp_path):
 [slurmise.job.bench_rule]
 default_mem = 1000
 default_time = 30
-variables.param = "category"
+variables.param = {type = "category"}
     """,
     )
     snakefile = make_snakefile(
@@ -367,7 +367,7 @@ def test_snakemake_slurmise_record_params(tmp_path):
 [slurmise.job.param_rule]
 default_mem = 1000
 default_time = 30
-variables.param = "category"
+variables.param = {type = "category"}
     """,
     )
     snakefile = make_snakefile(
@@ -472,8 +472,8 @@ def test_snakemake_slurmise_record_threads(tmp_path):
 [slurmise.job.thread_rule]
 default_mem = 1000
 default_time = 30
-variables.thread = "numeric"
-variables.thread_wc = "numeric"
+variables.thread = {type = "numeric"}
+variables.thread_wc = {type = "numeric"}
     """,
     )
     snakefile = make_snakefile(

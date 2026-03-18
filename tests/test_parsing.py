@@ -389,7 +389,7 @@ def test_job_spec_with_builtin_parsers_file_list(tmp_path):
     """
     [slurmise.job.builtin_files]
     job_spec = "--input1 {input1:file_list}"
-    file_parsers.input1 = "file_lines,file_size"
+    file_parsers.input1 = ["file_lines", "file_size"]
     """
 
     available_parsers = {
@@ -399,7 +399,7 @@ def test_job_spec_with_builtin_parsers_file_list(tmp_path):
 
     spec = JobSpec(
         "--input1 {lines:file_list}",
-        file_parsers={"lines": "file_lines,file_size"},
+        file_parsers={"lines": ["file_lines", "file_size"]},
         available_parsers=available_parsers,
     )
 
@@ -433,7 +433,7 @@ def test_job_spec_with_multiple_builtin_parsers(tmp_path):
     """
     [slurmise.job.builtin_files]
     job_spec = "--input1 {input1:file}"
-    file_parsers.input1 = "file_lines,file_size"
+    file_parsers.input1 = ["file_lines", "file_size"]
     """
 
     available_parsers = {
@@ -443,7 +443,7 @@ def test_job_spec_with_multiple_builtin_parsers(tmp_path):
 
     spec = JobSpec(
         "--input1 {input1:file}",
-        file_parsers={"input1": "file_lines,file_size"},
+        file_parsers={"input1": ["file_lines", "file_size"]},
         available_parsers=available_parsers,
     )
 
@@ -471,7 +471,7 @@ def test_job_spec_with_awk_parsers(tmp_path):
     job_spec = "--input1 {input1:gzip_file}"
     job_spec = "--input1 {input1:file_list}"
     job_spec = "--input1 {input1:file}"
-    file_parsers.input1 = "epochs,network"
+    file_parsers.input1 = ["epochs", "network"]
 
     [slurmise.file_parsers.epochs]
     type = "numeric"
@@ -489,7 +489,7 @@ def test_job_spec_with_awk_parsers(tmp_path):
 
     spec = JobSpec(
         "--input1 {input1:file}",
-        file_parsers={"input1": "epochs,network"},
+        file_parsers={"input1": ["epochs", "network"]},
         available_parsers=available_parsers,
     )
 
@@ -563,7 +563,7 @@ def test_job_spec_with_awk_file(tmp_path):
     """
     [slurmise.job.builtin_files]
     job_spec = "--input1 {input1:file}"
-    file_parsers.input1 = "fasta_inline,fasta_script"
+    file_parsers.input1 = ["fasta_inline", "fasta_script"]
 
     [slurmise.file_parsers.fasta_inline]
     type = "numeric"
@@ -591,7 +591,7 @@ END {if (seq) print seq}
 
     spec = JobSpec(
         "--input1 {input1:file}",
-        file_parsers={"input1": "fasta_inline,fasta_script"},
+        file_parsers={"input1": ["fasta_inline", "fasta_script"]},
         available_parsers=available_parsers,
     )
 
@@ -640,7 +640,7 @@ def test_job_spec_with_awk_gzip_file(tmp_path):
     """
     [slurmise.job.builtin_files]
     job_spec = "--input1 {input1:gzip_file}"
-    file_parsers.input1 = "fasta_inline,fasta_script"
+    file_parsers.input1 = ["fasta_inline", "fasta_script"]
 
     [slurmise.file_parsers.fasta_inline]
     type = "numeric"
@@ -667,7 +667,7 @@ END {if (seq) print seq}
 
     spec = JobSpec(
         "--input1 {input1:gzip_file}",
-        file_parsers={"input1": "fasta_inline,fasta_script"},
+        file_parsers={"input1": ["fasta_inline", "fasta_script"]},
         available_parsers=available_parsers,
     )
 
