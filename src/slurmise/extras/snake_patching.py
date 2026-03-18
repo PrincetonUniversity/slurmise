@@ -99,7 +99,11 @@ def patch_snakemake_workflow(
                         # update name to flag as thread
                         job_data = _mark_threads(job_data, name)
 
-                return job_data.to_json()
+                job_data_variables = {
+                    "categories": job_data.categories,
+                    "numerics": job_data.numerics,
+                }
+                return json.dumps(job_data_variables)
 
             job_data = slurmise.raw_predict(job_data)[0]
 

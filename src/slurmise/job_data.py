@@ -91,12 +91,5 @@ class JobData:
             runtime=runtime,
         )
 
-    def to_json(self):
-        result = {
-            "categories": self.categories,
-            "numerics": self.numerics,
-        }
-        return json.dumps(result)
-
     def __eq__(self, other):
         return dc_eq(self, other)
