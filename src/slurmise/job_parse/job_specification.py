@@ -30,7 +30,7 @@ class JobSpec:
         job_spec: The specification of parsing the supplied command.  Can contain
         placeholders for variables to parse as numerics, strings, or files.
         file_parsers: A dict of file variable names to parser names.  Can be a
-        comma separate list or single string
+        list or single string
         available_parsers: A dict of parser names to parser objects
         """
         self.job_spec_str = job_spec
@@ -97,13 +97,20 @@ class JobSpec:
         return f"^{job_spec}$"
 
     def update_file_parsers(self, name, available_parsers, file_parsers):
+        if name not in file_parsers:
+            raise ValueError(f"File {name!r} has no assigned file parser")
+
+        parsers = file_parsers[name]
+        if not isinstance(parsers, list):
+            parsers = [parsers]
+
         try:
-            self.file_parsers[name] = [available_parsers[parser_type] for parser_type in file_parsers[name].split(",")]
+            self.file_parsers[name] = [
+                available_parsers[parser_type]
+                for parser_type in parsers
+            ]
         except KeyError:
-            # find the missing parser
-            if name not in file_parsers:
-                raise ValueError(f"File {name!r} has no assigned file parser")
-            for parser_type in file_parsers[name].split(","):
+            for parser_type in parsers:
                 if parser_type not in available_parsers:
                     error = f"The parser {parser_type!r} is not available for file {name!r}"
                     raise ValueError(error)
