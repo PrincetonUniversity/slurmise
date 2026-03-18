@@ -2,12 +2,16 @@ import inspect
 from dataclasses import dataclass, replace
 
 import numpy as np
-from typing import Callable
+from typing import Protocol, Any
 
 from slurmise.job_data import JobData
 
+class ResourceFunction(Protocol):
+    def __call__(self, rule: Any, wildcards: Any, input: Any) -> Any:
+        ...
 
-def input(index: str | int | None = None) -> Callable:
+
+def input(index: str | int | None = None) -> ResourceFunction:
     def get_input(rule, wildcards, input):
         if index is None:
             return input[0]
@@ -16,14 +20,14 @@ def input(index: str | int | None = None) -> Callable:
     return get_input
 
 
-def wildcards(name: str) -> Callable:
+def wildcards(name: str) -> ResourceFunction:
     def get_wildcard(rule, wildcards, input):
         return wildcards[name]
 
     return get_wildcard
 
 
-def threads() -> Callable:
+def threads() -> ResourceFunction:
     def get_threads(rule, wildcards, input):
         threads = rule.resources["_cores"]
         # not a function
@@ -38,7 +42,7 @@ def threads() -> Callable:
     return get_threads
 
 
-def params(name: str):
+def params(name: str) -> ResourceFunction:
     def get_params(rule, wildcards, input):
         param = rule.params[name]
         # not a function
