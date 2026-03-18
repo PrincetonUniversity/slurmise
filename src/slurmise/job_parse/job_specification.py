@@ -50,12 +50,17 @@ class JobSpec:
     ):
         result = JobSpec(None, file_parsers, available_parsers)
 
-        for name, kind in variables.items():
+        for name, settings in variables.items():
+            if "type" not in settings:
+                raise ValueError(f"{name} is missing its required 'type'")
+            kind = settings["type"]
             if kind not in KIND_TO_REGEX:
                 raise ValueError(f"Unknown variable type {kind} for variable {name}")
             result.token_kinds[name] = kind
 
             if kind in ("file", "gzip_file", "file_list"):
+                if "file_parsers" in settings:
+                    file_parsers[name] = settings["file_parsers"]
                 result.update_file_parsers(name, available_parsers, file_parsers)
 
         return result
@@ -111,7 +116,8 @@ class JobSpec:
                 f"From spec: {list(self.token_kinds.keys())}\n"
                 f"Variables: {list(variables.keys())}"
             )
-        for name, kind in variables.items():
+        for name, settings in variables.items():
+            kind = settings["type"]
             if kind != self.token_kinds[name]:
                 return (
                     f"The type of variable {name} does not match original specification\n"
