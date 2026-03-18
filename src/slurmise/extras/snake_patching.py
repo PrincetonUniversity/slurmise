@@ -11,11 +11,10 @@ from slurmise.extras import snake_parsers
 from slurmise.job_data import JobData
 from slurmise.job_parse.file_parsers import FileMD5
 
-
 SLURMISE_DEFAULTS = {
-    'attempt_exp': 1,
-    'memory_scale': 1.1,
-    'runtime_scale': 1.25,
+    "attempt_exp": 1,
+    "memory_scale": 1.1,
+    "runtime_scale": 1.25,
 }
 
 
@@ -107,7 +106,7 @@ def patch_snakemake_workflow(
 
             job_data = slurmise.raw_predict(job_data)[0]
 
-            exp = variables.get("SLURMISE_attempt_exp", SLURMISE_DEFAULTS['attempt_exp'])
+            exp = variables.get("SLURMISE_attempt_exp", SLURMISE_DEFAULTS["attempt_exp"])
             scale = variables.get(
                 f"SLURMISE_{resource}_scale",
                 SLURMISE_DEFAULTS[f"{resource}_scale"],

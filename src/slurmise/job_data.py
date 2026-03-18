@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from dataclasses import astuple, dataclass, field
 
 import h5py

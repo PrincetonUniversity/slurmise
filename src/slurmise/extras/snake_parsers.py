@@ -1,14 +1,14 @@
 import inspect
 from dataclasses import dataclass, replace
+from typing import Any, Protocol
 
 import numpy as np
-from typing import Protocol, Any
 
 from slurmise.job_data import JobData
 
+
 class ResourceFunction(Protocol):
-    def __call__(self, rule: Any, wildcards: Any, input: Any) -> Any:
-        ...
+    def __call__(self, rule: Any, wildcards: Any, input: Any) -> Any: ...
 
 
 def input(index: str | int | None = None) -> ResourceFunction:
@@ -30,14 +30,18 @@ def wildcards(name: str) -> ResourceFunction:
 def threads() -> ResourceFunction:
     def get_threads(rule, wildcards, input):
         threads = rule.resources["_cores"]
-        # not a function
+        # is a value, return it directly
         if not callable(threads):
             return threads
-        call_params = inspect.signature(threads).parameters
-        arg_list = [wildcards]
-        if "input" in call_params:
-            arg_list.append(input)
-        return threads(*arg_list)
+        else:  # is a function, need to invoke it
+            # get the names of parameters to the threads function
+            call_params = inspect.signature(threads).parameters
+            arg_list = [wildcards]  # wildcards are always a parameter
+            # if the threads function also takes snakemake input add it to the call
+            if "input" in call_params:
+                arg_list.append(input)
+            # invoke the threads function
+            return threads(*arg_list)
 
     return get_threads
 
@@ -45,17 +49,22 @@ def threads() -> ResourceFunction:
 def params(name: str) -> ResourceFunction:
     def get_params(rule, wildcards, input):
         param = rule.params[name]
-        # not a function
+        # is a value, return it directly
         if not callable(param):
             return param
-        call_params = inspect.signature(param).parameters
-        arg_list = [wildcards]
-        if any(input_type in call_params for input_type in ("output", "threads", "resources")):
-            message = f"Cannot use param {name!r} in slurmise.  Input functions may only depend on wildcards or input."
-            raise ValueError(message)
-        if "input" in call_params:
-            arg_list.append(input)
-        return param(*arg_list)
+        else:  # is a function, need to invoke it
+            call_params = inspect.signature(param).parameters
+            arg_list = [wildcards]
+            # we support fewer options than snakemake, prevent circular dependencies
+            if any(input_type in call_params for input_type in ("output", "threads", "resources")):
+                message = (
+                    f"Cannot use param {name!r} in slurmise.  Input functions may only depend on wildcards or input."
+                )
+                raise ValueError(message)
+            # if the param function also takes snakemake input add it to the call
+            if "input" in call_params:
+                arg_list.append(input)
+            return param(*arg_list)
 
     return get_params
 
