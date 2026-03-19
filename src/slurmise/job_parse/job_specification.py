@@ -22,6 +22,7 @@ class JobSpec:
     def __init__(
         self,
         job_spec: str | None,
+        model: dict[str, str] | None = None,
         file_parsers: dict[str, str] | None = None,
         available_parsers: dict[str, FileParser] | None = None,
     ):
@@ -29,6 +30,7 @@ class JobSpec:
 
         job_spec: The specification of parsing the supplied command.  Can contain
         placeholders for variables to parse as numerics, strings, or files.
+        model: The model we will use for this Job.
         file_parsers: A dict of file variable names to parser names.  Can be a
         comma separate list or single string
         available_parsers: A dict of parser names to parser objects
@@ -37,7 +39,7 @@ class JobSpec:
 
         self.token_kinds = {}
         self.file_parsers: dict[str, list[FileParser]] = {}
-
+        self.model = model
         self.job_regex = None
         if job_spec is not None:
             self.job_regex = self.build_regex(available_parsers, file_parsers)
@@ -45,10 +47,11 @@ class JobSpec:
     @staticmethod
     def from_variables(
         variables: dict,
+        model: dict[str, str] | None = None,
         file_parsers: dict[str, str] | None = None,
         available_parsers: dict[str, FileParser] | None = None,
     ):
-        result = JobSpec(None, file_parsers, available_parsers)
+        result = JobSpec(None, model=model, file_parsers=file_parsers, available_parsers=available_parsers)
 
         for name, kind in variables.items():
             if kind not in KIND_TO_REGEX:

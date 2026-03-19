@@ -707,3 +707,18 @@ END {if (seq) print seq}
         "input1_fasta_inline": [40, 25, 43, 1],
         "input1_fasta_script": [40, 25, 43, 1],
     }
+
+
+def test_job_spec_stores_model():
+    spec = JobSpec("cmd -T {threads:numeric}", model={"model": "knn"})
+    assert spec.model == {"model": "knn"}
+
+
+def test_job_spec_model_default_is_none():
+    spec = JobSpec("cmd -T {threads:numeric}")
+    assert spec.model is None
+
+
+def test_from_variables_stores_model():
+    spec = JobSpec.from_variables({"threads": "numeric"}, model={"model": "knn"})
+    assert spec.model == {"model": "knn"}
