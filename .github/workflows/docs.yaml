@@ -6,11 +6,10 @@ on:
     branches:
       - main
 
-  # Build and deploy on pushes to main
+  # Build and deploy on pushes to main or docs branches
   push:
     branches:
       - main
-      # Build docs on branches starting with "docs/" or "**/docs"
       - 'docs/**'
       - '**/docs'
 
@@ -37,21 +36,25 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: Build documentation
-        run: uv run poe docs
+        # When docs are mature, switch to: uv run poe docs
+        # - also update Pages source to the gh-pages branch
+        # - and use JamesIves/github-pages-deploy-action
+        #   to enable a separate "active" and "dev" version of the docs
+        # run: uv run poe docs
+        run: uv run poe docs-dev
 
       - name: Check for broken links
         run: uv run --group docs sphinx-build -b linkcheck docs docs/_build/linkcheck
         continue-on-error: true  # Don't fail build on broken external links
 
       - name: Upload artifact for GitHub Pages
+        if: github.event_name == 'push'
         uses: actions/upload-pages-artifact@v3
         with:
           path: docs/_build/html
 
   deploy:
-    # Only deploy to GitHub Pages on pushes to main
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-
+    if: github.event_name == 'push'
     needs: build
     runs-on: ubuntu-latest
 

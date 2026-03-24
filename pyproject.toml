@@ -66,6 +66,7 @@ check = "mypy --install-types --non-interactive src/slurmise tests"
 test = "pytest --cov=slurmise --random-order"
 fmt-check = {shell = "ruff format --check . && ruff check ."}
 docs = {shell = "uv run --group docs sphinx-build docs docs/_build/html", help = "Build HTML documentation"}
+docs-dev = {shell = "DOCS_DEV_BANNER=1 uv run --group docs sphinx-build docs docs/_build/html", help = "Build HTML documentation with 'under development' banner"}
 
 [tool.coverage.run]
 source_pkgs = ["slurmise", "tests"]
