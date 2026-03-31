@@ -108,10 +108,7 @@ class JobSpec:
             parsers = [parsers]
 
         try:
-            self.file_parsers[name] = [
-                available_parsers[parser_type]
-                for parser_type in parsers
-            ]
+            self.file_parsers[name] = [available_parsers[parser_type] for parser_type in parsers]
         except KeyError:
             for parser_type in parsers:
                 if parser_type not in available_parsers:
