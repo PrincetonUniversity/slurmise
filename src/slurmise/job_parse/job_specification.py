@@ -6,8 +6,8 @@ from pathlib import Path
 from slurmise import job_data
 from slurmise.job_parse.file_parsers import NUMERIC, FileParser
 
-# matches tokens like {threads:numeric}
-JOB_SPEC_REGEX = re.compile(r"{(?:(?P<name>[^:}]+):)?(?P<kind>[^}]+)}")
+# matches tokens like {threads}
+JOB_SPEC_REGEX = re.compile(r"{(?P<name>[^:}]+)}")
 KIND_TO_REGEX = {
     "file": ".+?",
     "gzip_file": ".+?",
@@ -21,34 +21,21 @@ KIND_TO_REGEX = {
 class JobSpec:
     def __init__(
         self,
-        job_spec: str | None,
+        variables: dict,
         file_parsers: dict[str, str] | None = None,
         available_parsers: dict[str, FileParser] | None = None,
     ):
         """Parse a job spec string into a regex with named capture groups.
 
-        job_spec: The specification of parsing the supplied command.  Can contain
-        placeholders for variables to parse as numerics, strings, or files.
+        variables: description of input variables to the model.
         file_parsers: A dict of file variable names to parser names.  Can be a
         list or single string
         available_parsers: A dict of parser names to parser objects
         """
-        self.job_spec_str = job_spec
-
         self.token_kinds = {}
         self.file_parsers: dict[str, list[FileParser]] = {}
-
+        self.job_spec_str = None
         self.job_regex = None
-        if job_spec is not None:
-            self.job_regex = self.build_regex(available_parsers, file_parsers)
-
-    @staticmethod
-    def from_variables(
-        variables: dict,
-        file_parsers: dict[str, str] | None = None,
-        available_parsers: dict[str, FileParser] | None = None,
-    ):
-        result = JobSpec(None, file_parsers, available_parsers)
 
         for name, settings in variables.items():
             if "type" not in settings:
@@ -56,44 +43,46 @@ class JobSpec:
             kind = settings["type"]
             if kind not in KIND_TO_REGEX:
                 raise ValueError(f"Unknown variable type {kind} for variable {name}")
-            result.token_kinds[name] = kind
+            self.token_kinds[name] = kind
 
             if kind in ("file", "gzip_file", "file_list"):
                 if "file_parsers" in settings:
                     file_parsers[name] = settings["file_parsers"]
-                result.update_file_parsers(name, available_parsers, file_parsers)
+                self.update_file_parsers(name, available_parsers, file_parsers)
 
-        return result
+    def add_job_spec(self, job_spec: str):
+        """Add job specification string.
 
-    def build_regex(self, available_parsers=None, file_parsers=None, named_ignore=False):
+        job_spec: The specification of parsing the supplied command.  Can contain
+        placeholders for variables to parse as numerics, strings, or files.
+        """
+        self.job_spec_str = job_spec
+        self.job_regex = self.build_regex()
+
+    def build_regex(self, named_ignore=False):
         job_spec = self.job_spec_str
         ignore_ind = 0
         while match := JOB_SPEC_REGEX.search(job_spec):
-            kind = match.group("kind")
             name = match.group("name")
 
-            if kind not in KIND_TO_REGEX:
-                raise ValueError(f"Unknown variable type {kind} for variable {name}")
-
-            if kind == "ignore":
+            if name == "ignore":
                 if named_ignore:
-                    if name is None:
-                        name = f"ignore_{ignore_ind}"
-                        ignore_ind += 1
-                    job_spec = job_spec.replace(match.group(0), f"(?P<{name}>{KIND_TO_REGEX[kind]})", 1)
+                    name = f"ignore_{ignore_ind}"
+                    ignore_ind += 1
+                    job_spec = job_spec.replace(match.group(0), f"(?P<{name}>{KIND_TO_REGEX["ignore"]})", 1)
                 else:
-                    job_spec = job_spec.replace(match.group(0), f"{KIND_TO_REGEX[kind]}", 1)
+                    job_spec = job_spec.replace(match.group(0), f"{KIND_TO_REGEX["ignore"]}", 1)
+
 
             else:
-                if name is None:
-                    msg = f"Token {match.group(0)} has no name."
-                    raise ValueError(msg)
-                self.token_kinds[name] = kind
+                if name not in self.token_kinds:
+                    raise ValueError(f"Unknown variable type for variable {name}")
+                kind = self.token_kinds[name]
                 job_spec = job_spec.replace(match.group(0), f"(?P<{name}>{KIND_TO_REGEX[kind]})", 1)
 
-                if kind in ("file", "gzip_file", "file_list"):
-                    self.update_file_parsers(name, available_parsers, file_parsers)
-
+        if job_spec == self.job_spec_str:  # no matches in job spec
+            msg = f"Job specification contains no variables: {job_spec}"
+            raise ValueError(msg)
         return f"^{job_spec}$"
 
     def update_file_parsers(self, name, available_parsers, file_parsers):

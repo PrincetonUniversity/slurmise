@@ -68,6 +68,7 @@ version_file = "src/slurmise/__about__.py"
 [tool.poe.tasks]
 check = "mypy --install-types --non-interactive src/slurmise tests"
 test = "pytest --cov=slurmise --random-order"
+test-parsing = "pytest -s tests/test_parsing.py"
 fmt-check = {shell = "ruff format --check . && ruff check ."}
 smk-test-v7 = "uv run --python 3.11 --with 'snakemake==7.32.4' --with 'pulp<2.8.0' pytest"
 smk-test-v8 = "uv run --python 3.12 --with 'snakemake>=8.0,<9.0' pytest"
