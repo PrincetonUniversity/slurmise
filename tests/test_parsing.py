@@ -10,7 +10,8 @@ from slurmise.job_parse.job_specification import JobSpec
 
 # Tests for JobSpec
 def test_job_spec_named_ignore():
-    spec = JobSpec("cmd -T {threads:numeric} -i {named:ignore}")
+    spec = JobSpec({"threads": {"type": "numeric"}})
+    spec.add_job_spec("cmd -T {threads} -i {ignore}")
     jd = spec.parse_job_cmd(
         JobData(
             job_name="test",
@@ -26,30 +27,28 @@ def test_job_spec_named_ignore():
 
 def test_job_spec_unknown_kind():
     with pytest.raises(ValueError, match="Unknown variable type double for variable threads"):
-        JobSpec("cmd -T {threads:double}")
-
-
-def test_job_spec_token_with_no_name():
-    with pytest.raises(ValueError, match="Token {numeric} has no name."):
-        JobSpec("cmd -T {numeric}")
+        JobSpec({"threads": {"type": "double"}})
 
 
 def test_basic_job_spec():
-    spec = JobSpec("cmd -T {threads:numeric}")
+    spec = JobSpec({"threads": {"type": "numeric"}})
+    spec.add_job_spec("cmd -T {threads}")
 
     jd = spec.parse_job_cmd(JobData(job_name="test", cmd="cmd -T 3"))
     assert jd.numerics == {"threads": 3}
 
 
 def test_basic_job_spec_from_dict():
-    spec = JobSpec("cmd -T {threads:numeric}")
+    spec = JobSpec({"threads": {"type": "numeric"}})
+    spec.add_job_spec("cmd -T {threads}")
 
     jd = spec.parse_job_from_dict({"threads": 3}, JobData(job_name="test"))
     assert jd.numerics == {"threads": 3}
 
 
 def test_basic_job_spec_from_dict_extra_in_dict():
-    spec = JobSpec("cmd -T {threads:numeric}")
+    spec = JobSpec({"threads": {"type": "numeric"}})
+    spec.add_job_spec("cmd -T {threads}")
 
     with pytest.raises(ValueError, match="Dict contained extra variable: 'extra'"):
         spec.parse_job_from_dict(
@@ -59,7 +58,8 @@ def test_basic_job_spec_from_dict_extra_in_dict():
 
 
 def test_basic_job_spec_from_dict_missing_in_dict():
-    spec = JobSpec("cmd -T {threads:numeric}")
+    spec = JobSpec({"threads": {"type": "numeric"}})
+    spec.add_job_spec("cmd -T {threads}")
 
     with pytest.raises(ValueError, match="Dict missing variable: 'threads'"):
         spec.parse_job_from_dict(
@@ -69,7 +69,8 @@ def test_basic_job_spec_from_dict_missing_in_dict():
 
 
 def test_job_spec_failure_swap():
-    spec = JobSpec("cmd -T {threads:numeric} -S {another:category}")
+    spec = JobSpec({"threads": {"type": "numeric"}, "another": {"type": "category"}})
+    spec.add_job_spec("cmd -T {threads} -S {another}")
 
     with pytest.raises(ValueError, match="Job spec for test does not match command:") as ve:
         spec.parse_job_cmd(JobData(job_name="test", cmd="cmd -S simple -T 5"))
@@ -77,7 +78,8 @@ def test_job_spec_failure_swap():
 
 
 def test_job_spec_failure_typos():
-    spec = JobSpec("cmd -T {threads:numeric} -S {another:category}")
+    spec = JobSpec({"threads": {"type": "numeric"}, "another": {"type": "category"}})
+    spec.add_job_spec("cmd -T {threads} -S {another}")
 
     with pytest.raises(ValueError, match="Job spec for test does not match command:") as ve:
         spec.parse_job_cmd(JobData(job_name="test", cmd="cnd -t 5 -S simple"))
@@ -85,7 +87,8 @@ def test_job_spec_failure_typos():
 
 
 def test_basic_job_spec_extra_cmd_prefix():
-    spec = JobSpec("cmd -T {threads:numeric} -S {another:category}")
+    spec = JobSpec({"threads": {"type": "numeric"}, "another": {"type": "category"}})
+    spec.add_job_spec("cmd -T {threads} -S {another}")
 
     with pytest.raises(ValueError, match="Job spec for test does not match command:") as ve:
         spec.parse_job_cmd(JobData(job_name="test", cmd="extra cmd -T 3 -S beep"))
@@ -93,7 +96,8 @@ def test_basic_job_spec_extra_cmd_prefix():
 
 
 def test_basic_job_spec_extra_spec_prefix():
-    spec = JobSpec("extra cmd -T {threads:numeric} -S {another:category}")
+    spec = JobSpec({"threads": {"type": "numeric"}, "another": {"type": "category"}})
+    spec.add_job_spec("extra cmd -T {threads} -S {another}")
 
     with pytest.raises(ValueError, match="Job spec for test does not match command:") as ve:
         spec.parse_job_cmd(JobData(job_name="test", cmd="cmd -T 3 -S beep"))
@@ -101,7 +105,8 @@ def test_basic_job_spec_extra_spec_prefix():
 
 
 def test_basic_job_spec_extra_spec_suffix():
-    spec = JobSpec("cmd -T {threads:numeric} -S {another:category} extra")
+    spec = JobSpec({"threads": {"type": "numeric"}, "another": {"type": "category"}})
+    spec.add_job_spec("cmd -T {threads} -S {another} extra")
 
     with pytest.raises(ValueError, match="Job spec for test does not match command:") as ve:
         spec.parse_job_cmd(JobData(job_name="test", cmd="cmd -T 3 -S cat"))
@@ -109,7 +114,8 @@ def test_basic_job_spec_extra_spec_suffix():
 
 
 def test_basic_job_spec_extra_spec_internal():
-    spec = JobSpec("cmd -T {threads:numeric} extra -S {another:category}")
+    spec = JobSpec({"threads": {"type": "numeric"}, "another": {"type": "category"}})
+    spec.add_job_spec("cmd -T {threads} extra -S {another}")
 
     with pytest.raises(ValueError, match="Job spec for test does not match command:") as ve:
         spec.parse_job_cmd(JobData(job_name="test", cmd="cmd -T 3 -S cat"))
@@ -117,7 +123,8 @@ def test_basic_job_spec_extra_spec_internal():
 
 
 def test_basic_job_spec_extra_cmd_internal():
-    spec = JobSpec("cmd -T {threads:numeric} -S {another:category}")
+    spec = JobSpec({"threads": {"type": "numeric"}, "another": {"type": "category"}})
+    spec.add_job_spec("cmd -T {threads} -S {another}")
 
     with pytest.raises(ValueError, match="Job spec for test does not match command:") as ve:
         spec.parse_job_cmd(JobData(job_name="test", cmd="cmd -T 3 extra -S cat"))
@@ -125,7 +132,12 @@ def test_basic_job_spec_extra_cmd_internal():
 
 
 def test_basic_job_spec_with_ignore():
-    spec = JobSpec("cmd {named:ignore} -T {threads:numeric} {ignore} -S {another:category}")
+    spec = JobSpec(
+        {"threads": {"type": "numeric"},
+         "another": {"type": "category"},
+         "named": {"type": "ignore"},
+         })
+    spec.add_job_spec("cmd {named} -T {threads} {ignore} -S {another}")
 
     with pytest.raises(ValueError, match="Job spec for test does not match command:") as ve:
         spec.parse_job_cmd(JobData(job_name="test", cmd="cmd ignore me please -T 3 and this too -s cat"))
@@ -133,14 +145,22 @@ def test_basic_job_spec_with_ignore():
 
 
 def test_try_exact_passes():
-    spec = JobSpec("cmd -T {threads:numeric} -S {another:category}")
+    spec = JobSpec(
+        {"threads": {"type": "numeric"},
+         "another": {"type": "category"},
+         })
+    spec.add_job_spec("cmd -T {threads} -S {another}")
     result = spec.align_and_indicate_differences("cmd -T 3 -S cat", try_exact_match=True)
     print(f"\n{result}")
     assert result.startswith("Able to parse")
 
 
 def test_try_exact_fails():
-    spec = JobSpec("cmd -T {threads:numeric} -S {another:category}")
+    spec = JobSpec(
+        {"threads": {"type": "numeric"},
+         "another": {"type": "category"},
+         })
+    spec.add_job_spec("cmd -T {threads} -S {another}")
     result = spec.align_and_indicate_differences("FAILURE -T 3 -S cat", try_exact_match=True)
     print(f"\n{result}")
     assert result.startswith("Failed to parse")
@@ -178,7 +198,9 @@ def test_long_job_spec():
 def test_job_spec_with_no_file_parser(tmp_path):
     """
     [slurmise.job.builtin_files]
-    job_spec = "--input1 {input1:file}"
+    job_spec = "--input1 {input1}"
+    [slurmise.job.builtin_files.variables]
+    input1 = {type = "file"}
     """
     available_parsers = {
         "file_basename": file_parsers.FileBasename(),
@@ -186,7 +208,7 @@ def test_job_spec_with_no_file_parser(tmp_path):
 
     with pytest.raises(ValueError, match="File 'input1' has no assigned file parser"):
         JobSpec(
-            "--input1 {input1:file}",
+            {"input1": {"type": "file"}},
             file_parsers={},
             available_parsers=available_parsers,
         )
@@ -195,8 +217,9 @@ def test_job_spec_with_no_file_parser(tmp_path):
 def test_job_spec_with_parser_not_available(tmp_path):
     """
     [slurmise.job.builtin_files]
-    job_spec = "--input1 {input1:file}"
-    file_parsers.input1 = "file_basename"
+    job_spec = "--input1 {input1}"
+    [slurmise.job.builtin_files.variables]
+    input1 = {type = "file", file_parsers="file_bassname"}
     """
     available_parsers = {
         "file_basename": file_parsers.FileBasename(),
@@ -204,7 +227,7 @@ def test_job_spec_with_parser_not_available(tmp_path):
 
     with pytest.raises(ValueError, match=("The parser 'file_bassname' is not available for file 'input1'")):
         JobSpec(
-            "--input1 {input1:file}",
+            {"input1": {"type": "file", "file_parsers": "file_bassname"}},
             file_parsers={"input1": "file_bassname"},
             available_parsers=available_parsers,
         )
@@ -213,18 +236,21 @@ def test_job_spec_with_parser_not_available(tmp_path):
 def test_job_spec_with_builtin_parsers_basename(tmp_path):
     """
     [slurmise.job.builtin_files]
-    job_spec = "--input1 {input1:file}"
-    file_parsers.input1 = "file_basename"
+    job_spec = "--input1 {input1}"
+    [slurmise.job.builtin_files.variables]
+    input1 = {type = "file", file_parsers="file_basename"}
     """
     available_parsers = {
         "file_basename": file_parsers.FileBasename(),
     }
 
     spec = JobSpec(
-        "--input1 {input1:file}",
+        {"input1": {"type": "file", "file_parsers": "file_basename"}},
         file_parsers={"input1": "file_basename"},
         available_parsers=available_parsers,
     )
+    spec.add_job_spec("--input1 {input1}")
+
 
     input_file = tmp_path / "input.txt"
 
@@ -263,18 +289,20 @@ def test_job_spec_with_builtin_parsers_basename(tmp_path):
 def test_job_spec_with_builtin_parsers_md5hash(tmp_path):
     """
     [slurmise.job.builtin_files]
-    job_spec = "--input1 {input1:file}"
-    file_parsers.input1 = "file_md5"
+    job_spec = "--input1 {input1}"
+    [slurmise.job.builtin_files.variables]
+    input1 = {type = "file", file_parsers="file_md5"}
     """
     available_parsers = {
         "file_md5": file_parsers.FileMD5(),
     }
 
     spec = JobSpec(
-        "--input1 {input1:file}",
+        {"input1": {"type": "file", "file_parsers": "file_md5"}},
         file_parsers={"input1": "file_md5"},
         available_parsers=available_parsers,
     )
+    spec.add_job_spec("--input1 {input1}")
 
     input_file = tmp_path / "input.txt"
     input_file.write_text(
@@ -312,9 +340,10 @@ def test_job_spec_with_builtin_parsers_md5hash(tmp_path):
 def test_job_spec_with_builtin_parsers(tmp_path):
     """
     [slurmise.job.builtin_files]
-    job_spec = "--input1 {input1:file} --input2 {input2:file}"
-    file_parsers.input1 = "file_lines"
-    file_parsers.input2 = "file_size"
+    job_spec = "--input1 {input1} --input2 {input2}"
+    [slurmise.job.builtin_files.variables]
+    lines = {type = "file", file_parsers="file_lines"}
+    filesize = {type = "file", file_parsers="file_size"}
     """
 
     available_parsers = {
@@ -323,10 +352,14 @@ def test_job_spec_with_builtin_parsers(tmp_path):
     }
 
     spec = JobSpec(
-        "--input1 {lines:file} --input2 {filesize:file}",
+        {
+            "lines": {"type": "file", "file_parsers": "file_lines"},
+            "filesize": {"type": "file", "file_parsers": "file_size"},
+        },
         file_parsers={"lines": "file_lines", "filesize": "file_size"},
         available_parsers=available_parsers,
     )
+    spec.add_job_spec("--input1 {lines} --input2 {filesize}")
 
     input_file = tmp_path / "input.txt"
     input_file.write_text(
@@ -349,9 +382,10 @@ def test_job_spec_with_builtin_parsers(tmp_path):
 def test_job_spec_with_builtin_parsers_gzipped(tmp_path):
     """
     [slurmise.job.builtin_files]
-    job_spec = "--input1 {input1:gzip_file} --input2 {input2:gzip_file}"
-    file_parsers.input1 = "file_lines"
-    file_parsers.input2 = "file_size"
+    job_spec = "--input1 {input1} --input2 {input2}"
+    [slurmise.job.builtin_files.variables]
+    input1 = {type = "gzip_file", file_parsers="file_lines"}
+    input2 = {type = "gzip_file", file_parsers="file_size"}
     """
 
     available_parsers = {
@@ -360,10 +394,14 @@ def test_job_spec_with_builtin_parsers_gzipped(tmp_path):
     }
 
     spec = JobSpec(
-        "--input1 {lines:gzip_file} --input2 {filesize:gzip_file}",
+        {
+            "lines": {"type": "gzip_file", "file_parsers": "file_lines"},
+            "filesize": {"type": "gzip_file", "file_parsers": "file_size"},
+        },
         file_parsers={"lines": "file_lines", "filesize": "file_size"},
         available_parsers=available_parsers,
     )
+    spec.add_job_spec("--input1 {lines} --input2 {filesize}")
 
     input_file = tmp_path / "input.txt.gz"
     with gzip.open(input_file, "wt") as infile:
@@ -388,8 +426,9 @@ def test_job_spec_with_builtin_parsers_gzipped(tmp_path):
 def test_job_spec_with_builtin_parsers_file_list(tmp_path):
     """
     [slurmise.job.builtin_files]
-    job_spec = "--input1 {input1:file_list}"
-    file_parsers.input1 = ["file_lines", "file_size"]
+    job_spec = "--input1 {lines}"
+    [slurmise.job.builtin_files.variables]
+    lines = {type = "file_list", file_parsers=["file_lines", "file_size"]}
     """
 
     available_parsers = {
@@ -398,10 +437,11 @@ def test_job_spec_with_builtin_parsers_file_list(tmp_path):
     }
 
     spec = JobSpec(
-        "--input1 {lines:file_list}",
+        {"lines": {"type": "file_list", "file_parsers": ["file_lines", "file_size"]}},
         file_parsers={"lines": ["file_lines", "file_size"]},
         available_parsers=available_parsers,
     )
+    spec.add_job_spec("--input1 {lines}")
 
     file_list = tmp_path / "listing.txt"
     with file_list.open("w") as fl:
@@ -432,8 +472,9 @@ def test_job_spec_with_builtin_parsers_file_list(tmp_path):
 def test_job_spec_with_multiple_builtin_parsers(tmp_path):
     """
     [slurmise.job.builtin_files]
-    job_spec = "--input1 {input1:file}"
-    file_parsers.input1 = ["file_lines", "file_size"]
+    job_spec = "--input1 {input1}"
+    [slurmise.job.builtin_files.variables]
+    input1 = {type = "file", file_parsers=["file_lines", "file_size"]}
     """
 
     available_parsers = {
@@ -442,10 +483,11 @@ def test_job_spec_with_multiple_builtin_parsers(tmp_path):
     }
 
     spec = JobSpec(
-        "--input1 {input1:file}",
+        {"input1": {"type": "file", "file_parsers": ["file_lines", "file_size"]}},
         file_parsers={"input1": ["file_lines", "file_size"]},
         available_parsers=available_parsers,
     )
+    spec.add_job_spec("--input1 {input1}")
 
     input_file = tmp_path / "input.txt"
     input_file.write_text(
@@ -468,10 +510,9 @@ def test_job_spec_with_multiple_builtin_parsers(tmp_path):
 def test_job_spec_with_awk_parsers(tmp_path):
     """
     [slurmise.job.builtin_files]
-    job_spec = "--input1 {input1:gzip_file}"
-    job_spec = "--input1 {input1:file_list}"
-    job_spec = "--input1 {input1:file}"
-    file_parsers.input1 = ["epochs", "network"]
+    job_spec = "--input1 {input1}"
+    [slurmise.job.builtin_files.variables]
+    input1 = {type = "file", file_parsers=["epochs", "network"]}
 
     [slurmise.file_parsers.epochs]
     type = "numeric"
@@ -488,10 +529,11 @@ def test_job_spec_with_awk_parsers(tmp_path):
     }
 
     spec = JobSpec(
-        "--input1 {input1:file}",
+        {"input1": {"type": "file", "file_parsers": ["epochs", "network"]}},
         file_parsers={"input1": ["epochs", "network"]},
         available_parsers=available_parsers,
     )
+    spec.add_job_spec("--input1 {input1}")
 
     input_file = tmp_path / "input.txt"
     input_file.write_text(
@@ -516,8 +558,9 @@ some more text"""
 def test_job_spec_with_awk_parsers_multiple_numerics(tmp_path):
     """
     [slurmise.job.builtin_files]
-    job_spec = "--input1 {input1:file}"
-    file_parsers.input1 = "layers"
+    job_spec = "--input1 {input1}"
+    [slurmise.job.builtin_files.variables]
+    input1 = {type = "file", file_parsers="layers"}
 
     [slurmise.file_parsers.layers]
     type = "numeric"
@@ -529,10 +572,11 @@ def test_job_spec_with_awk_parsers_multiple_numerics(tmp_path):
     }
 
     spec = JobSpec(
-        "--input1 {input1:file}",
+        {"input1": {"type": "file", "file_parsers": "layers"}},
         file_parsers={"input1": "layers"},
         available_parsers=available_parsers,
     )
+    spec.add_job_spec("--input1 {input1}")
 
     input_file = tmp_path / "input.txt"
     input_file.write_text(
@@ -562,8 +606,9 @@ some more text"""
 def test_job_spec_with_awk_file(tmp_path):
     """
     [slurmise.job.builtin_files]
-    job_spec = "--input1 {input1:file}"
-    file_parsers.input1 = ["fasta_inline", "fasta_script"]
+    job_spec = "--input1 {input1}"
+    [slurmise.job.builtin_files.variables]
+    input1 = {type = "file", file_parsers=["fasta_inline", "fasta_script"]}
 
     [slurmise.file_parsers.fasta_inline]
     type = "numeric"
@@ -590,10 +635,11 @@ END {if (seq) print seq}
     }
 
     spec = JobSpec(
-        "--input1 {input1:file}",
+        {"input1": {"type": "file", "file_parsers": ["fasta_inline", "fasta_script"]}},
         file_parsers={"input1": ["fasta_inline", "fasta_script"]},
         available_parsers=available_parsers,
     )
+    spec.add_job_spec("--input1 {input1}")
 
     input_file = tmp_path / "input.txt"
     input_file.write_text(
@@ -639,8 +685,8 @@ END {if (seq) print seq}
 def test_job_spec_with_awk_gzip_file(tmp_path):
     """
     [slurmise.job.builtin_files]
-    job_spec = "--input1 {input1:gzip_file}"
-    file_parsers.input1 = ["fasta_inline", "fasta_script"]
+    job_spec = "--input1 {input1}"
+    input1 = {type = "gzip_file", file_parsers=["fasta_inline", "fasta_script"]}
 
     [slurmise.file_parsers.fasta_inline]
     type = "numeric"
@@ -666,10 +712,11 @@ END {if (seq) print seq}
     }
 
     spec = JobSpec(
-        "--input1 {input1:gzip_file}",
+        {"input1": {"type": "gzip_file", "file_parsers": ["fasta_inline", "fasta_script"]}},
         file_parsers={"input1": ["fasta_inline", "fasta_script"]},
         available_parsers=available_parsers,
     )
+    spec.add_job_spec("--input1 {input1}")
 
     input_file = tmp_path / "input.txt.gz"
     with gzip.open(input_file, "wt") as infile:
