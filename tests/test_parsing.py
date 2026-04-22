@@ -133,10 +133,12 @@ def test_basic_job_spec_extra_cmd_internal():
 
 def test_basic_job_spec_with_ignore():
     spec = JobSpec(
-        {"threads": {"type": "numeric"},
-         "another": {"type": "category"},
-         "named": {"type": "ignore"},
-         })
+        {
+            "threads": {"type": "numeric"},
+            "another": {"type": "category"},
+            "named": {"type": "ignore"},
+        }
+    )
     spec.add_job_spec("cmd {named} -T {threads} {ignore} -S {another}")
 
     with pytest.raises(ValueError, match="Job spec for test does not match command:") as ve:
@@ -146,9 +148,11 @@ def test_basic_job_spec_with_ignore():
 
 def test_try_exact_passes():
     spec = JobSpec(
-        {"threads": {"type": "numeric"},
-         "another": {"type": "category"},
-         })
+        {
+            "threads": {"type": "numeric"},
+            "another": {"type": "category"},
+        }
+    )
     spec.add_job_spec("cmd -T {threads} -S {another}")
     result = spec.align_and_indicate_differences("cmd -T 3 -S cat", try_exact_match=True)
     print(f"\n{result}")
@@ -157,9 +161,11 @@ def test_try_exact_passes():
 
 def test_try_exact_fails():
     spec = JobSpec(
-        {"threads": {"type": "numeric"},
-         "another": {"type": "category"},
-         })
+        {
+            "threads": {"type": "numeric"},
+            "another": {"type": "category"},
+        }
+    )
     spec.add_job_spec("cmd -T {threads} -S {another}")
     result = spec.align_and_indicate_differences("FAILURE -T 3 -S cat", try_exact_match=True)
     print(f"\n{result}")
@@ -209,7 +215,6 @@ def test_job_spec_with_no_file_parser(tmp_path):
     with pytest.raises(ValueError, match="File 'input1' has no assigned file parser"):
         JobSpec(
             {"input1": {"type": "file"}},
-            file_parsers={},
             available_parsers=available_parsers,
         )
 
@@ -228,7 +233,6 @@ def test_job_spec_with_parser_not_available(tmp_path):
     with pytest.raises(ValueError, match=("The parser 'file_bassname' is not available for file 'input1'")):
         JobSpec(
             {"input1": {"type": "file", "file_parsers": "file_bassname"}},
-            file_parsers={"input1": "file_bassname"},
             available_parsers=available_parsers,
         )
 
@@ -246,11 +250,9 @@ def test_job_spec_with_builtin_parsers_basename(tmp_path):
 
     spec = JobSpec(
         {"input1": {"type": "file", "file_parsers": "file_basename"}},
-        file_parsers={"input1": "file_basename"},
         available_parsers=available_parsers,
     )
     spec.add_job_spec("--input1 {input1}")
-
 
     input_file = tmp_path / "input.txt"
 
@@ -299,7 +301,6 @@ def test_job_spec_with_builtin_parsers_md5hash(tmp_path):
 
     spec = JobSpec(
         {"input1": {"type": "file", "file_parsers": "file_md5"}},
-        file_parsers={"input1": "file_md5"},
         available_parsers=available_parsers,
     )
     spec.add_job_spec("--input1 {input1}")
@@ -356,7 +357,6 @@ def test_job_spec_with_builtin_parsers(tmp_path):
             "lines": {"type": "file", "file_parsers": "file_lines"},
             "filesize": {"type": "file", "file_parsers": "file_size"},
         },
-        file_parsers={"lines": "file_lines", "filesize": "file_size"},
         available_parsers=available_parsers,
     )
     spec.add_job_spec("--input1 {lines} --input2 {filesize}")
@@ -398,7 +398,6 @@ def test_job_spec_with_builtin_parsers_gzipped(tmp_path):
             "lines": {"type": "gzip_file", "file_parsers": "file_lines"},
             "filesize": {"type": "gzip_file", "file_parsers": "file_size"},
         },
-        file_parsers={"lines": "file_lines", "filesize": "file_size"},
         available_parsers=available_parsers,
     )
     spec.add_job_spec("--input1 {lines} --input2 {filesize}")
@@ -438,7 +437,6 @@ def test_job_spec_with_builtin_parsers_file_list(tmp_path):
 
     spec = JobSpec(
         {"lines": {"type": "file_list", "file_parsers": ["file_lines", "file_size"]}},
-        file_parsers={"lines": ["file_lines", "file_size"]},
         available_parsers=available_parsers,
     )
     spec.add_job_spec("--input1 {lines}")
@@ -484,7 +482,6 @@ def test_job_spec_with_multiple_builtin_parsers(tmp_path):
 
     spec = JobSpec(
         {"input1": {"type": "file", "file_parsers": ["file_lines", "file_size"]}},
-        file_parsers={"input1": ["file_lines", "file_size"]},
         available_parsers=available_parsers,
     )
     spec.add_job_spec("--input1 {input1}")
@@ -530,7 +527,6 @@ def test_job_spec_with_awk_parsers(tmp_path):
 
     spec = JobSpec(
         {"input1": {"type": "file", "file_parsers": ["epochs", "network"]}},
-        file_parsers={"input1": ["epochs", "network"]},
         available_parsers=available_parsers,
     )
     spec.add_job_spec("--input1 {input1}")
@@ -573,7 +569,6 @@ def test_job_spec_with_awk_parsers_multiple_numerics(tmp_path):
 
     spec = JobSpec(
         {"input1": {"type": "file", "file_parsers": "layers"}},
-        file_parsers={"input1": "layers"},
         available_parsers=available_parsers,
     )
     spec.add_job_spec("--input1 {input1}")
@@ -636,7 +631,6 @@ END {if (seq) print seq}
 
     spec = JobSpec(
         {"input1": {"type": "file", "file_parsers": ["fasta_inline", "fasta_script"]}},
-        file_parsers={"input1": ["fasta_inline", "fasta_script"]},
         available_parsers=available_parsers,
     )
     spec.add_job_spec("--input1 {input1}")
@@ -713,7 +707,6 @@ END {if (seq) print seq}
 
     spec = JobSpec(
         {"input1": {"type": "gzip_file", "file_parsers": ["fasta_inline", "fasta_script"]}},
-        file_parsers={"input1": ["fasta_inline", "fasta_script"]},
         available_parsers=available_parsers,
     )
     spec.add_job_spec("--input1 {input1}")

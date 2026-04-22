@@ -22,13 +22,11 @@ class JobSpec:
     def __init__(
         self,
         variables: dict,
-        file_parsers: dict[str, str] | None = None,
         available_parsers: dict[str, FileParser] | None = None,
     ):
         """Parse a job spec string into a regex with named capture groups.
 
         variables: description of input variables to the model.
-        file_parsers: A dict of file variable names to parser names.  Can be a
         list or single string
         available_parsers: A dict of parser names to parser objects
         """
@@ -46,9 +44,9 @@ class JobSpec:
             self.token_kinds[name] = kind
 
             if kind in ("file", "gzip_file", "file_list"):
-                if "file_parsers" in settings:
-                    file_parsers[name] = settings["file_parsers"]
-                self.update_file_parsers(name, available_parsers, file_parsers)
+                if "file_parsers" not in settings:
+                    raise ValueError(f"File {name!r} has no assigned file parser")
+                self.update_file_parsers(name, available_parsers, settings["file_parsers"])
 
     def add_job_spec(self, job_spec: str):
         """Add job specification string.
@@ -69,10 +67,9 @@ class JobSpec:
                 if named_ignore:
                     name = f"ignore_{ignore_ind}"
                     ignore_ind += 1
-                    job_spec = job_spec.replace(match.group(0), f"(?P<{name}>{KIND_TO_REGEX["ignore"]})", 1)
+                    job_spec = job_spec.replace(match.group(0), f"(?P<{name}>{KIND_TO_REGEX['ignore']})", 1)
                 else:
-                    job_spec = job_spec.replace(match.group(0), f"{KIND_TO_REGEX["ignore"]}", 1)
-
+                    job_spec = job_spec.replace(match.group(0), f"{KIND_TO_REGEX['ignore']}", 1)
 
             else:
                 if name not in self.token_kinds:
@@ -85,11 +82,7 @@ class JobSpec:
             raise ValueError(msg)
         return f"^{job_spec}$"
 
-    def update_file_parsers(self, name, available_parsers, file_parsers):
-        if name not in file_parsers:
-            raise ValueError(f"File {name!r} has no assigned file parser")
-
-        parsers = file_parsers[name]
+    def update_file_parsers(self, name, available_parsers, parsers):
         if not isinstance(parsers, list):
             parsers = [parsers]
 
