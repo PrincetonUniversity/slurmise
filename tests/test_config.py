@@ -26,6 +26,7 @@ def test_missing_variables_section(tmpdir):
     with pytest.raises(ValueError, match="Job nupack has no variable types. A `variables` entry is required."):
         SlurmiseConfiguration(toml)
 
+
 def test_missing_variable_type(tmpdir):
     """Test the default can be set at the slurmise level for all jobs without additional defaults."""
     toml_str = """
@@ -41,6 +42,7 @@ def test_missing_variable_type(tmpdir):
 
     with pytest.raises(ValueError, match="Unknown variable type for variable complexity"):
         SlurmiseConfiguration(toml)
+
 
 def test_no_placeholders(tmpdir):
     """Test the default can be set at the slurmise level for all jobs without additional defaults."""

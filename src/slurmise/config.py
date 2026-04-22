@@ -49,15 +49,11 @@ class SlurmiseConfiguration:
 
             for job_name, job in self.jobs.items():
                 if "variables" not in job:
-                    msg = (
-                        f"Job {job_name} has no variable types. "
-                            "A `variables` entry is required."
-                    )
+                    msg = f"Job {job_name} has no variable types. A `variables` entry is required."
                     raise ValueError(msg)
 
                 self.jobs[job_name]["job_spec_obj"] = JobSpec(
                     job["variables"],
-                    file_parsers=job.get("file_parsers", {}),
                     available_parsers=self.file_parsers,
                 )
 
