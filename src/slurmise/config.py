@@ -47,6 +47,8 @@ class SlurmiseConfiguration:
             self.minimum_runtime = toml_data["slurmise"].get("minimum_time", 0)
             self.minimum_memory = toml_data["slurmise"].get("minimum_mem", 0)
 
+            self.extras = toml_data["slurmise"].get("extras", {})
+
             for job_name, job in self.jobs.items():
                 if "variables" not in job:
                     msg = f"Job {job_name} has no variable types. A `variables` entry is required."

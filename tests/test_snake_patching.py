@@ -368,6 +368,9 @@ def test_snakemake_slurmise_record_params(tmp_path):
 default_mem = 1000
 default_time = 30
 variables.param = {type = "category"}
+
+[slurmise.extras.snakemake]
+benchmark_dir = "nondefault/benchmarks"
     """,
     )
     snakefile = make_snakefile(
@@ -430,7 +433,7 @@ patch_snakemake_workflow(
     # database exists
     assert (toml.parent / "slurmise/slurmise.h5").exists() is True
     # should be two benchmark files, store based on param
-    benchmark_dir = toml.parent / "slurmise/benchmarks"
+    benchmark_dir = toml.parent / "nondefault/benchmarks"
     assert benchmark_dir.exists() is True
     assert len(list(benchmark_dir.rglob("*.jsonl"))) == 2
 

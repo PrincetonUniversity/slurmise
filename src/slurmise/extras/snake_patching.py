@@ -18,15 +18,16 @@ SLURMISE_DEFAULTS = {
 }
 
 
+# TODO use all rules in slurmise unless rules are provided
 def patch_snakemake_workflow(
     slurmise: Slurmise,
     workflow: Workflow,
-    rules: list[str],
-    benchmark_dir: str | Path = "slurmise/benchmarks",
+    rules: dict[str, dict],
     keep_benchmarks: bool = False,
     record_benchmarks: bool = True,
 ):
-    benchmark_dir = Path(benchmark_dir)
+    extras = slurmise.configuration.extras.get('snakemake', {})
+    benchmark_dir = Path(extras.get('benchmark_dir', 'slurmise/benchmarks'))
 
     original_onstart = workflow._onstart
 
