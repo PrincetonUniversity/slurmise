@@ -140,6 +140,9 @@ def test_snakemake_slurmise_error_benchmark(tmp_path):
 default_mem = 1000
 default_time = 30
 variables.param = {type = "category"}
+
+[slurmise.extras.snakemake]
+keep_benchmarks = true
     """,
     )
     snakefile = make_snakefile(
@@ -166,7 +169,6 @@ patch_snakemake_workflow(
                 "SLURMISE_memory_scale": 1,
             },
         },
-        keep_benchmarks=True,
         )
 """,
     )
@@ -197,6 +199,9 @@ def test_snakemake_slurmise_no_error_benchmark(tmp_path):
 default_mem = 1000
 default_time = 30
 variables.param = {type = "category"}
+
+[slurmise.extras.snakemake]
+record_benchmarks = false
     """,
     )
     snakefile = make_snakefile(
@@ -223,7 +228,6 @@ patch_snakemake_workflow(
                 "SLURMISE_memory_scale": 1,
             },
         },
-        record_benchmarks=False,
         )
 """,
     )
@@ -246,7 +250,13 @@ patch_snakemake_workflow(
 @pytest.mark.skipif(not has_snakemake(), reason="Requires snakemake")
 @pytest.mark.parametrize("snake_rule", SNAKE_RULES)
 def test_snakemake_slurmise_updates_defaults_no_record(snake_rule, tmp_path):
-    toml = make_slurmise_toml(tmp_path)
+    toml = make_slurmise_toml(
+        tmp_path,
+        append="""
+[slurmise.extras.snakemake]
+record_benchmarks = false
+    """,
+    )
     snakefile = make_snakefile(
         tmp_path,
         slurmise_toml=toml,
@@ -261,7 +271,6 @@ patch_snakemake_workflow(
                 "SLURMISE_memory_scale": 1,
             }},
         }},
-        record_benchmarks=False,
         )
 """,
     )
@@ -296,7 +305,13 @@ patch_snakemake_workflow(
 @pytest.mark.skipif(not has_snakemake(), reason="Requires snakemake")
 @pytest.mark.parametrize("snake_rule", SNAKE_RULES)
 def test_snakemake_slurmise_updates_defaults_with_record(snake_rule, tmp_path):
-    toml = make_slurmise_toml(tmp_path)
+    toml = make_slurmise_toml(
+        tmp_path,
+        append="""
+[slurmise.extras.snakemake]
+keep_benchmarks = true
+        """,
+    )
     snakefile = make_snakefile(
         tmp_path,
         slurmise_toml=toml,
@@ -311,7 +326,6 @@ patch_snakemake_workflow(
                 "SLURMISE_memory_scale": 1,
             }},
         }},
-        keep_benchmarks=True,
         )
 """,
     )
@@ -371,6 +385,7 @@ variables.param = {type = "category"}
 
 [slurmise.extras.snakemake]
 benchmark_dir = "nondefault/benchmarks"
+keep_benchmarks = true
     """,
     )
     snakefile = make_snakefile(
@@ -398,7 +413,6 @@ patch_snakemake_workflow(
                 "SLURMISE_memory_scale": 1,
             },
         },
-        keep_benchmarks=True,
         )
 """,
     )
@@ -477,6 +491,9 @@ default_mem = 1000
 default_time = 30
 variables.thread = {type = "numeric"}
 variables.thread_wc = {type = "numeric"}
+
+[slurmise.extras.snakemake]
+keep_benchmarks = true
     """,
     )
     snakefile = make_snakefile(
@@ -503,7 +520,6 @@ patch_snakemake_workflow(
                 "SLURMISE_memory_scale": 1,
             },
         },
-        keep_benchmarks=True,
         )
 """,
     )

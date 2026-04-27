@@ -23,11 +23,10 @@ def patch_snakemake_workflow(
     slurmise: Slurmise,
     workflow: Workflow,
     rules: dict[str, dict],
-    keep_benchmarks: bool = False,
-    record_benchmarks: bool = True,
 ):
     extras = slurmise.configuration.extras.get('snakemake', {})
     benchmark_dir = Path(extras.get('benchmark_dir', 'slurmise/benchmarks'))
+    record_benchmarks = extras.get('record_benchmarks', True)
 
     original_onstart = workflow._onstart
 
@@ -84,7 +83,7 @@ def patch_snakemake_workflow(
             )
 
             slurmise.raw_record(job_data, processed_data=True)
-        if not keep_benchmarks:
+        if not extras.get('keep_benchmarks', False):
             shutil.rmtree(benchmark_dir)
 
     workflow.onsuccess(onsuccess_slurmise_update)
