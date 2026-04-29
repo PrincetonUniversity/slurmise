@@ -15,6 +15,33 @@ class ResourceFunction(Protocol):
     def __call__(self, rule: Any, wildcards: Any, input: Any) -> Any: ...
 
 
+def build_variables(sources):
+    result = {}
+    for variable_name, source in sources.items():
+        if not isinstance(source, tuple):
+            source, key = source, None
+        else:
+            source, key = source
+
+        if source == "input":
+            result[variable_name] = input(key)
+        elif source == "wildcards":
+            if key is None:
+                msg = f"The wildcards source for {variable_name} requires a key entry"
+                raise ValueError(msg)
+            result[variable_name] = wildcards(key)
+        elif source == "threads":
+            result[variable_name] = threads()
+        elif source == "params":
+            if key is None:
+                msg = f"The params source for {variable_name} requires a key entry"
+                raise ValueError(msg)
+            result[variable_name] = params(key)
+
+    return result
+
+
+
 def input(index: str | int | None = None) -> ResourceFunction:
     def get_input(rule, wildcards, input):
         if index is None:

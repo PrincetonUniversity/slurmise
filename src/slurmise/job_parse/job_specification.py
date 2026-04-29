@@ -36,6 +36,7 @@ class JobSpec:
         self.model = model
         self.job_spec_str = None
         self.job_regex = None
+        self.sources = {}
 
         for name, settings in variables.items():
             if "type" not in settings:
@@ -44,6 +45,12 @@ class JobSpec:
             if kind not in KIND_TO_REGEX:
                 raise ValueError(f"Unknown variable type {kind} for variable {name}")
             self.token_kinds[name] = kind
+
+            if "source" in settings:
+                if "key" in settings:
+                    self.sources[name] = (settings["source"], settings["key"])
+                else:
+                    self.sources[name] = settings["source"]
 
             if kind in ("file", "gzip_file", "file_list"):
                 if "file_parsers" not in settings:
@@ -158,6 +165,19 @@ class JobSpec:
                 raise ValueError(f"Unknown kind {kind}.")
 
         return job
+
+    def get_sources(self):
+        # validate all variables have sources
+        if set(self.sources.keys()) != set(self.token_kinds.keys()):
+            msg = (
+                "Variables do not match source specification\n"
+                f"Sources  : {list(self.token_kinds.keys())}\n"
+                f"Variables: {list(self.sources.keys())}"
+            )
+            raise ValueError(msg)
+
+        return self.sources.copy()
+
 
     def align_and_indicate_differences(self, cmd: str, try_exact_match: bool = False) -> str:
         """

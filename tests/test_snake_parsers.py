@@ -78,6 +78,41 @@ def test_params():
         params(callable_params, "wc", "inpt")
 
 
+def test_build_variables():
+    with pytest.raises(ValueError, match="The wildcards source for no_key requires a key entry"):
+        sp.build_variables({"no_key": "wildcards"})
+
+    with pytest.raises(ValueError, match="The params source for no_key requires a key entry"):
+        sp.build_variables({"no_key": "params"})
+
+    parsers = sp.build_variables(
+        {
+            "input_var": "input",
+            "input_var_key": ("input", 1),
+            "wildcards_var": ("wildcards", "test_wc"),
+            "threads_var": "threads",
+            "params_var": ("params", "test_param"),
+        }
+    )
+
+    rule = DummyRule(
+        resources={"_cores": 4},
+        params={"test_param": "tested param"},
+    )
+    wildcards = {"test_wc": "tested wildcards"}
+    inputs = ["input0", "input1"]
+
+    parsed = {var: parser(rule, wildcards, inputs) for var, parser in parsers.items()}
+
+    assert parsed == {
+            "input_var": "input0",
+            "input_var_key": "input1",
+            "wildcards_var": "tested wildcards",
+            "threads_var": 4,
+            "params_var": "tested param",
+    }
+
+
 def test_ThreadScaler_defaults():
     ts = sp.ThreadScaler(memory_per_thread=10)
 

@@ -99,7 +99,7 @@ base_dir="{base_path}/slurmise"
 [slurmise.job.{rule}_rule]
 default_mem = 1000
 default_time = 30
-variables.threads = {{type = "numeric"}}
+variables.threads = {{type = "numeric", source = "threads"}}
 """
     toml_text += append
 
@@ -139,7 +139,7 @@ def test_snakemake_slurmise_error_benchmark(tmp_path):
 [slurmise.job.bench_rule]
 default_mem = 1000
 default_time = 30
-variables.param = {type = "category"}
+variables.param = {type = "category", source = "params", key = "param"}
 
 [slurmise.extras.snakemake]
 keep_benchmarks = true
@@ -162,13 +162,6 @@ rule bench_rule:
 patch_snakemake_workflow(
         slurmise,
         workflow,
-        {
-            "bench_rule": {
-                "param": sp.wildcards("param"),
-                "SLURMISE_runtime_scale": 1,
-                "SLURMISE_memory_scale": 1,
-            },
-        },
         )
 """,
     )
@@ -198,7 +191,7 @@ def test_snakemake_slurmise_no_error_benchmark(tmp_path):
 [slurmise.job.bench_rule]
 default_mem = 1000
 default_time = 30
-variables.param = {type = "category"}
+variables.param = {type = "category", source = "wildcards", key = "param"}
 
 [slurmise.extras.snakemake]
 record_benchmarks = false
@@ -221,13 +214,6 @@ rule bench_rule:
 patch_snakemake_workflow(
         slurmise,
         workflow,
-        {
-            "bench_rule": {
-                "param": sp.wildcards("param"),
-                "SLURMISE_runtime_scale": 1,
-                "SLURMISE_memory_scale": 1,
-            },
-        },
         )
 """,
     )
@@ -381,7 +367,7 @@ def test_snakemake_slurmise_record_params(tmp_path):
 [slurmise.job.param_rule]
 default_mem = 1000
 default_time = 30
-variables.param = {type = "category"}
+variables.param = {type = "category", source = "params", key = "test_param"}
 
 [slurmise.extras.snakemake]
 benchmark_dir = "nondefault/benchmarks"
@@ -489,8 +475,8 @@ def test_snakemake_slurmise_record_threads(tmp_path):
 [slurmise.job.thread_rule]
 default_mem = 1000
 default_time = 30
-variables.thread = {type = "numeric"}
-variables.thread_wc = {type = "numeric"}
+variables.thread = {type = "numeric", source = "threads"}
+variables.thread_wc = {type = "numeric", source = "wildcards", key = "thrd"}
 
 [slurmise.extras.snakemake]
 keep_benchmarks = true

@@ -11,18 +11,12 @@ from slurmise.extras import snake_parsers
 from slurmise.job_data import JobData
 from slurmise.job_parse.file_parsers import FileMD5
 
-SLURMISE_DEFAULTS = {
-    "attempt_exp": 1,
-    "memory_scale": 1.1,
-    "runtime_scale": 1.25,
-}
 
-
-# TODO use all rules in slurmise unless rules are provided
+# TODO: use all rules in slurmise unless rules are provided
 def patch_snakemake_workflow(
     slurmise: Slurmise,
     workflow: Workflow,
-    rules: dict[str, dict],
+    rules: list | None = None,
 ):
     extras = slurmise.configuration.extras.get('snakemake', {})
     benchmark_dir = Path(extras.get('benchmark_dir', 'slurmise/benchmarks'))
@@ -117,23 +111,17 @@ def patch_snakemake_workflow(
 
             job_data = slurmise.raw_predict(job_data)[0]
 
-            exp = variables.get("SLURMISE_attempt_exp", SLURMISE_DEFAULTS["attempt_exp"])
-            scale = variables.get(
-                f"SLURMISE_{resource}_scale",
-                SLURMISE_DEFAULTS[f"{resource}_scale"],
-            )
+            exp = variables.get("SLURMISE_attempt_exp", 1)
 
-            return scale * getattr(job_data, resource) * attempt**exp
+            return getattr(job_data, resource) * attempt**exp
 
         return slurmise_predict
 
-    for rule_name, variables in rules.items():
+    if rules is None:
+        rules = slurmise.configuration.jobs.keys()
+    for rule_name in rules:
         rule = workflow.get_rule(rule_name)
-
-        thread_scaling = variables.get("SLURMISE_thread_scaling", None)
-        if isinstance(thread_scaling, (int, float)):
-            thread_scaling = snake_parsers.ThreadScaler(memory_per_thread=thread_scaling)
-        variables["SLURMISE_thread_scaling"] = thread_scaling
+        variables = snake_parsers.build_variables(slurmise.configuration.get_sources(rule_name))
 
         if record_benchmarks:
             # set benchmark to record stats
