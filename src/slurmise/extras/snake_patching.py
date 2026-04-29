@@ -12,7 +12,6 @@ from slurmise.job_data import JobData
 from slurmise.job_parse.file_parsers import FileMD5
 
 
-# TODO: use all rules in slurmise unless rules are provided
 def patch_snakemake_workflow(
     slurmise: Slurmise,
     workflow: Workflow,
@@ -111,6 +110,7 @@ def patch_snakemake_workflow(
 
             job_data = slurmise.raw_predict(job_data)[0]
 
+            # TODO: add to rule configuration
             exp = variables.get("SLURMISE_attempt_exp", 1)
 
             return getattr(job_data, resource) * attempt**exp

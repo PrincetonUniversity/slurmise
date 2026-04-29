@@ -13,7 +13,6 @@ instance and the workflow object.  Here is an example snakefile:
 # Snakefile
 from slurmise.api import Slurmise
 from slurmise.extras.snake_patching import patch_snakemake_workflow
-import slurmise.extras.snake_parsers as sp
 
 # get the aboslute path to the slurmise.toml.  This assumes it is
 # in the same directory as the Snakefile
@@ -38,15 +37,6 @@ rule monitored:
 patch_snakemake_workflow(
         slurmise,  # the slurmise instance from above
         workflow,  # the snakemake workflow object
-        {  # a dict of rules to monitor and estimate
-            'monitored': {  # must match snakemake rule name and slurmisejob name
-                # mapping of slurmise variables to rule attributes
-                'infile': sp.input(),
-                'runtype': sp.params('execution_type'),
-                'sample': sp.wildcards('sample'),
-                'threads': sp.threads(),
-            },
-         },
         )
 ```
 
@@ -55,15 +45,16 @@ The corresponding slurmise toml would be
 # slurmise.toml
 
 [slurmise.job.monitored]
-variables.infile = "file"
-variables.runtype = "category"
-variables.sample = "category"
-variables.threads = "numeric"
 default_mem = 1000
 default_time = 60
+[slurmise.job.monitored.variables]
+# can specify a key, otherwise first file
+infile = {type = "file", source = "input", file_parsers = "file_size" }
+runtype = {type = "category", source = "params", key = "execution_type"}
+sample = {type = "category", source = "wildcards", key = "sample"}
+threads = {type = "numeric", source = "threads"}
 file_parsers.infile = "file_size"
 ```
-
 The patching function updates the following aspects of the workflow:
  - **onstart**: The onstart function from the workflow will run and then slurmise
  will update all models from it database.
@@ -77,12 +68,17 @@ The patching function updates the following aspects of the workflow:
  - Resources for `runtime` and `mem_mb` will be populated by slurmise using the
  `runtime` and `memory` results respectively.
 
-The `patch_snakemake_workflow` can also accept overwrites for the `benchmark_dir`,
-which defaults to `slurmise/benchmarks` in the workdir of the workflow.  You can
-also toggle `keep_benchmarks` to True to keep benchmark files after they are
-recorded.  Finally, setting `record_benchmarks` to False will provide resource
-estimates from slurmise without recording the actual usage or updating the job
-database.
+The patching behavior can be further customized in the `slurmise.extras.snakemake`
+section of the toml file.
+```toml
+[slurmise.extras.snakemake]
+# location of benchmark files, default is slurmise/benchmarks
+benchmark_dir = "nondefault/benchmarks"
+# record completed jobs, default true
+record_benchmarks = true
+# keep benchmark files of jobs after recording their outputs, default false
+keep_benchmarks = true
+```
 
 Each entry of the rules dictionary to `patch_snakemake_workflow` should contain
 all the variables for the slurmise job.  You can also include a few overrides
