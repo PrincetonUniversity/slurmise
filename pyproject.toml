@@ -80,6 +80,7 @@ branch = true
 parallel = false
 omit = [
   "src/slurmise/__about__.py",
+  "src/slurmise/extras/*",
 ]
 
 [tool.coverage.paths]

@@ -25,15 +25,16 @@ class JobSpec:
         available_parsers: dict[str, FileParser] | None = None,
     ):
         """Parse a job spec string into a regex with named capture groups.
-
         variables: description of input variables to the model.
         list or single string
+        model: The model we will use for this Job.
         available_parsers: A dict of parser names to parser objects
         """
         self.token_kinds = {}
         self.file_parsers: dict[str, list[FileParser]] = {}
         self.job_spec_str = None
         self.job_regex = None
+        self.model = model
 
         for name, settings in variables.items():
             if "type" not in settings:

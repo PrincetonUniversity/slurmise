@@ -4,6 +4,7 @@ from pathlib import Path
 
 from snakemake.logging import logger
 from snakemake.path_modifier import PathModifier
+from snakemake.workflow import Workflow
 
 from slurmise.api import Slurmise
 from slurmise.extras import snake_parsers
@@ -13,7 +14,7 @@ from slurmise.job_parse.file_parsers import FileMD5
 
 def patch_snakemake_workflow(
     slurmise: Slurmise,
-    workflow,
+    workflow: Workflow,
     rules: dict[str, dict],
     benchmark_dir: str | Path = "slurmise/benchmarks",
     keep_benchmarks: bool = False,
@@ -75,7 +76,6 @@ def patch_snakemake_workflow(
         workflow.output_settings.benchmark_extended = True
 
     def make_predictor(variables, rule, resource):
-        # TODO: chaching?
         def slurmise_predict(wildcards, input, attempt=1):
             vars = {
                 name: func(rule, wildcards, input)
@@ -84,7 +84,7 @@ def patch_snakemake_workflow(
             }
             job_data = slurmise.job_data_from_dict(vars, rule.name)
             if resource == "logging":
-                # if we are reocrding threads need to mark in benchmark file
+                # if we are recording threads need to mark in benchmark file
                 for name, func in variables.items():
                     if name.startswith("SLURMISE"):
                         continue
@@ -92,21 +92,19 @@ def patch_snakemake_workflow(
                         # update name to flag as thread
                         job_data = _mark_threads(job_data, name)
 
-                return job_data.to_json()
+                job_data_variables = {
+                    "categories": job_data.categories,
+                    "numerics": job_data.numerics,
+                }
+                return json.dumps(job_data_variables)
 
             job_data = slurmise.raw_predict(job_data)[0]
 
-            exp = variables.get("SLURMISE_attempt_exp", 1)
-            if resource == "memory":
-                scale = variables.get(f"SLURMISE_{resource}_scale", 1.1)
-            else:
-                scale = variables.get(f"SLURMISE_{resource}_scale", 1.25)
-
-            # thread_scaling = variables['SLURMISE_thread_scaling']
-            # if thread_scaling is not None:
-            # TODO: need to decide how to handle threads in recording and
-            # here in prediction...
-            # threads = snake_parsers.threads()(rule, wildcards, input)
+            exp = variables.get("SLURMISE_attempt_exp", SLURMISE_DEFAULTS["attempt_exp"])
+            scale = variables.get(
+                f"SLURMISE_{resource}_scale",
+                SLURMISE_DEFAULTS[f"{resource}_scale"],
+            )
 
             return scale * getattr(job_data, resource) * attempt**exp
 

@@ -4,7 +4,6 @@ import numpy as np
 
 from slurmise import job_database, slurm
 from slurmise.config import SlurmiseConfiguration
-from slurmise.fit.poly_fit import PolynomialFit
 
 
 class Slurmise:
@@ -68,7 +67,8 @@ class Slurmise:
 
     def raw_predict(self, query_jd):
         query_jd = self.configuration.add_defaults(query_jd)
-        query_model = PolynomialFit.load(query=query_jd, path=self.configuration.slurmise_base_dir)
+        model = self.configuration.get_model_class(query_jd.job_name)
+        query_model = model.load(query=query_jd, path=self.configuration.slurmise_base_dir)
         query_jd, query_warns = query_model.predict(query_jd)
         query_jd = self.configuration.correct_minimum(query_jd)
         return query_jd, query_warns
@@ -82,11 +82,12 @@ class Slurmise:
 
     def _update_model(self, query_jd, jobs):
         model_path = self.configuration.slurmise_base_dir
+        model = self.configuration.get_model_class(query_jd.job_name)
 
         try:
-            query_model = PolynomialFit.load(query=query_jd, path=model_path)
+            query_model = model.load(query=query_jd, path=model_path)
         except FileNotFoundError:
-            query_model = PolynomialFit(query=query_jd, degree=2, path=model_path)
+            query_model = model(query=query_jd, path=model_path)
 
         random_state = np.random.RandomState(42)
         query_model.fit(jobs, random_state=random_state)

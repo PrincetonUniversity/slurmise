@@ -5,6 +5,7 @@ from collections import defaultdict
 from pathlib import Path
 
 from slurmise import job_data
+from slurmise.fit import model_factory
 from slurmise.job_parse import file_parsers
 from slurmise.job_parse.job_specification import JobSpec
 
@@ -156,3 +157,9 @@ class SlurmiseConfiguration:
         job_data.memory = max(job_data.memory, self.minimum_memory)
         job_data.runtime = max(job_data.runtime, self.minimum_runtime)
         return job_data
+
+    def get_model_class(self, job_name: str):
+        """Returns the model class a job is using."""
+        model_config = self.jobs[job_name].get("model", {})
+        model_name = model_config.get("model", "poly")
+        return model_factory(model_name)
