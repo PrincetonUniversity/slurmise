@@ -38,6 +38,7 @@ patch_snakemake_workflow(
         slurmise,  # the slurmise instance from above
         workflow,  # the snakemake workflow object
         )
+
 ```
 
 The corresponding slurmise toml would be
@@ -53,7 +54,6 @@ infile = {type = "file", source = "input", file_parsers = "file_size" }
 runtype = {type = "category", source = "params", key = "execution_type"}
 sample = {type = "category", source = "wildcards", key = "sample"}
 threads = {type = "numeric", source = "threads"}
-file_parsers.infile = "file_size"
 ```
 The patching function updates the following aspects of the workflow:
  - **onstart**: The onstart function from the workflow will run and then slurmise

@@ -250,13 +250,6 @@ record_benchmarks = false
 patch_snakemake_workflow(
         slurmise,
         workflow,
-        {{
-            "{snake_rule}_rule": {{
-                "threads": sp.threads(),
-                "SLURMISE_runtime_scale": 1,
-                "SLURMISE_memory_scale": 1,
-            }},
-        }},
         )
 """,
     )
@@ -305,13 +298,6 @@ keep_benchmarks = true
 patch_snakemake_workflow(
         slurmise,
         workflow,
-        {{
-            "{snake_rule}_rule": {{
-                "threads": sp.threads(),
-                "SLURMISE_runtime_scale": 1,
-                "SLURMISE_memory_scale": 1,
-            }},
-        }},
         )
 """,
     )
@@ -392,13 +378,6 @@ rule param_rule:
 patch_snakemake_workflow(
         slurmise,
         workflow,
-        {
-            "param_rule": {
-                "param": sp.params("test_param"),
-                "SLURMISE_runtime_scale": 1,
-                "SLURMISE_memory_scale": 1,
-            },
-        },
         )
 """,
     )
@@ -498,14 +477,6 @@ rule thread_rule:
 patch_snakemake_workflow(
         slurmise,
         workflow,
-        {
-            "thread_rule": {
-                "thread": sp.threads(),
-                "thread_wc": sp.wildcards('thrd'),
-                "SLURMISE_runtime_scale": 1,
-                "SLURMISE_memory_scale": 1,
-            },
-        },
         )
 """,
     )
