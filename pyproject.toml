@@ -50,6 +50,10 @@ docs = [
   "sphinx-rtd-theme"
   ]
 
+snakemake = [
+  "snakemake>=6",
+]
+
 [project.urls]
 Documentation = "https://github.com/PrincetonUniversity/slurmise#readme"
 Issues = "https://github.com/PrincetonUniversity/slurmise/issues"
@@ -65,6 +69,9 @@ version_file = "src/slurmise/__about__.py"
 check = "mypy --install-types --non-interactive src/slurmise tests"
 test = "pytest --cov=slurmise --random-order"
 fmt-check = {shell = "ruff format --check . && ruff check ."}
+smk-test-v7 = "uv run --python 3.11 --with 'snakemake==7.32.4' --with 'pulp<2.8.0' pytest"
+smk-test-v8 = "uv run --python 3.12 --with 'snakemake>=8.0,<9.0' pytest"
+smk-test-v9 = "uv run --python 3.13 --with 'snakemake>=9.0' pytest"
 
 [tool.coverage.run]
 source_pkgs = ["slurmise", "tests"]
@@ -72,6 +79,7 @@ branch = true
 parallel = false
 omit = [
   "src/slurmise/__about__.py",
+  "src/slurmise/extras/*",
 ]
 
 [tool.coverage.paths]
