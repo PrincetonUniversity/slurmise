@@ -12,6 +12,13 @@ from slurmise.job_data import JobData
 from slurmise.job_parse.file_parsers import FileMD5
 
 
+SLURMISE_DEFAULTS = {
+    "attempt_exp": 1,
+    "memory_scale": 1.1,
+    "runtime_scale": 1.25,
+}
+
+
 def patch_snakemake_workflow(
     slurmise: Slurmise,
     workflow: Workflow,
