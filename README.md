@@ -129,15 +129,15 @@ category by default.  The awk command can be supplied as a string or file path,
 which is used with the `-f` flag of awk.  Here are some examples:
 ```toml
 [slurmise.file_parsers.epochs]
-return_type = "numeric"
+type = "numeric"
 awk_script = "/^epochs:/ {print $2}"
 
 [slurmise.file_parsers.network]
-return_type = "category"
+type = "category"
 awk_script = "/^network type:/ {print $3}"
 
 [slurmise.file_parsers.fasta_length]
-return_type = "numeric"
+type = "numeric"
 awk_script = "/path/to/awk/file.awk"
 script_is_file = True
 
@@ -158,11 +158,11 @@ To specify which parser a file uses, add them to the job entry:
 ```toml
 [slurmise.job.sample_files]
 job_spec = "--reference {reference:file} {fasta:file}"
-file_parsers.reference = "file_md5,file_lines"
-file_parsers.fasta = "file_size,fasta_length"
+file_parsers.reference = ["file_md5", "file_lines"]
+file_parsers.fasta = ["file_size", "fasta_length"]
 ```
 Each file name (`reference` and `fasta`) needs a `file_parsers` entry within the job
-specification.  The name can take a comma separated list of parsers.  Here the
+specification.  The name can take a list of parsers.  Here the
 reference file is parsed with the md5 and number of lines.  The md5 will create a new
 category based on the file contents while the lines will be an independent variable.
 In practice, matching md5 will ensure the same number of lines which doesn't provide

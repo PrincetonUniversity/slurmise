@@ -30,12 +30,12 @@ class SlurmiseConfiguration:
             parsers = toml_data["slurmise"].get("file_parsers", {})
 
             for parser_name, config in parsers.items():
-                return_type = config.get("return_type", "category")
+                type = config.get("type", "category")
                 if "awk_script" in config:
                     script_is_file = config.get("script_is_file", False)
                     self.file_parsers[parser_name] = file_parsers.AwkParser(
                         parser_name,
-                        return_type,
+                        type,
                         config["awk_script"],
                         script_is_file,
                     )
@@ -49,29 +49,20 @@ class SlurmiseConfiguration:
             self.minimum_memory = toml_data["slurmise"].get("minimum_mem", 0)
 
             for job_name, job in self.jobs.items():
-                if "job_spec" in job:
-                    self.jobs[job_name]["job_spec_obj"] = JobSpec(
-                        job["job_spec"],
-                        file_parsers=job.get("file_parsers", {}),
-                        available_parsers=self.file_parsers,
-                        model=job.get("model", {}),
-                    )
-                    if "variables" in job:
-                        validation = self.jobs[job_name]["job_spec_obj"].validate_variables(job["variables"])
-                        if validation is not None:
-                            raise ValueError(f"Unable to validate variables for {job_name}\n" + validation)
+                if "variables" not in job:
+                    msg = f"Job {job_name} has no variable types. A `variables` entry is required."
+                    raise ValueError(msg)
 
-                elif "variables" in job:
-                    self.jobs[job_name]["job_spec_obj"] = JobSpec.from_variables(
-                        job["variables"],
-                        model=job.get("model", {}),
-                        file_parsers=job.get("file_parsers", {}),
-                        available_parsers=self.file_parsers,
-                    )
-                else:
-                    raise ValueError(
-                        f"Job {job_name} has no specification. A `job_spec` or `variables` entry is required."
-                    )
+                self.jobs[job_name]["job_spec_obj"] = JobSpec(
+                    job["variables"],
+                    available_parsers=self.file_parsers,
+                )
+
+                if "job_spec" in job:
+                    self.jobs[job_name]["job_spec_obj"].add_job_spec(job["job_spec"])
+                    validation = self.jobs[job_name]["job_spec_obj"].validate_variables(job["variables"])
+                    if validation is not None:
+                        raise ValueError(f"Unable to validate variables for {job_name}\n" + validation)
 
                 if "job_prefix" in job:
                     self.job_prefixes[job_name] = job["job_prefix"]

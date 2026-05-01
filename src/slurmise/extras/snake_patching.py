@@ -11,6 +11,7 @@ from slurmise.extras import snake_parsers
 from slurmise.job_data import JobData
 from slurmise.job_parse.file_parsers import FileMD5
 
+
 SLURMISE_DEFAULTS = {
     "attempt_exp": 1,
     "memory_scale": 1.1,

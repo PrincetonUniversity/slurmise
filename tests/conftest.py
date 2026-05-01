@@ -23,7 +23,10 @@ def simple_toml(tmp_path):
     base_dir = "{d / "slurmise_dir"}"
 
     [slurmise.job.nupack]
-    job_spec = "monomer -T {{threads:numeric}} -C {{complexity:category}}"
+    job_spec = "monomer -T {{threads}} -C {{complexity}}"
+    [slurmise.job.nupack.variables]
+    threads = {{type = "numeric"}}
+    complexity = {{type = "category"}}
     """
     )
     return TomlReturn(p, d / "slurmise_dir" / "slurmise.h5")
@@ -40,7 +43,10 @@ def nupack_toml(tmp_path):
     db_filename = "nupack2.h5"
 
     [slurmise.job.nupack]
-    job_spec = "monomer -c {{cpus:numeric}} -S {{sequences:numeric}}"
+    job_spec = "monomer -c {{cpus}} -S {{sequences}}"
+    [slurmise.job.nupack.variables]
+    cpus = {{type = "numeric"}}
+    sequences = {{type = "numeric"}}
     """
     )
 
@@ -65,9 +71,12 @@ def nupackdefaults_toml(tmp_path):
     db_filename = "nupack2.h5"
 
     [slurmise.job.nupack]
-    job_spec = "monomer -c {{cpus:numeric}} -S {{sequences:numeric}}"
+    job_spec = "monomer -c {{cpus}} -S {{sequences}}"
     default_mem = 3000
     default_time = 80
+    [slurmise.job.nupack.variables]
+    cpus = {{type = "numeric"}}
+    sequences = {{type = "numeric"}}
     """
     )
 
@@ -157,7 +166,11 @@ def small_db_toml(tmp_path, small_db):
     db_filename = "{small_db.db_file}"
 
     [slurmise.job.test_job]
-    job_spec = "test_job_spec --option1 {{option1:category}} --option2 {{option2:category}} --filesizes {{filesizes:numeric}}"
+    job_spec = "test_job_spec --option1 {{option1}} --option2 {{option2}} --filesizes {{filesizes}}"
+    [slurmise.job.test_job.variables]
+    option1 = {{type = "category"}}
+    option2 = {{type = "category"}}
+    filesizes = {{type = "numeric"}}
     """
     )
     return TomlReturn(p, small_db.db_file)
