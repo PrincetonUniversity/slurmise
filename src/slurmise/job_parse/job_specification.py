@@ -22,6 +22,7 @@ class JobSpec:
     def __init__(
         self,
         variables: dict,
+        model: dict[str, str] | None = None,
         available_parsers: dict[str, FileParser] | None = None,
     ):
         """Parse a job spec string into a regex with named capture groups.

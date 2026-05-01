@@ -750,15 +750,10 @@ END {if (seq) print seq}
 
 
 def test_job_spec_stores_model():
-    spec = JobSpec("cmd -T {threads:numeric}", model={"model": "knn"})
+    spec = JobSpec({"threads": {"type": "numeric"}}, model={"model": "knn"})
     assert spec.model == {"model": "knn"}
 
 
 def test_job_spec_model_default_is_none():
-    spec = JobSpec("cmd -T {threads:numeric}")
+    spec = JobSpec({"threads": {"type": "numeric"}})
     assert spec.model is None
-
-
-def test_from_variables_stores_model():
-    spec = JobSpec.from_variables({"threads": "numeric"}, model={"model": "knn"})
-    assert spec.model == {"model": "knn"}
