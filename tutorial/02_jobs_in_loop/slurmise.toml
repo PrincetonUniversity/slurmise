@@ -1,0 +1,5 @@
+[slurmise]
+base_dir = "."
+
+[slurmise.job.job1]
+job_spec = "--intensity {intensity:numeric} --duration {duration:numeric}"

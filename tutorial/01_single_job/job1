@@ -1,0 +1,18 @@
+#!/bin/bash
+# Allocates <intensity> MB of memory and sleeps for <duration> seconds.
+# Used as a simple job to demonstrate slurmise resource tracking.
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --intensity) intensity=$2; shift 2;;
+        --duration) duration=$2; shift 2;;
+        *) echo "Unknown option: $1"; exit 1;;
+    esac
+done
+
+if [[ -z "$intensity" || -z "$duration" ]]; then
+    echo "Usage: job1 --intensity <MB> --duration <seconds>"
+    exit 1
+fi
+
+yes | tr \\n x | head -c "${intensity}m" | tail | sleep "$duration"
