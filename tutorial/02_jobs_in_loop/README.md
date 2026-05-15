@@ -7,7 +7,8 @@ Generate enough records to train a model for two different jobs, then use
 
 - `perfectScaler` — deterministic memory.
 - `complexMemScaler` — same interface, but adds +/-20% random noise to memory.
-- `run_loop.sbatch` — loops over 13 intensities; runs both jobs at each one.
+- `run_loop.sbatch` — loops over 13 (intensity, duration) pairs; runs both
+  jobs at each one. Durations are jittered so runtime is also worth modeling.
 - `slurmise.toml` — declares both jobs.
 
 ## Run it
@@ -41,14 +42,14 @@ Fit a model for every job in the database:
 slurmise --toml slurmise.toml update-all
 ```
 
-Now predict for an intensity that wasn't in the training set:
+Now predict for an (intensity, duration) pair that wasn't in the training set:
 
 ```bash
 slurmise --toml slurmise.toml predict \
-    "perfectScaler --intensity 2750 --duration 10"
+    "perfectScaler --intensity 2750 --duration 7"
 
 slurmise --toml slurmise.toml predict \
-    "complexMemScaler --intensity 2750 --duration 10"
+    "complexMemScaler --intensity 2750 --duration 7"
 ```
 
 Expect:
@@ -56,7 +57,5 @@ Expect:
   noiseless.
 - `complexMemScaler` memory prediction is in the same ballpark but has more
   uncertainty because of the +/-20% noise that was injected at run time.
-
-Runtime predictions for both jobs are uninteresting: every record had
-`duration=10`, so there's nothing for slurmise to learn about how runtime
-scales. The memory channel is the one worth predicting in this tutorial.
+- Runtime predictions for both jobs should track the requested `--duration`
+  closely, since the scripts simply `sleep` for that many seconds.

@@ -5,6 +5,7 @@
 #SBATCH --mem=6G
 #SBATCH --time=00:05:00
 #SBATCH --array=0-15
+#SBATCH --job-name=scaler_array
 
 intensities=(500 1000 1500 2000 2500 3000 3500 4000)
 duration=10

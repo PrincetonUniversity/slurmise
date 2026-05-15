@@ -5,6 +5,7 @@
 #SBATCH --mem=6G
 #SBATCH --time=00:05:00
 #SBATCH --array=0-8
+#SBATCH --job-name=categorical_array
 
 int_cats=(1 1 1 2 2 2 3 3 3)
 dur_cats=(1 2 3 1 2 3 1 2 3)
