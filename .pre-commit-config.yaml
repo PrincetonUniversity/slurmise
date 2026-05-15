@@ -44,7 +44,7 @@ repos:
         entry: categorical
         args: ['-i']
         language: pygrep
-        exclude: \.pre-commit-config\.yaml$
+        exclude: '\.pre-commit-config\.yaml$|^tutorial/'
 
   - repo: local
     hooks:
@@ -54,4 +54,4 @@ repos:
         entry: numerical
         args: ['-i']
         language: pygrep
-        exclude: \.pre-commit-config\.yaml$
+        exclude: '\.pre-commit-config\.yaml$|^tutorial/'

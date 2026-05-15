@@ -1,6 +1,6 @@
 #!/bin/bash
 # Allocates <intensity> MB of memory and sleeps for <duration> seconds.
-# Used as a simple job to demonstrate slurmise resource tracking.
+# Deterministic: actual memory usage exactly matches --intensity.
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -11,7 +11,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -z "$intensity" || -z "$duration" ]]; then
-    echo "Usage: job1 --intensity <MB> --duration <seconds>"
+    echo "Usage: perfectScaler --intensity <MB> --duration <seconds>"
     exit 1
 fi
 

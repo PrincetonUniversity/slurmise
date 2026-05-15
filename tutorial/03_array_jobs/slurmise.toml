@@ -1,5 +1,11 @@
 [slurmise]
 base_dir = "."
 
-[slurmise.job.job1]
+[slurmise.job.perfectScaler]
 job_spec = "--intensity {intensity:numeric} --duration {duration:numeric}"
+
+[slurmise.job.complexMemScaler]
+job_spec = "--intensity {intensity:numeric} --duration {duration:numeric}"
+
+[slurmise.job.categoricalScaler]
+job_spec = "--intensity {intensity:category} --duration {duration:category}"

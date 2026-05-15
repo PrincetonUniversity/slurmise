@@ -1,21 +1,44 @@
-# 01 - Single Job
+# 01 — Single job
 
-Records a single job that allocates 5000 MB of memory and sleeps for 120 seconds.
+Record a single `perfectScaler` job and see what `slurmise predict` does
+*before* slurmise has enough data to train a model.
 
-## Run
+## Files
+
+- `perfectScaler` — allocates `--intensity` MB and sleeps `--duration` seconds.
+- `run_perfectScaler.sbatch` — runs it once at intensity 5000, duration 10.
+- `slurmise.toml` — declares `perfectScaler` with two numeric parameters.
+
+## Run it
 
 ```bash
-sbatch run_job1.sbatch
+sbatch run_perfectScaler.sbatch
 ```
 
-## What happens
+Total wall time: ~30 seconds.
 
-1. `srun` runs `job1` with the specified intensity and duration
-2. After the job completes, `slurmise record` queries SLURM for the job's
-   runtime and peak memory, then stores them alongside the parsed parameters
+## Inspect
 
-## Check results
+After the job completes, look at what was recorded:
 
 ```bash
 slurmise --toml slurmise.toml print
 ```
+
+You should see one record for `perfectScaler` with intensity 5000, duration 10.
+
+## Predict
+
+Now ask slurmise what it would predict for a *different* intensity:
+
+```bash
+slurmise --toml slurmise.toml predict \
+    "perfectScaler --intensity 4000 --duration 10"
+```
+
+The prediction will not actually use the recorded value — slurmise needs at
+least 13 records per job (10 after an 80/20 train/test split) before it will
+fit a model. With one record it falls back to the toml defaults.
+
+This sets up the next tutorial: generate enough records to actually train a
+model.

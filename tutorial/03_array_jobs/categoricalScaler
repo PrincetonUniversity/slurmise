@@ -1,0 +1,33 @@
+#!/bin/bash
+# Takes --intensity (1|2|3) and --duration (1|2|3) as category labels.
+# intensity: 1 -> 1000 MB, 2 -> 5000 MB, 3 -> 2000 MB
+# duration:  1 -> 3 s,     2 -> 5 s,     3 -> 10 s
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --intensity) intensity=$2; shift 2;;
+        --duration) duration=$2; shift 2;;
+        *) echo "Unknown option: $1"; exit 1;;
+    esac
+done
+
+if [[ -z "$intensity" || -z "$duration" ]]; then
+    echo "Usage: categoricalScaler --intensity <1|2|3> --duration <1|2|3>"
+    exit 1
+fi
+
+case "$intensity" in
+    1) mb=1000;;
+    2) mb=5000;;
+    3) mb=2000;;
+    *) echo "--intensity must be 1, 2, or 3 (got: $intensity)"; exit 1;;
+esac
+
+case "$duration" in
+    1) seconds=3;;
+    2) seconds=5;;
+    3) seconds=10;;
+    *) echo "--duration must be 1, 2, or 3 (got: $duration)"; exit 1;;
+esac
+
+yes | tr \\n x | head -c "${mb}m" | tail | sleep "$seconds"
