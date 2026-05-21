@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 import inspect
 from dataclasses import dataclass, replace
 from typing import Any, Protocol
@@ -15,89 +16,119 @@ class ResourceFunction(Protocol):
     def __call__(self, rule: Any, wildcards: Any, input: Any) -> Any: ...
 
 
-def build_variables(sources):
-    result = {}
-    for variable_name, source in sources.items():
-        if not isinstance(source, tuple):
-            source, key = source, None
-        else:
-            source, key = source
+class SnakemakeAdapter(ABC):
+    def build_variables(self, sources):
+        result = {}
+        for variable_name, source in sources.items():
+            if not isinstance(source, tuple):
+                source, key = source, None
+            else:
+                source, key = source
 
-        if source == "input":
-            result[variable_name] = input(key)
-        elif source == "wildcards":
-            if key is None:
-                msg = f"The wildcards source for {variable_name} requires a key entry"
-                raise ValueError(msg)
-            result[variable_name] = wildcards(key)
-        elif source == "threads":
-            result[variable_name] = threads()
-        elif source == "params":
-            if key is None:
-                msg = f"The params source for {variable_name} requires a key entry"
-                raise ValueError(msg)
-            result[variable_name] = params(key)
+            if source == "input":
+                result[variable_name] = self.input(key)
+            elif source == "wildcards":
+                if key is None:
+                    msg = f"The wildcards source for {variable_name} requires a key entry"
+                    raise ValueError(msg)
+                result[variable_name] = self.wildcards(key)
+            elif source == "threads":
+                result[variable_name] = self.threads()
+            elif source == "params":
+                if key is None:
+                    msg = f"The params source for {variable_name} requires a key entry"
+                    raise ValueError(msg)
+                result[variable_name] = self.params(key)
 
-    return result
+        return result
+
+    @abstractmethod
+    def params(self, name: str) -> ResourceFunction:
+        ...
+
+    @abstractmethod
+    def input(self, index: str | int | None = None) -> ResourceFunction:
+        ...
+
+    @abstractmethod
+    def wildcards(self, name: str) -> ResourceFunction:
+        ...
+
+    @abstractmethod
+    def threads(self) -> ResourceFunction:
+        ...
+
+class SnakemakeV8(SnakemakeAdapter):
+    def params(self, name: str) -> ResourceFunction:
+        def get_params(rule, wildcards, input):
+            param = rule.params[name]
+            # is a value, return it directly
+            if not callable(param):
+                return param
+            else:  # is a function, need to invoke it
+                call_params = inspect.signature(param).parameters
+                arg_list = [wildcards]
+                # we support fewer options than snakemake, prevent circular dependencies
+                if any(input_type in call_params for input_type in ("output", "threads", "resources")):
+                    message = (
+                        f"Cannot use param {name!r} in slurmise.  Input functions may only depend on wildcards or input."
+                    )
+                    raise ValueError(message)
+                # if the param function also takes snakemake input add it to the call
+                if "input" in call_params:
+                    arg_list.append(input)
+                return param(*arg_list)
+        return get_params
 
 
+    def input(self, index: str | int | None = None) -> ResourceFunction:
+        def get_input(rule, wildcards, input):
+            if index is None:
+                return input[0]
+            return input[index]
 
-def input(index: str | int | None = None) -> ResourceFunction:
-    def get_input(rule, wildcards, input):
-        if index is None:
-            return input[0]
-        return input[index]
-
-    return get_input
-
-
-def wildcards(name: str) -> ResourceFunction:
-    def get_wildcard(rule, wildcards, input):
-        return wildcards[name]
-
-    return get_wildcard
+        return get_input
 
 
-def threads() -> ResourceFunction:
-    def get_threads(rule, wildcards, input):
-        threads = rule.resources["_cores"]
-        # is a value, return it directly
-        if not callable(threads):
-            return threads
-        else:  # is a function, need to invoke it
-            # get the names of parameters to the threads function
-            call_params = inspect.signature(threads).parameters
-            arg_list = [wildcards]  # wildcards are always a parameter
-            # if the threads function also takes snakemake input add it to the call
-            if "input" in call_params:
-                arg_list.append(input)
-            # invoke the threads function
-            return threads(*arg_list)
+    def wildcards(self, name: str) -> ResourceFunction:
+        def get_wildcard(rule, wildcards, input):
+            return wildcards[name]
 
-    return get_threads
+        return get_wildcard
 
 
-def params(name: str) -> ResourceFunction:
-    def get_params(rule, wildcards, input):
-        param = rule.params[name]
-        # is a value, return it directly
-        if not callable(param):
-            return param
-        else:  # is a function, need to invoke it
-            call_params = inspect.signature(param).parameters
-            arg_list = [wildcards]
-            # we support fewer options than snakemake, prevent circular dependencies
-            if any(input_type in call_params for input_type in ("output", "threads", "resources")):
-                message = (
-                    f"Cannot use param {name!r} in slurmise.  Input functions may only depend on wildcards or input."
-                )
-                raise ValueError(message)
-            # if the param function also takes snakemake input add it to the call
-            if "input" in call_params:
-                arg_list.append(input)
-            return param(*arg_list)
+    def threads(self) -> ResourceFunction:
+        def get_threads(rule, wildcards, input):
+            threads = rule.resources["_cores"]
+            # is a value, return it directly
+            if not callable(threads):
+                return threads
+            else:  # is a function, need to invoke it
+                # get the names of parameters to the threads function
+                call_params = inspect.signature(threads).parameters
+                arg_list = [wildcards]  # wildcards are always a parameter
+                # if the threads function also takes snakemake input add it to the call
+                if "input" in call_params:
+                    arg_list.append(input)
+                # invoke the threads function
+                return threads(*arg_list)
 
-    return get_params
+        return get_threads
+
+
+class SnakemakeV9(SnakemakeAdapter):
+    def params(self, name: str) -> ResourceFunction:
+        raise NotImplementedError()
+    def params(self, name: str) -> ResourceFunction:
+        raise NotImplementedError()
+    def input(self, index: str | int | None = None) -> ResourceFunction:
+        raise NotImplementedError()
+    def wildcards(self, name: str) -> ResourceFunction:
+        raise NotImplementedError()
+    def threads(self) -> ResourceFunction:
+        raise NotImplementedError()
+
+
 
 
 @dataclass()

@@ -1,7 +1,9 @@
 import json
 import shutil
 from pathlib import Path
+from packaging import version
 
+import snakemake
 from snakemake.logging import logger
 from snakemake.path_modifier import PathModifier
 from snakemake.workflow import Workflow
@@ -15,6 +17,7 @@ from slurmise.job_parse.file_parsers import FileMD5
 def patch_snakemake_workflow(
     slurmise: Slurmise,
     workflow: Workflow,
+    adapter: snake_parsers.SnakemakeAdapter,
     rules: list | None = None,
 ):
     extras = slurmise.configuration.extras.get('snakemake', {})
@@ -121,7 +124,9 @@ def patch_snakemake_workflow(
         rules = slurmise.configuration.jobs.keys()
     for rule_name in rules:
         rule = workflow.get_rule(rule_name)
-        variables = snake_parsers.build_variables(slurmise.configuration.get_sources(rule_name))
+        variables = adapter.build_variables(
+            slurmise.configuration.get_sources(rule_name),
+        )
 
         if record_benchmarks:
             # set benchmark to record stats
@@ -173,3 +178,25 @@ def _correct_threads(slurmise_data, benchmark_data):
             result[key][name] = value
 
     return result
+
+def _make_patch(adapter: snake_parsers.SnakemakeAdapter):
+    def patch(self, workflow: Workflow):
+        return patch_snakemake_workflow(self, workflow, adapter)
+
+    return patch
+
+patching_fncs = {
+    7: _make_patch(adapter=snake_parsers.SnakemakeV8()),
+    8: _make_patch(adapter=snake_parsers.SnakemakeV8()),
+    9: _make_patch(adapter=snake_parsers.SnakemakeV9()),
+}
+snakemake_version = version.parse(snakemake.__version__).major
+if snakemake_version < 7:
+    raise ValueError("Slurmise only supports snakemake>=7.0")
+
+elif snakemake_version not in patching_fncs:
+    raise ValueError(f"Slurmise does not support snakemake version {snakemake_version}")
+
+else:
+    logger.info(f"SLURMISE: detected snakemake v{snakemake_version}")
+    Slurmise.register_patch(patching_fncs[snakemake_version])

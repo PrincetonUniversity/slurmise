@@ -22,8 +22,7 @@ def make_snakefile(base_path, append="", slurmise_toml=None):
         append = (
             f"""
 from slurmise.api import Slurmise
-from slurmise.extras.snake_patching import patch_snakemake_workflow
-import slurmise.extras.snake_parsers as sp
+import slurmise.extras.snake_patching
 
 slurmise = Slurmise("{slurmise_toml}")
         """
@@ -108,6 +107,13 @@ variables.threads = {{type = "numeric", source = "threads"}}
     return toml
 
 
+def test_patch_fails_without_registration(tmp_path):
+    toml = make_slurmise_toml(tmp_path)
+    slurmise = Slurmise(toml)
+    with pytest.raises(RuntimeError, match="No bindings registered.  You must import the extra first."):
+        slurmise.patch(workflow=None)
+
+
 @pytest.mark.skipif(not has_snakemake(), reason="Requires snakemake")
 @pytest.mark.parametrize("snake_rule", SNAKE_RULES)
 def test_snakemake_shell_no_slurmise(snake_rule, tmp_path):
@@ -159,10 +165,7 @@ rule bench_rule:
         "echo memory {resources.mem_mb} >> {output}\\n"
         "echo threads {threads} >> {output}\\n"
 
-patch_snakemake_workflow(
-        slurmise,
-        workflow,
-        )
+slurmise.patch(workflow=workflow)
 """,
     )
 
@@ -211,10 +214,7 @@ rule bench_rule:
         "echo memory {resources.mem_mb} >> {output}\\n"
         "echo threads {threads} >> {output}\\n"
 
-patch_snakemake_workflow(
-        slurmise,
-        workflow,
-        )
+slurmise.patch(workflow=workflow)
 """,
     )
 
@@ -247,10 +247,7 @@ record_benchmarks = false
         tmp_path,
         slurmise_toml=toml,
         append=f"""
-patch_snakemake_workflow(
-        slurmise,
-        workflow,
-        )
+slurmise.patch(workflow=workflow)
 """,
     )
 
@@ -295,10 +292,7 @@ keep_benchmarks = true
         tmp_path,
         slurmise_toml=toml,
         append=f"""
-patch_snakemake_workflow(
-        slurmise,
-        workflow,
-        )
+slurmise.patch(workflow=workflow)
 """,
     )
 
@@ -375,10 +369,7 @@ rule param_rule:
         "echo threads {threads} >> {output}\\n"
         "echo params {params.test_param} >> {output}"
 
-patch_snakemake_workflow(
-        slurmise,
-        workflow,
-        )
+slurmise.patch(workflow=workflow)
 """,
     )
 
@@ -474,10 +465,7 @@ rule thread_rule:
         "echo memory {resources.mem_mb} >> {output}\\n"
         "echo threads {threads} >> {output}"
 
-patch_snakemake_workflow(
-        slurmise,
-        workflow,
-        )
+slurmise.patch(workflow=workflow)
 """,
     )
 
@@ -542,3 +530,10 @@ patch_snakemake_workflow(
 
             # we only ran with 2 cores.  The 3 core job should have recorded 2 threads here
             assert job.numerics["thread"] == min(job.numerics["thread_wc"], 2)
+
+
+# TODO: delete
+def copy_files(toml, snakefile):
+    import shutil
+    shutil.copy(toml, 'tmp/slurmise.toml')
+    shutil.copy(snakefile, 'tmp/Snakefile')
