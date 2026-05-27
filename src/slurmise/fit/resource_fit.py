@@ -207,7 +207,7 @@ class ResourceFit:
         if self.last_fit_dsize < 10:
             return (
                 job,
-                "Not enough fitting data points in the fits. Returning default values.",
+                ["Not enough fitting data points in the fits. Returning default values."],
             )
 
         X, _, _ = jobs_to_pandas([job])  # noqa: N806
