@@ -20,7 +20,9 @@ example that can be run independently.
 
 ## The test jobs
 
-The tutorials use three small bash scripts that allocate memory and sleep:
+The tutorials share three small Python scripts that allocate memory and sleep,
+kept in the top-level [`bin/`](bin/) directory. Each example's `.sbatch`
+invokes them by relative path (e.g. `../bin/perfectScaler`).
 
 - `perfectScaler` — deterministic: memory and runtime exactly match the
   `--intensity` and `--duration` arguments.

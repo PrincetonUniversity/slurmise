@@ -19,6 +19,6 @@ else
     job=complexMemScaler
 fi
 
-srun ./$job --intensity "$intensity" --duration "$duration"
+srun ../bin/$job --intensity "$intensity" --duration "$duration"
 slurmise --toml slurmise.toml record --slurm-id "$SLURM_JOB_ID" \
     "$job --intensity $intensity --duration $duration"

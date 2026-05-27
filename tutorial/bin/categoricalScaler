@@ -1,0 +1,32 @@
+#!/usr/bin/env python3
+"""Takes --intensity and --duration as category labels (1, 2, or 3) and maps
+each to a fixed memory size and sleep time.
+
+Demonstrates slurmise handling categorical (non-numeric-scaling) parameters.
+"""
+
+import argparse
+import time
+
+INTENSITY_MB = {1: 1000, 2: 5000, 3: 2000}
+DURATION_SECONDS = {1: 3, 2: 5, 3: 10}
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Allocate memory and sleep based on category labels.")
+    parser.add_argument(
+        "--intensity", type=int, choices=(1, 2, 3), default=1, help="memory category: 1->1000MB, 2->5000MB, 3->2000MB"
+    )
+    parser.add_argument(
+        "--duration", type=int, choices=(1, 2, 3), default=1, help="duration category: 1->3s, 2->5s, 3->10s"
+    )
+    args = parser.parse_args()
+
+    # bytearray zero-fills the buffer, forcing every page resident so the
+    # allocation shows up in SLURM's MaxRSS rather than being lazily reserved.
+    _ = bytearray(INTENSITY_MB[args.intensity] * 1024 * 1024)
+    time.sleep(DURATION_SECONDS[args.duration])
+
+
+if __name__ == "__main__":
+    main()

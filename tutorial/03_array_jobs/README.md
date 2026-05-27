@@ -5,10 +5,9 @@ treats numeric vs. categorical parameters.
 
 ## Files
 
-- `perfectScaler`, `complexMemScaler` — same scripts as tutorial 02.
-- `categoricalScaler` — takes `--intensity` and `--duration` as category
-  labels (`1|2|3`) instead of raw numbers. Internal lookup tables map each
-  category to a memory and a sleep duration.
+- `categoricalScaler` (shared [`../bin/`](../bin/)) — takes `--intensity` and
+  `--duration` as category labels (`1|2|3`) instead of raw numbers. Internal
+  lookup tables map each category to a memory and a sleep duration.
 - `run_array.sbatch` — 16 array tasks: 8 for `perfectScaler`, 8 for
   `complexMemScaler`.
 - `run_categorical_array.sbatch` — 9 array tasks, one per

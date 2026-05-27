@@ -5,8 +5,6 @@ Generate enough records to train a model for two different jobs, then use
 
 ## Files
 
-- `perfectScaler` — deterministic memory.
-- `complexMemScaler` — same interface, but adds +/-20% random noise to memory.
 - `run_loop.sbatch` — loops over 13 (intensity, duration) pairs; runs both
   jobs at each one. Durations are jittered so runtime is also worth modeling.
 - `slurmise.toml` — declares both jobs.
