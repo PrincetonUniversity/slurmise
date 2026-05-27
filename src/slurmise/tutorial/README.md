@@ -4,9 +4,12 @@ This tutorial walks through using slurmise to track SLURM job resource usage
 and predict requirements for future jobs. Each subfolder is a self-contained
 example that can be run independently.
 
+You likely already have `slurmise` installed and ran `slurmise-generate-tutorial`
+to access this file.
+
 ## Prerequisites
 
-- Access to a SLURM-enabled cluster
+- Access to a SLURM-enabled cluster (with `sbatch` and `srun`)
 - slurmise installed (`pip install slurmise`)
 
 ## Examples
@@ -37,16 +40,8 @@ the variable worth predicting**.
 
 ## Usage
 
-`cd` into any example directory and submit with:
+`cd` into the `01_single_job/` directory and follow along with the README there.
+THen continue on to the other numbered examples.
 
-```bash
-sbatch <script>.sbatch
-```
-
-Your SLURM setup will likely require additional flags such as `--account`.
-
-After the job completes, check the recorded data with:
-
-```bash
-slurmise --toml slurmise.toml print
-```
+Your SLURM setup may require additional flags such as `--account` when you're
+submitting the included sbatch files.

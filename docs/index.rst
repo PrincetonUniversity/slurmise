@@ -24,6 +24,7 @@ that is used to predict the requirements of the current job submission.
    :caption: Getting Started
 
    install
+   tutorial
 
 .. toctree::
    :maxdepth: 2
