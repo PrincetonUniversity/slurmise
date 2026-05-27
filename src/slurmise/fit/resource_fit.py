@@ -212,9 +212,9 @@ class ResourceFit:
 
         X, _, _ = jobs_to_pandas([job])  # noqa: N806
         warnmsg = []
-        if self.model_metrics["runtime"]["mpe"] < 10:
+        if self.model_metrics["runtime"]["mpe"] > 20:
             warnmsg += [
-                f"Runtime prediction for job {job.job_name} is not within 10% of actual value.",
+                f"Runtime prediction for job {job.job_name} is not within 20% of actual value.",
                 "Returing default runtime value.",
             ]
         else:
@@ -227,9 +227,9 @@ class ResourceFit:
                     "Returing default runtime value.",
                 ]
 
-        if self.model_metrics["memory"]["mpe"] < 10:
+        if self.model_metrics["memory"]["mpe"] > 20:
             warnmsg += [
-                f"Memory prediction for job {job.job_name} is not within 10% of actual value.",
+                f"Memory prediction for job {job.job_name} is not within 20% of actual value.",
                 "Returing default memory value.",
             ]
         else:

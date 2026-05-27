@@ -4,9 +4,9 @@
 #SBATCH --cpus-per-task=1
 #SBATCH --mem=10G
 #SBATCH --time=00:10:00
-#SBATCH --job-name=scaler_loop
+#SBATCH --job-name=perfectScaler_loop
 
-# Specify 13 runs on the perfect and complex scaler.
+# Specify 13 runs on the perfect scaler.
 #
 #       Runs:  1   2     3    4    5    6    7    8    9   10   11   12   13
 intensities=(500 1000 1500 2000 2500 3000 3500 4000 4500 5000 5500 6000 6500)
@@ -30,17 +30,4 @@ for i in "${!intensities[@]}"; do
     # increment the step
     step=$((step + 1))
 
-done
-
-# Launch the same jobs but use the complexMemScaler command instead
-step=0
-for i in "${!intensities[@]}"; do
-    intensity=${intensities[$i]}
-    duration=${durations[$i]}
-
-    srun ../bin/complexMemScaler --intensity "$intensity" --duration "$duration"
-    slurmise --toml slurmise.toml record --slurm-id "$SLURM_JOB_ID" \
-        --step-id "$step" \
-        "complexMemScaler --intensity $intensity --duration $duration"
-    step=$((step + 1))
 done
