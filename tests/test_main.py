@@ -147,6 +147,46 @@ def test_raw_record(simple_toml, monkeypatch):
     assert split_std[3].split("-")[-1] == " 1234"
 
 
+def _make_print_db(path):
+    with job_database.JobDatabase.get_database(str(path)) as db:
+        db.record(JobData(job_name="test_job", slurm_id="1", runtime=5, memory=100))
+
+
+def test_print_explicit_h5_path(tmp_path):
+    """print accepts a bare .h5 path with no toml configuration."""
+    h5 = tmp_path / "mydb.h5"
+    _make_print_db(h5)
+
+    runner = CliRunner()
+    result = runner.invoke(main, ["print", str(h5)])
+
+    assert result.exit_code == 0
+    assert "test_job" in result.stdout
+
+
+def test_print_defaults_to_cwd(tmp_path, monkeypatch):
+    """print falls back to ./slurmise.h5 when no path or toml is given."""
+    _make_print_db(tmp_path / "slurmise.h5")
+    monkeypatch.chdir(tmp_path)
+
+    runner = CliRunner()
+    result = runner.invoke(main, ["print"])
+
+    assert result.exit_code == 0
+    assert "test_job" in result.stdout
+
+
+def test_print_missing_default(tmp_path, monkeypatch):
+    """print errors clearly when no database can be resolved."""
+    monkeypatch.chdir(tmp_path)
+
+    runner = CliRunner()
+    result = runner.invoke(main, ["print"])
+
+    assert result.exit_code == 1
+    assert "No database found" in result.output
+
+
 def test_update_predict(nupack_toml):
     """Test the update and predict commands of slurmise.
     Initially, we run the update command to get the models for the nupack job.
