@@ -8,4 +8,4 @@ job_spec = "--intensity {intensity:numeric} --duration {duration:numeric}"
 job_spec = "--intensity {intensity:numeric} --duration {duration:numeric}"
 
 [slurmise.job.categoricalScaler]
-job_spec = "--intensity {intensity:category} --duration {duration:category}"
+job_spec = "--intensity {intensity:numeric} --duration {duration:numeric} --scaling {scaling:category}"

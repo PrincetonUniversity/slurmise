@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""Allocates roughly <intensity> MB (+/-20% random noise) and holds it for
-<duration> seconds.
+"""Allocates roughly <intensity> MB (+/-20% random noise) and 1MB more
+and holds it for <duration> seconds.
 
-The noise makes memory usage non-deterministic, so slurmise has to fit a
-model rather than memorize an exact value.
+The added noise is a harder test for slurmise fits
 """
 
 import argparse
@@ -18,7 +17,7 @@ def main():
     args = parser.parse_args()
 
     noise = random.uniform(-0.2, 0.2)
-    actual_mb = max(1, round(args.intensity * (1 + noise)))
+    actual_mb = max(1, round(args.intensity * (1 + noise))) + 1000
 
     # bytearray zero-fills the buffer, forcing every page resident so the
     # allocation shows up in SLURM's MaxRSS rather than being lazily reserved.

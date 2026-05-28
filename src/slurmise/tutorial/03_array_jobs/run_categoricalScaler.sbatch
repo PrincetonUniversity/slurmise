@@ -2,21 +2,19 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
-#SBATCH --mem=6G
+#SBATCH --mem=10G
 #SBATCH --time=00:05:00
-#SBATCH --array=0-25
+#SBATCH --array=0-59
 #SBATCH --job-name=categoricalScaler
 #SBATCH --output=slurm_outs/slurm-%x-%A_%a.out
 
-int_cats=(1 1 1 2 2 2 3 3 3)
-dur_cats=(1 2 3 1 2 3 1 2 3)
+scaling_categories=(linear quadratic cubic)
 
-idx=$((SLURM_ARRAY_TASK_ID % 9))
-int_cat=${int_cats[$idx]}
-dur_cat=${dur_cats[$idx]}
+idx=$((SLURM_ARRAY_TASK_ID % 3))
+scaling=${scaling_categories[$idx]}
 
-srun ../bin/categoricalScaler --intensity "$int_cat" --duration "$dur_cat"
+srun ../bin/categoricalScaler --intensity 20 --duration 10 --scaling $scaling
 
 slurmise --toml slurmise.toml record \
     --slurm-id "$SLURM_JOB_ID" \
-    "categoricalScaler --intensity $int_cat --duration $dur_cat"
+    "categoricalScaler --intensity 20 --duration 10 --scaling $scaling"

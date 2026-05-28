@@ -1,31 +1,45 @@
 #!/usr/bin/env python3
-"""Takes --intensity and --duration as category labels (1, 2, or 3) and maps
-each to a fixed memory size and sleep time.
+"""Takes --intensity and --duration as well as --scaling which is
+a categorical of either "linear", "quadratic", or "cubic" which
+adjusts how much time and memory is actually used.
+
+Also "jiggles" the intensity and duration with some slight noise
 
 Demonstrates slurmise handling categorical (non-numeric-scaling) parameters.
 """
 
 import argparse
+import random
 import time
 
-INTENSITY_MB = {1: 1000, 2: 5000, 3: 2000}
-DURATION_SECONDS = {1: 3, 2: 5, 3: 10}
+scaling_to_exponent = {"linear": 1, "quadratic": 2, "cubic": 3}
 
 
 def main():
     parser = argparse.ArgumentParser(description="Allocate memory and sleep based on category labels.")
+    parser.add_argument("--intensity", type=int, default=1000, help="megabytes of memory to allocate")
+    parser.add_argument("--duration", type=int, default=2, help="seconds to hold the allocation")
     parser.add_argument(
-        "--intensity", type=int, choices=(1, 2, 3), default=1, help="memory category: 1->1000MB, 2->5000MB, 3->2000MB"
-    )
-    parser.add_argument(
-        "--duration", type=int, choices=(1, 2, 3), default=1, help="duration category: 1->3s, 2->5s, 3->10s"
+        "--scaling",
+        type=str,
+        choices=("linear", "quadratic", "cubic"),
+        default="linear",
+        help="resource scaling factor",
     )
     args = parser.parse_args()
 
+    exponent = scaling_to_exponent[args.scaling]
+    intensity_noise = random.uniform(0.8, 1.2)
+    duration_noise = random.uniform(0.8, 1.2)
+
+    intensity = int(args.intensity**exponent)
+    intensity = int(intensity * intensity_noise)
+    duration = max(1, args.duration * duration_noise)
+
     # bytearray zero-fills the buffer, forcing every page resident so the
     # allocation shows up in SLURM's MaxRSS rather than being lazily reserved.
-    _ = bytearray(INTENSITY_MB[args.intensity] * 1024 * 1024)
-    time.sleep(DURATION_SECONDS[args.duration])
+    _ = bytearray(intensity * 1024 * 1024)
+    time.sleep(duration)
 
 
 if __name__ == "__main__":

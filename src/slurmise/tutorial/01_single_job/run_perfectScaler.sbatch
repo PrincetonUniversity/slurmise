@@ -5,6 +5,7 @@
 #SBATCH --mem=10G
 #SBATCH --time=00:05:00
 #SBATCH --job-name=perfectScaler
+#SBATCH --output=slurm_outs/slurm-%x-%j.out
 
 srun ../bin/perfectScaler --intensity 5000 --duration 10
 
