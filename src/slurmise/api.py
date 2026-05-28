@@ -46,9 +46,7 @@ class Slurmise:
             if job_data.slurm_id is None:
                 job_data.slurm_id = os.environ.get("SLURM_JOB_ID")
             if job_data.slurm_id is None:
-                raise ValueError(
-                    "slurm_id was not provided and SLURM_JOB_ID environment variable is not set."
-                )
+                raise ValueError("slurm_id was not provided and SLURM_JOB_ID environment variable is not set.")
             if "." in job_data.slurm_id:
                 # If the slurm_id is in the format "1234.0", split it to get the step_id
                 slurm_id, step_name = job_data.slurm_id.split(".")
