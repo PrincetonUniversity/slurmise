@@ -7,16 +7,24 @@ pulls in none of the heavy modeling imports.
 from __future__ import annotations
 
 import stat
+from fnmatch import fnmatch
 from importlib.resources import as_file, files
 from pathlib import Path
 
 import click
+
+# Artifacts produced by running the tutorial; ship the starting point only.
+# In editable installs the source tree is copied directly, so these must be
+# filtered here rather than relying on the wheel's exclude-package-data.
+EXCLUDE_PATTERNS = ("slurm*.out", "*.h5", "*.pkl", "fits.json", "slurm_outs")
 
 
 def _copy_tree(src: Path, dest: Path) -> None:
     """Recursively copy ``src`` into ``dest`` using only pathlib."""
     dest.mkdir(parents=True, exist_ok=True)
     for item in src.iterdir():
+        if any(fnmatch(item.name, pattern) for pattern in EXCLUDE_PATTERNS):
+            continue
         target = dest / item.name
         if item.is_dir():
             _copy_tree(item, target)

@@ -64,12 +64,17 @@ slurmise = "slurmise.__main__:main"
 slurmise-generate-tutorial = "slurmise.generate_tutorial:main"
 
 [tool.setuptools.package-data]
-# Ship the getting-started tutorial inside the wheel so `slurmise
-# generate-tutorial` can copy it out. The tree is only two levels deep, so
-# explicit globs avoid needing recursive `**` (setuptools >= 62.3).
+# Ship the getting-started tutorial inside the wheel
 slurmise = [
   "tutorial/*",
   "tutorial/*/*",
+]
+
+[tool.setuptools.exclude-package-data]
+# Don't ship generated run artifacts
+slurmise = [
+  "tutorial/*/slurm*.out",
+  "tutorial/*/*.h5",
 ]
 
 [tool.setuptools_scm]
