@@ -5,6 +5,7 @@ from unittest import mock
 import pytest
 
 from slurmise.api import Slurmise
+from slurmise.job_data import JobData
 
 
 def slurmise_record(toml, process_id, error_queue):
@@ -78,3 +79,33 @@ def test_update_all_models(toml_fixture, request):
         # because there is only one job with "filesizes" numeric feature.
         if str(e).startswith("Cannot have number of splits n_splits="):
             pass
+
+
+def test_raw_record_uses_env_slurm_id(simple_toml):
+    """When slurm_id is None, raw_record should fall back to the SLURM_JOB_ID env var."""
+
+    def mock_metadata(*args, **kwargs):
+        return {
+            "slurm_id": kwargs["slurm_id"],
+            "job_name": "nupack",
+            "state": "COMPLETED",
+            "partition": "",
+            "elapsed_seconds": 97201,
+            "CPUs": 1,
+            "memory_per_cpu": 0,
+            "memory_per_node": 0,
+            "max_rss": 232,
+            "step_id": "external",
+        }
+
+    job = JobData(job_name="nupack", slurm_id=None)
+
+    with mock.patch.dict("os.environ", {"SLURM_JOB_ID": "99999"}):
+        with mock.patch(
+            "slurmise.slurm.parse_slurm_job_metadata",
+            side_effect=mock_metadata,
+        ):
+            slurmise = Slurmise(simple_toml.toml)
+            slurmise.raw_record(job)
+
+    assert job.slurm_id == "99999"
