@@ -5,8 +5,8 @@ Generate enough records to train a model for two different jobs, then use
 
 ## Files
 
-- `run_perfectScaler_loop.sbatch` — loops over 13 (intensity, duration) pairs; runs the
-  perfectScaler job at each one
+- `run_perfectScaler_loop.sbatch` — loops over 13 (intensity, duration) pairs and runs 3
+  replicates of the perfectScaler job at each one (39 runs total)
 - `run_complexMemScaler_loop.sbatch` — same but runs the complexMemScaler
 - `slurmise.toml` — declares both jobs.
 
@@ -22,14 +22,14 @@ sbatch run_complexMemScaler_loop.sbatch
 
 You can submit both jobs and have them running at the same time.
 
-Total wall time should be around 3 minutes for each job.
+Total wall time should be around 9 minutes for each job (13 pairs x 3 replicates).
 
 ## Why `--step-id`?
 
 If you look in the `.sbatch` files you'll see a `step` variable which gets
 incremented after each `srun` command and gets passed to `slurmise record`.
 
-The reason for this is that the sbatch makes 13 `srun` calls inside one
+The reason for this is that the sbatch makes 39 `srun` calls inside one
 allocation, so all of them share the same `$SLURM_JOB_ID`. Without `--step-id`,
 slurmise can't tell the recordings apart and would overwrite them.
 
@@ -39,7 +39,7 @@ slurmise can't tell the recordings apart and would overwrite them.
 slurmise --toml slurmise.toml print
 ```
 
-You should see 13 records each for `perfectScaler` and `complexMemScaler`.
+You should see 39 records each for `perfectScaler` and `complexMemScaler`.
 
 ## Train
 
