@@ -109,3 +109,14 @@ def test_raw_record_uses_env_slurm_id(simple_toml):
             slurmise.raw_record(job)
 
     assert job.slurm_id == "99999"
+
+
+def test_raw_record_raises_when_no_slurm_id(simple_toml):
+    """When slurm_id is None and SLURM_JOB_ID is not set, raise a descriptive ValueError."""
+    job = JobData(job_name="nupack", slurm_id=None)
+
+    env_without_slurm = {k: v for k, v in __import__("os").environ.items() if k != "SLURM_JOB_ID"}
+    with mock.patch.dict("os.environ", env_without_slurm, clear=True):
+        slurmise = Slurmise(simple_toml.toml)
+        with pytest.raises(ValueError, match="SLURM_JOB_ID"):
+            slurmise.raw_record(job)
