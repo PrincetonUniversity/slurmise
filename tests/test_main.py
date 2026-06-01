@@ -164,18 +164,6 @@ def test_print_explicit_h5_path(tmp_path):
     assert "test_job" in result.stdout
 
 
-def test_print_defaults_to_cwd(tmp_path, monkeypatch):
-    """print falls back to ./slurmise.h5 when no path or toml is given."""
-    _make_print_db(tmp_path / "slurmise.h5")
-    monkeypatch.chdir(tmp_path)
-
-    runner = CliRunner()
-    result = runner.invoke(main, ["print"])
-
-    assert result.exit_code == 0
-    assert "test_job" in result.stdout
-
-
 def test_print_missing_default(tmp_path, monkeypatch):
     """print errors clearly when no database can be resolved."""
     monkeypatch.chdir(tmp_path)

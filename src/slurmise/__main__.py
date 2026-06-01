@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import sys
-from pathlib import Path
 
 import click
 
@@ -117,22 +116,23 @@ def print(ctx, h5_path):  # noqa: A001
     """Print the contents of a slurmise database.
 
     The database is resolved in this order: the H5_PATH argument if given,
-    otherwise the database configured by --toml, otherwise ./slurmise.h5 in
-    the current directory.
+    otherwise the database configured by --toml
     """
-    if h5_path is None and "slurmise" in ctx.obj:
+    if h5_path is None and "slurmise" not in ctx.obj:
+        click.echo(
+            "No database found. "
+            + click.style("slurmise print", bold=True)
+            + " requires either a toml file or an h5 file path:",
+            err=True,
+        )
+        click.echo(" - slurmise --toml slurmise.toml print", err=True)
+        click.echo(" - slurmise print slurmise.h5", err=True)
+        sys.exit(1)
+
+    if "slurmise" in ctx.obj:
         # Derive the database path from the provided toml configuration.
         ctx.obj["slurmise"].print()
         return
-
-    if h5_path is None:
-        h5_path = "slurmise.h5"
-        if not Path(h5_path).exists():
-            click.echo(
-                "No database found: pass an .h5 path, use --toml, or run from a directory containing slurmise.h5",
-                err=True,
-            )
-            sys.exit(1)
 
     Slurmise.print_database(h5_path)
 
