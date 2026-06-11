@@ -4,6 +4,7 @@ from unittest import mock
 
 import pytest
 
+from slurmise import job_database
 from slurmise.api import Slurmise
 from slurmise.job_data import JobData
 
@@ -81,42 +82,48 @@ def test_update_all_models(toml_fixture, request):
             pass
 
 
-def test_raw_record_uses_env_slurm_id(simple_toml):
+def test_raw_record_uses_env_slurm_id(simple_toml, monkeypatch, no_slurm_env, sacct_mock):
     """When slurm_id is None, raw_record should fall back to the SLURM_JOB_ID env var."""
-
-    def mock_metadata(*args, **kwargs):
-        return {
-            "slurm_id": kwargs["slurm_id"],
-            "job_name": "nupack",
-            "state": "COMPLETED",
-            "partition": "",
-            "elapsed_seconds": 97201,
-            "CPUs": 1,
-            "memory_per_cpu": 0,
-            "memory_per_node": 0,
-            "max_rss": 232,
-            "step_id": "external",
-        }
+    sacct_calls = sacct_mock()
+    monkeypatch.setenv("SLURM_JOB_ID", "99999")
 
     job = JobData(job_name="nupack", slurm_id=None)
-
-    with mock.patch.dict("os.environ", {"SLURM_JOB_ID": "99999"}):
-        with mock.patch(
-            "slurmise.slurm.parse_slurm_job_metadata",
-            side_effect=mock_metadata,
-        ):
-            slurmise = Slurmise(simple_toml.toml)
-            slurmise.raw_record(job)
+    slurmise = Slurmise(simple_toml.toml)
+    slurmise.raw_record(job)
 
     assert job.slurm_id == "99999"
+    assert sacct_calls == ["99999"]
 
 
-def test_raw_record_raises_when_no_slurm_id(simple_toml):
+def test_raw_record_raises_when_no_slurm_id(simple_toml, no_slurm_env):
     """When slurm_id is None and SLURM_JOB_ID is not set, raise a descriptive ValueError."""
     job = JobData(job_name="nupack", slurm_id=None)
 
-    env_without_slurm = {k: v for k, v in __import__("os").environ.items() if k != "SLURM_JOB_ID"}
-    with mock.patch.dict("os.environ", env_without_slurm, clear=True):
-        slurmise = Slurmise(simple_toml.toml)
-        with pytest.raises(ValueError, match="SLURM_JOB_ID"):
-            slurmise.raw_record(job)
+    slurmise = Slurmise(simple_toml.toml)
+    with pytest.raises(ValueError, match="SLURM_JOB_ID"):
+        slurmise.raw_record(job)
+
+
+def test_record_step_id_without_slurm_id(simple_toml, monkeypatch, no_slurm_env, sacct_mock):
+    """Regression test for issue 79: --step-id without --slurm-id must resolve the
+    job id from the environment instead of producing the literal id "None.<step>"."""
+    sacct_calls = sacct_mock(step_name="0", task_count=1, mem_count=232 * 2**20)
+    monkeypatch.setenv("SLURM_JOB_ID", "1234")
+
+    slurmise = Slurmise(simple_toml.toml)
+    slurmise.record("nupack monomer -T 2 -C simple", step_id="0")
+
+    assert sacct_calls == ["1234"]
+
+    with job_database.JobDatabase.get_database(simple_toml.db) as db:
+        results = db.query(JobData(job_name="nupack", categories={"complexity": "simple"}))
+        assert [job.slurm_id for job in results] == ["1234.0"]
+        assert results[0].memory == 232
+        assert results[0].runtime == 97201
+
+
+def test_record_step_id_without_slurm_id_or_env(simple_toml, no_slurm_env):
+    """With a step_id but neither slurm_id nor environment, fail with a clear error."""
+    slurmise = Slurmise(simple_toml.toml)
+    with pytest.raises(ValueError, match="SLURM_JOB_ID"):
+        slurmise.record("nupack monomer -T 2 -C simple", step_id="0")

@@ -415,6 +415,8 @@ def test_delete_all_children(small_db):
 
 
 def test_update_missing_mem_elapsed(empty_h5py_file, monkeypatch):
+    # signature must match slurm.parse_slurm_job_metadata; a mismatch here once
+    # masked a TypeError in update_missing_data
     def mock_parse_slurm_job_metadata(slurm_id, step_id):  # noqa: ARG001
         return {
             "max_rss": 101,

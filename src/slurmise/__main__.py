@@ -5,7 +5,7 @@ import sys
 
 import click
 
-from slurmise import job_data
+from slurmise import job_data, slurm
 from slurmise.api import Slurmise
 
 
@@ -99,7 +99,7 @@ def parse(ctx, cmd, job_name):
 @click.pass_context
 def raw_record(ctx, job_name, slurm_id, step_id, numerics, categories, cmd):
     """Record a job"""
-    slurm_id = f"{slurm_id}.{step_id}" if step_id is not None else slurm_id
+    slurm_id = slurm.resolve_job_id(slurm_id, step_id)
 
     jd = _parse_json_options(categories, numerics, job_name, cmd, slurm_id)
 
