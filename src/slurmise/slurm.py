@@ -65,13 +65,11 @@ def parse_slurm_job_metadata(slurm_id: str | None = None, step_name: str | None 
     }
 
 
-def get_slurm_job_sacct(slurm_id: str | None = None) -> dict:
+def get_slurm_job_sacct(slurm_id: str) -> dict:
     """Return the JSON output of the sacct command for the current SLURM job."""
-    if slurm_id is None:
-        if "SLURM_JOBID" not in os.environ:
-            msg = "Not running in a SLURM job"
-            raise ValueError(msg)
-        slurm_id = os.environ["SLURM_JOBID"]
+    if "SLURM_JOBID" not in os.environ:
+        msg = "Not running in a SLURM job"
+        raise ValueError(msg)
 
     try:
         json_encoded_str = subprocess.check_output(["sacct", "-j", slurm_id, "--json"])
