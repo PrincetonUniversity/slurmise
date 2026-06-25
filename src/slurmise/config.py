@@ -4,7 +4,7 @@ import tomllib
 from collections import defaultdict
 from pathlib import Path
 
-from slurmise import job_data
+from slurmise import job_data, slurm
 from slurmise.job_parse import file_parsers
 from slurmise.job_parse.job_specification import JobSpec
 
@@ -151,7 +151,7 @@ class SlurmiseConfiguration:
             raise ValueError(msg)
 
         if step_id is not None:
-            slurm_id = ".".join([str(slurm_id), str(step_id)])
+            slurm_id = slurm.resolve_job_id(slurm_id, step_id)
         return job_data.JobData(job_name=job_name, slurm_id=slurm_id, cmd=cmd)
 
     def add_defaults(self, job_data: job_data.JobData) -> job_data.JobData:

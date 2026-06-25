@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import os
-
 import numpy as np
 
 from slurmise import job_database, slurm
@@ -27,7 +25,8 @@ class Slurmise:
         parsed_jd = self.configuration.parse_job_cmd(
             cmd=cmd,
             job_name=job_name,
-            slurm_id=f"{slurm_id}.{step_id}" if step_id is not None else slurm_id,
+            slurm_id=slurm_id,
+            step_id=step_id,
         )
         self.raw_record(parsed_jd)
 
@@ -43,18 +42,10 @@ class Slurmise:
 
     def raw_record(self, job_data, processed_data=False):
         if not processed_data:
-            if job_data.slurm_id is None:
-                job_data.slurm_id = os.environ.get("SLURM_JOB_ID")
-            if job_data.slurm_id is None:
-                raise ValueError("slurm_id was not provided and SLURM_JOB_ID environment variable is not set.")
-            if "." in job_data.slurm_id:
-                # If the slurm_id is in the format "1234.0", split it to get the step_id
-                slurm_id, step_name = job_data.slurm_id.split(".")
-            else:
-                # If no step_id is provided, use the slurm_id as is
-                slurm_id, step_name = job_data.slurm_id, None
+            job_data.slurm_id = slurm.resolve_job_id(job_data.slurm_id)
+            slurm_id, step_id = slurm.split_job_id(job_data.slurm_id)
 
-            metadata_json = slurm.parse_slurm_job_metadata(slurm_id=slurm_id, step_name=step_name)
+            metadata_json = slurm.parse_slurm_job_metadata(slurm_id=slurm_id, step_id=step_id)
 
             job_data.memory = metadata_json["max_rss"]
             job_data.runtime = metadata_json["elapsed_seconds"]
