@@ -24,7 +24,7 @@ def generate_job_metadata(**kwargs):
                 "task_id": "extern",
                 "name": kwargs.get("job_name", "finetune_vicuna_7b"),
                 "state": {"current": ["RUNNING"]},
-                "partition": "pli-c",
+                "partition": "mypartition",
                 "required": {
                     "CPUs": 96,
                     "memory_per_cpu": {"set": False, "infinite": False, "number": 0},
@@ -44,7 +44,6 @@ def generate_job_metadata(**kwargs):
                                         "id": 2,
                                         "count": kwargs.get("mem_count", 24786677760),
                                         "task": 0,
-                                        "node": "tiger-g04c6n7",
                                     }
                                 ]
                             }
