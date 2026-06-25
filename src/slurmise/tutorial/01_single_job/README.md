@@ -1,7 +1,6 @@
 # 01 — Single job
 
-Record a single `perfectScaler` job and see what `slurmise predict` does
-*before* slurmise has enough data to train a model.
+Record a single job with slurmise
 
 To follow along please `cd` into the folder that contains this README
 `01_single_job/` since the example code uses some relative paths of the
@@ -10,14 +9,16 @@ binary files.
 ## Files
 
 `run_perfectScaler.sbatch` — runs `perfectScaler` (from the shared
-[`../bin/`](../bin/)) once at intensity 5000 and duration 10. It
-includes an `srun` command to actually run the process with slurm and
-then a `slurmise record` command to store the resulting time and memory
-used by the prior `srun.
+[`../bin/`](../bin/)) once.
 
 Feel free to take a look at `../bin/perfectScaler`. It's a simple python
 script which simulates using a certain amount of time and memory which are
 controlled by passing in the `--intensity` and `--duration` arguments.
+
+`run_perfectScaler.sbatch` includes an `srun` command to actually run the
+process with slurm and then a `slurmise record` command to store the resulting time and memory
+used by the prior `srun.
+
 
 Also take a look at `slurmise.toml` which is used to parse the `srun` invocation
 and store the job info in the `slurmise.h5` hdf5 file which will get created.
