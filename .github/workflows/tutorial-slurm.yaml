@@ -1,0 +1,96 @@
+name: Tutorial SLURM integration
+
+# Heavy, end-to-end test of the getting-started tutorial against a SLURM
+# scheduler on GHA. Not run on every push/PR (see test.yaml for that) --
+# it stands up a single-node cluster and actually submits jobs
+on:
+  # TEMPORARY: run on pushes to fix/docs to validate this workflow before it
+  # reaches main (workflow_dispatch only works once the file is on the default
+  # branch). REMOVE this push trigger before merging.
+  push:
+    branches: [fix/docs]
+  workflow_dispatch: {}
+  schedule:
+    # 06:00 UTC on the 1st of each month
+    - cron: "0 6 1 * *"
+
+permissions:
+  contents: read
+
+jobs:
+  tutorial-slurm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    # koesterlab/setup-slurm-action wires slurmdbd accounting to MySQL on
+    # 127.0.0.1:8888, which `slurmise record` needs (`sacct -j <id> --json`).
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - "8888:3306"
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Install slurmise
+        run: uv sync --python 3.12
+
+      # Single-node cluster with slurmdbd accounting. `memory` is the node's
+      # RealMemory in MB -- 15000 leaves headroom under the 16 GB runner while
+      # admitting the tutorial's 10 GB jobs.
+      - name: Set up SLURM
+        uses: koesterlab/setup-slurm-action@v1
+        with:
+          memory: 15000
+          cpus: 4
+
+      # The action does NOT set JobAcctGatherType (defaults to
+      # jobacct_gather/none -> MaxRSS is never collected). Enable per-task
+      # gathering at 1 s so the tutorial's short jobs (2-19 s) are sampled, then
+      # restart the daemons so the change takes effect.
+      - name: Enable memory accounting
+        run: |
+          set -euo pipefail
+          conf="$(scontrol show config | awk '/^SLURM_CONF/{print $3}')"
+          conf="${conf:-/etc/slurm/slurm.conf}"
+          echo "patching $conf"
+          sudo sed -i '/^JobAcctGatherType=/d;/^JobAcctGatherFrequency=/d' "$conf"
+          printf 'JobAcctGatherType=jobacct_gather/linux\nJobAcctGatherFrequency=task=1\n' \
+            | sudo tee -a "$conf"
+          sudo systemctl restart slurmdbd slurmctld slurmd
+          sleep 5
+
+      - name: Show SLURM config (debug)
+        run: |
+          sinfo || true
+          scontrol show config | grep -iE 'jobacctgather|accountingstorage' || true
+
+      - name: Run tutorial integration
+        env:
+          RUN_ACCT_PROBE: "1"
+          EXAMPLES: "01 02-perfect"
+          WORK: ${{ github.workspace }}/tutorial-run
+        run: ./tests/integration/run_tutorial_slurm.sh
+
+      # Upload the generated tutorial tree (per-example slurmise.h5, fits, and
+      # SLURM job logs) for manual inspection. `always()` so it is captured even
+      # when an earlier step fails.
+      - name: Upload tutorial run
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: tutorial-run
+          path: ${{ github.workspace }}/tutorial-run
+          if-no-files-found: warn

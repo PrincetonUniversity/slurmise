@@ -63,6 +63,10 @@ perfectScaler
 attrs:
 ```
 
+Note that `sbatch run_perfectScaler.sbatch` includes a `slurmise print`
+statement at the end so if you look in the `out_slurm_logs/*.out`  file
+it should also have the same information.
+
 ## Predict
 
 Now ask slurmise what it would predict for a *different* intensity:

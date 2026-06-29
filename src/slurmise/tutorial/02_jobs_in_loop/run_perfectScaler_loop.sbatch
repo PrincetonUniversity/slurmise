@@ -5,7 +5,7 @@
 #SBATCH --mem=10G
 #SBATCH --time=00:10:00
 #SBATCH --job-name=perfectScaler_loop
-#SBATCH --output=slurm_outs/slurm-%x-%j.out
+#SBATCH --output=out_slurm_logs/slurm-%x-%j.out
 
 # Specify 13 runs on the perfect scaler.
 #
@@ -28,7 +28,6 @@ for i in "${!intensities[@]}"; do
 
         # record the results keeping track of the --step-id
         slurmise --toml slurmise.toml record \
-            --slurm-id "$SLURM_JOB_ID" \
             --step-id "$step" \
             "perfectScaler --intensity $intensity --duration $duration"
 
@@ -37,3 +36,6 @@ for i in "${!intensities[@]}"; do
     done
 
 done
+
+# Show what was recorded (visible in this job's slurm .out)
+slurmise --toml slurmise.toml print
