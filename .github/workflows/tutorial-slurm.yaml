@@ -53,8 +53,12 @@ jobs:
       - name: Set up SLURM
         uses: koesterlab/setup-slurm-action@v1
         with:
-          memory: 15000
-          cpus: 4
+          memory: 12000
+          # NOTE: the action maps `cpus` to slurm.conf Sockets, with a hardcoded
+          # CoresPerSocket=2, so effective CPUs = cpus * 2. A standard GitHub
+          # runner has 4 vCPUs, so cpus must be <= 2 or the node registers with
+          # fewer CPUs than configured and is marked DOWN (jobs hang forever).
+          cpus: 2
 
       # The action does NOT set JobAcctGatherType (defaults to
       # jobacct_gather/none -> MaxRSS is never collected). Enable per-task
