@@ -182,6 +182,7 @@ slurmise.patch(workflow=workflow)
         text=True,
     )
     assert result.returncode == 1
+    print(result)
 
     assert ("Slurmise needs to set benchmark locations, remove benchmark for rule bench_rule.") in result.stderr
 
@@ -295,6 +296,8 @@ keep_benchmarks = true
 slurmise.patch(workflow=workflow)
 """,
     )
+
+    # copy_files(toml, snakefile)
 
     result = subprocess.run(
         [

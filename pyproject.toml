@@ -85,9 +85,9 @@ executor = { type = "uv", python = "3.13", with = ["snakemake>=9.0"] }
 
 [tool.poe.tasks.smk-tests]
 sequence = [
-  # "smk-test-v7 $POE_EXTRA_ARGS",
   "smk-test-v8 $POE_EXTRA_ARGS",
   "smk-test-v9 $POE_EXTRA_ARGS",
+  "smk-test-v7 $POE_EXTRA_ARGS",
 ]
 
 [tool.coverage.run]

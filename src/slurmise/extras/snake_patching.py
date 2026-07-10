@@ -5,7 +5,6 @@ from packaging import version
 
 import snakemake
 from snakemake.logging import logger
-from snakemake.path_modifier import PathModifier
 from snakemake.workflow import Workflow
 
 from slurmise.api import Slurmise
@@ -41,6 +40,7 @@ def patch_snakemake_workflow(
             logger.info("SLURMISE: Skipping recording completed jobs")
             return
         logger.info("SLURMISE: Recording completed jobs")
+        # TODO: make adapter function
         md5_parser = FileMD5()
         for file in benchmark_dir.rglob("*.jsonl"):
             benchmark_data = json.loads(file.read_text())
@@ -66,9 +66,6 @@ def patch_snakemake_workflow(
             except ValueError:
                 memory = 0
 
-            # if a value is a thread, update it to true value
-            slurmise_data = _correct_threads(slurmise_data, benchmark_data)
-
             job_data = JobData(
                 job_name=benchmark_data["rule_name"],
                 slurm_id=md5_parser.parse_file(file),
@@ -86,8 +83,9 @@ def patch_snakemake_workflow(
 
     if record_benchmarks:
         # force extended benchmark recording
-        workflow.output_settings.benchmark_extended = True
+        adapter.extend_benchmark(workflow)
 
+    # TODO: make adapter function or accept a file to write to?
     def make_predictor(variables, rule, resource):
         def slurmise_predict(wildcards, input, attempt=1):
             vars = {
@@ -122,6 +120,8 @@ def patch_snakemake_workflow(
 
     if rules is None:
         rules = slurmise.configuration.jobs.keys()
+        # TODO: handle extra rules in slurmise
+
     for rule_name in rules:
         rule = workflow.get_rule(rule_name)
         variables = adapter.build_variables(
@@ -130,28 +130,7 @@ def patch_snakemake_workflow(
 
         if record_benchmarks:
             # set benchmark to record stats
-            if rule.benchmark is not None:
-                raise ValueError(f"Slurmise needs to set benchmark locations, remove benchmark for rule {rule.name}.")
-
-            old_modifier = rule.benchmark_modifier
-            if old_modifier is None:
-                rule.benchmark_modifier = PathModifier(
-                    prefix=None,
-                    replace_prefix=None,
-                    workflow=workflow,
-                )
-
-            # wc1:val1~wc2:val2.jsonl
-            if len(rule.wildcard_names) == 0:
-                benchmark_name = f"{rule.name}.jsonl"
-            else:
-                benchmark_name = "~".join(f"{wc}:{{{wc}}}" for wc in sorted(rule.wildcard_names)) + ".jsonl"
-
-            rule.benchmark = benchmark_dir / rule.name / benchmark_name
-
-            rule.benchmark_modifier = old_modifier
-            # get the slurmise parsed data for recroding in the benchmark file
-            rule.params.update({"slurmise_data": make_predictor(variables, rule, "logging")})
+            adapter.record_benchmark(rule, workflow, benchmark_dir, make_predictor(variables, rule, "logging"))
 
         rule.resources["mem_mb"] = make_predictor(variables, rule, "memory")
         rule.resources["runtime"] = make_predictor(variables, rule, "runtime")
@@ -186,17 +165,17 @@ def _make_patch(adapter: snake_parsers.SnakemakeAdapter):
     return patch
 
 patching_fncs = {
-    7: _make_patch(adapter=snake_parsers.SnakemakeV8()),
+    7: _make_patch(adapter=snake_parsers.SnakemakeV7()),
     8: _make_patch(adapter=snake_parsers.SnakemakeV8()),
     9: _make_patch(adapter=snake_parsers.SnakemakeV9()),
 }
-snakemake_version = version.parse(snakemake.__version__).major
-if snakemake_version < 7:
+snakemake_version = version.parse(snakemake.__version__)
+if snakemake_version.major < 7:
     raise ValueError("Slurmise only supports snakemake>=7.0")
 
-elif snakemake_version not in patching_fncs:
+elif snakemake_version.major not in patching_fncs:
     raise ValueError(f"Slurmise does not support snakemake version {snakemake_version}")
 
 else:
     logger.info(f"SLURMISE: detected snakemake v{snakemake_version}")
-    Slurmise.register_patch(patching_fncs[snakemake_version])
+    Slurmise.register_patch(patching_fncs[snakemake_version.major])
