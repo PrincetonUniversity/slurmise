@@ -92,7 +92,7 @@ def test_record_duplicate_slurm_id_fails(simple_toml, sacct_mock):
     )
     assert result.exit_code == 1
     assert isinstance(result.exception, ValueError)
-    assert "already exists" in str(result.exception)  # Error comes from h5py require_group
+    assert "already exists" in str(result.exception)
 
     # test that the recorded job was the first one and it wasn't overwritten
     with job_database.JobDatabase.get_database(simple_toml.db) as db:
