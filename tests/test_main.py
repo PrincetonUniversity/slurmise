@@ -57,6 +57,66 @@ def test_record(simple_toml, sacct_mock):
         assert query_result == excepted_results
 
 
+def test_record_duplicate_slurm_id_fails(simple_toml, sacct_mock):
+    # Job 1
+    sacct_mock(task_count=1, mem_count=232 * 2**20)  # parses to max_rss=232, elapsed=97201
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "--toml",
+            simple_toml.toml,
+            "record",
+            "--slurm-id",
+            "1234",
+            "nupack monomer -T 2 -C simple",
+        ],
+    )
+    assert result.exit_code == 0
+
+    # Job 2
+    sacct_mock(task_count=1, mem_count=132 * 2**20)  # Now max_rss=132
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "--toml",
+            simple_toml.toml,
+            "record",
+            "--slurm-id",
+            "1234",
+            "nupack monomer -T 2 -C simple",
+        ],
+    )
+    assert result.exit_code == 1
+    assert isinstance(result.exception, ValueError)
+    assert "already exists" in str(result.exception)  # Error comes from h5py require_group
+
+    # test that the recorded job was the first one and it wasn't overwritten
+    with job_database.JobDatabase.get_database(simple_toml.db) as db:
+        excepted_results = [
+            JobData(
+                job_name="nupack",
+                slurm_id="1234",
+                runtime=97201,
+                memory=232,  # This indicates it's the first job
+                categories={"complexity": "simple"},
+                numerics={"threads": 2},
+                cmd=None,
+            ),
+        ]
+
+        query = JobData(
+            job_name="nupack",
+            categories={"complexity": "simple"},
+        )
+        query_result = db.query(query)
+
+        assert query_result == excepted_results
+
+
 def test_raw_record(simple_toml, sacct_mock):
     """Test the raw_record command."""
     sacct_mock(task_count=1, mem_count=232 * 2**20)
