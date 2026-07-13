@@ -82,29 +82,26 @@ class JobDatabase:
 
         table = self.db.require_group(name=table_name)
 
-        try:
-            if job_data.memory is not None:
-                val = np.asarray(job_data.memory)
-                _ = table.create_dataset(name="memory", shape=val.shape, data=val)
+        if job_data.memory is not None:
+            if "memory" in table:
+                msg = f"Job '{job_data.job_name}' slurm-id '{job_data.slurm_id}' already exists ('memory')."
+                raise ValueError(msg)
+            val = np.asarray(job_data.memory)
+            _ = table.create_dataset(name="memory", shape=val.shape, data=val)
 
-            if job_data.runtime is not None:
-                val = np.asarray(job_data.runtime)
-                _ = table.create_dataset(name="runtime", shape=val.shape, data=val)
+        if job_data.runtime is not None:
+            if "runtime" in table:
+                msg = f"Job '{job_data.job_name}' slurm-id '{job_data.slurm_id}' already exists ('runtime')."
+                raise ValueError(msg)
+            val = np.asarray(job_data.runtime)
+            _ = table.create_dataset(name="runtime", shape=val.shape, data=val)
 
-            for var, value in job_data.numerics.items():
-                val = np.asarray(value)
-                _ = table.create_dataset(name=var, shape=val.shape, data=val)
-        except ValueError as e:
-            if "already exists" in str(e):
-                msg = (
-                    f"A job named '{job_data.job_name}' with slurm-id '{job_data.slurm_id}' "
-                    f"and categories {job_data.categories} already exists in the database. "
-                    "Slurm ids must be unique per job name and category combination. "
-                    "Delete the existing record before re-recording, or pass "
-                    "ignore_existing_job=True to skip jobs that already exist."
-                )
-                raise ValueError(msg) from e
-            raise
+        for var, value in job_data.numerics.items():
+            if var in table:
+                msg = f"Job '{job_data.job_name}' slurm-id '{job_data.slurm_id}' already exists ('{var}')."
+                raise ValueError(msg)
+            val = np.asarray(value)
+            _ = table.create_dataset(name=var, shape=val.shape, data=val)
 
     def job_exists(self, job_data: JobData) -> bool:
         table_name = JobDatabase.get_table_name(job_data)

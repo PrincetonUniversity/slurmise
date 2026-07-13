@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 from click.testing import CliRunner
 
 from slurmise import job_database
@@ -115,6 +116,130 @@ def test_record_duplicate_slurm_id_fails(simple_toml, sacct_mock):
         query_result = db.query(query)
 
         assert query_result == excepted_results
+
+
+def test_record_duplicate_slurm_id_with_step_id_fails(simple_toml, sacct_mock):
+    """Recording the same slurm-id + step-id combination twice should fail the same
+    way as a plain duplicate slurm-id, since the resolved slurm_id ("1234.0") is identical."""
+    # Job 1
+    sacct_mock(step_name="0", task_count=1, mem_count=232 * 2**20)  # parses to max_rss=232, elapsed=97201
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "--toml",
+            simple_toml.toml,
+            "record",
+            "--slurm-id",
+            "1234",
+            "--step-id",
+            "0",
+            "nupack monomer -T 2 -C simple",
+        ],
+    )
+    assert result.exit_code == 0
+
+    # Job 2: same slurm-id and same step-id
+    sacct_mock(step_name="0", task_count=1, mem_count=132 * 2**20)  # Now max_rss=132
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "--toml",
+            simple_toml.toml,
+            "record",
+            "--slurm-id",
+            "1234",
+            "--step-id",
+            "0",
+            "nupack monomer -T 2 -C simple",
+        ],
+    )
+    assert result.exit_code == 1
+    assert isinstance(result.exception, ValueError)
+    assert "already exists" in str(result.exception)
+
+    # test that the recorded job was the first one and it wasn't overwritten
+    with job_database.JobDatabase.get_database(simple_toml.db) as db:
+        excepted_results = [
+            JobData(
+                job_name="nupack",
+                slurm_id="1234.0",
+                runtime=97201,
+                memory=232,  # This indicates it's the first job
+                categories={"complexity": "simple"},
+                numerics={"threads": 2},
+                cmd=None,
+            ),
+        ]
+
+        query = JobData(
+            job_name="nupack",
+            categories={"complexity": "simple"},
+        )
+        query_result = db.query(query)
+
+        assert query_result == excepted_results
+
+
+@pytest.mark.xfail(
+    reason="Behavior not yet decided (see #84): recording a job with slurm_id=1234, step_id=0 "
+    "is recoreded as '1234.0'. If we then try to record a job with the same slurm_id but "
+    "with no --step-id, we're currently recorded a separate job '1234'. This is unlikely to happen often "
+    "but one option would be to try and auto-increment step-id and have the second job be '1234.1'",
+    strict=True,
+)
+def test_record_missing_step_id_after_stepped_job_should_increment_step_id(simple_toml, sacct_mock):
+    # Job 1: recorded with an explicit step-id of 0
+    sacct_mock(step_name="0", task_count=1, mem_count=232 * 2**20)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "--toml",
+            simple_toml.toml,
+            "record",
+            "--slurm-id",
+            "1234",
+            "--step-id",
+            "0",
+            "nupack monomer -T 2 -C simple",
+        ],
+    )
+    assert result.exit_code == 0
+
+    # Job 2: same base slurm-id, but no step-id given.
+    # Desired future behavior: this should be recognized as another step of job 1
+    # and auto-assigned slurm_id "1234.1".
+    sacct_mock(task_count=1, mem_count=132 * 2**20)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "--toml",
+            simple_toml.toml,
+            "record",
+            "--slurm-id",
+            "1234",
+            "nupack monomer -T 2 -C simple",
+        ],
+    )
+    assert result.exit_code == 0
+
+    with job_database.JobDatabase.get_database(simple_toml.db) as db:
+        query = JobData(
+            job_name="nupack",
+            categories={"complexity": "simple"},
+        )
+        query_result = db.query(query)
+
+        recorded_slurm_ids = sorted(job.slurm_id for job in query_result)
+
+    assert recorded_slurm_ids == ["1234.0", "1234.1"]
 
 
 def test_raw_record(simple_toml, sacct_mock):
