@@ -16,7 +16,6 @@ durations=(    2    4    8    8    4   10   12   14    2   13   19    5    9)
 replicates=3
 
 # Launch complexMemScaler srun jobs in a loop. First job will get intensity=500, duration=2
-step=0
 for i in "${!intensities[@]}"; do
     intensity=${intensities[$i]}
     duration=${durations[$i]}
@@ -26,13 +25,9 @@ for i in "${!intensities[@]}"; do
         # srun the command
         srun ../bin/complexMemScaler --intensity "$intensity" --duration "$duration"
 
-        # record the results keeping track of the --step-id
+        # record the results
         slurmise --toml slurmise.toml record \
-            --step-id "$step" \
             "complexMemScaler --intensity $intensity --duration $duration"
-
-        # increment the step
-        step=$((step + 1))
     done
 
 done
