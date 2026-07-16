@@ -535,8 +535,3 @@ slurmise.patch(workflow=workflow)
             assert job.numerics["thread"] == min(job.numerics["thread_wc"], 2)
 
 
-# TODO: delete
-def copy_files(toml, snakefile):
-    import shutil
-    shutil.copy(toml, 'tmp/slurmise.toml')
-    shutil.copy(snakefile, 'tmp/Snakefile')

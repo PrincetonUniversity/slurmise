@@ -1,11 +1,16 @@
+from __future__ import annotations
+
 from packaging import version
+from typing import TYPE_CHECKING
 
 import snakemake
 from snakemake.logging import logger
-from snakemake.workflow import Workflow
 
 from slurmise.api import Slurmise
 from slurmise.extras import snake_parsers
+
+if TYPE_CHECKING:
+    from snakemake.workflow import Workflow
 
 
 def _make_patch(adapter: snake_parsers.SnakemakeAdapter):

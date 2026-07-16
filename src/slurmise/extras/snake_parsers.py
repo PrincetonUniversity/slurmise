@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import shutil
 from abc import ABC, abstractmethod
+from contextlib import contextmanager
 import inspect
 from pathlib import Path
 from dataclasses import dataclass, replace
@@ -62,11 +63,11 @@ class SnakemakeAdapter(ABC):
                 slurmise_data = json.loads(benchmark_data["params"]["slurmise_data"])
 
                 try:
-                    runtime = (float(benchmark_data["s"]) / 60,)
+                    runtime = float(benchmark_data["s"]) / 60
                 except ValueError:
                     runtime = 0
                 try:
-                    memory = (float(benchmark_data["max_rss"]),)
+                    memory = float(benchmark_data["max_rss"])
                 except ValueError:
                     memory = 0
 
@@ -232,45 +233,21 @@ class SnakemakeAdapter(ABC):
         if rule.benchmark is not None:
             raise ValueError(f"Slurmise needs to set benchmark locations, remove benchmark for rule {rule.name}.")
 
-        old_modifier = rule.benchmark_modifier
-        if old_modifier is None:
-            rule.benchmark_modifier = PathModifier(
-                prefix=None,
-                replace_prefix=None,
-                workflow=workflow,
-            )
-
         # wc1:val1~wc2:val2.jsonl
         if len(rule.wildcard_names) == 0:
             benchmark_name = f"{rule.name}.jsonl"
         else:
             benchmark_name = "~".join(f"{wc}:{{{wc}}}" for wc in sorted(rule.wildcard_names)) + ".jsonl"
 
-        rule.benchmark = benchmark_dir / rule.name / benchmark_name
+        with _preserve_benchmark_modifier(rule, workflow):
+            rule.benchmark = benchmark_dir / rule.name / benchmark_name
 
-        rule.benchmark_modifier = old_modifier
-        # get the slurmise parsed data for recroding in the benchmark file
         rule.params.update({"slurmise_data": logging_predictor})
 
 
 class SnakemakeV7(SnakemakeAdapter):
     def threads(self) -> ResourceFunction:
-        def get_threads(rule, wildcards, input):
-            threads = rule.resources["_cores"]
-            # is a value, return it directly
-            if not callable(threads):
-                return threads
-            else:  # is a function, need to invoke it
-                # get the names of parameters to the threads function
-                call_params = inspect.signature(threads).parameters
-                arg_list = [wildcards]  # wildcards are always a parameter
-                # if the threads function also takes snakemake input add it to the call
-                if "input" in call_params:
-                    arg_list.append(input)
-                # invoke the threads function
-                return threads(*arg_list)
-
-        return get_threads
+        return _callable_threads()
 
     def extend_benchmark(self, workflow) -> None:
         # not supported in V7
@@ -280,22 +257,14 @@ class SnakemakeV7(SnakemakeAdapter):
         if rule.benchmark is not None:
             raise ValueError(f"Slurmise needs to set benchmark locations, remove benchmark for rule {rule.name}.")
 
-        old_modifier = rule.benchmark_modifier
-        if old_modifier is None:
-            rule.benchmark_modifier = PathModifier(
-                prefix=None,
-                replace_prefix=None,
-                workflow=workflow,
-            )
-
         # V7 writes TSV benchmarks; we pair them with .slurmise.json companion files
         if len(rule.wildcard_names) == 0:
             benchmark_stem = rule.name
         else:
             benchmark_stem = "~".join(f"{wc}:{{{wc}}}" for wc in sorted(rule.wildcard_names))
 
-        rule.benchmark = benchmark_dir / rule.name / f"{benchmark_stem}.tsv"
-        rule.benchmark_modifier = old_modifier
+        with _preserve_benchmark_modifier(rule, workflow):
+            rule.benchmark = benchmark_dir / rule.name / f"{benchmark_stem}.tsv"
 
         wildcard_names = sorted(rule.wildcard_names)
         rule_name = rule.name
@@ -367,26 +336,40 @@ class SnakemakeV7(SnakemakeAdapter):
 
 class SnakemakeV8(SnakemakeAdapter):
     def threads(self) -> ResourceFunction:
-        def get_threads(rule, wildcards, input):
-            threads = rule.resources["_cores"]
-            # is a value, return it directly
-            if not callable(threads):
-                return threads
-            else:  # is a function, need to invoke it
-                # get the names of parameters to the threads function
-                call_params = inspect.signature(threads).parameters
-                arg_list = [wildcards]  # wildcards are always a parameter
-                # if the threads function also takes snakemake input add it to the call
-                if "input" in call_params:
-                    arg_list.append(input)
-                # invoke the threads function
-                return threads(*arg_list)
-
-        return get_threads
+        return _callable_threads()
 
 
 class SnakemakeV9(SnakemakeAdapter):
     pass
+
+
+@contextmanager
+def _preserve_benchmark_modifier(rule, workflow):
+    old_modifier = rule.benchmark_modifier
+    if old_modifier is None:
+        rule.benchmark_modifier = PathModifier(
+            prefix=None,
+            replace_prefix=None,
+            workflow=workflow,
+        )
+    try:
+        yield
+    finally:
+        rule.benchmark_modifier = old_modifier
+
+
+def _callable_threads() -> ResourceFunction:
+    def get_threads(rule, wildcards, input):
+        threads = rule.resources["_cores"]
+        if not callable(threads):
+            return threads
+        call_params = inspect.signature(threads).parameters
+        arg_list = [wildcards]
+        if "input" in call_params:
+            arg_list.append(input)
+        return threads(*arg_list)
+
+    return get_threads
 
 
 def _mark_threads(job_data, variable_name):
