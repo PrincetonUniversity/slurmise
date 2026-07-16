@@ -1,10 +1,12 @@
+from __future__ import annotations
+
 import json
 import shutil
 from abc import ABC, abstractmethod
 import inspect
 from pathlib import Path
 from dataclasses import dataclass, replace
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 import numpy as np
 
@@ -14,7 +16,9 @@ from slurmise.job_parse.file_parsers import FileMD5
 
 from snakemake.logging import logger
 from snakemake.path_modifier import PathModifier
-from snakemake.workflow import Workflow
+
+if TYPE_CHECKING:
+    from snakemake.workflow import Workflow
 
 
 class ResourceFunction(Protocol):
@@ -53,11 +57,10 @@ class SnakemakeAdapter(ABC):
                 logger.info("SLURMISE: Skipping recording completed jobs")
                 return
             logger.info("SLURMISE: Recording completed jobs")
-            # TODO: make adapter function
             md5_parser = FileMD5()
-            for file in benchmark_dir.rglob("*.jsonl"):
-                benchmark_data = json.loads(file.read_text())
+            for file, benchmark_data in self.iter_benchmark_data(benchmark_dir):
                 slurmise_data = json.loads(benchmark_data["params"]["slurmise_data"])
+
                 try:
                     runtime = (float(benchmark_data["s"]) / 60,)
                 except ValueError:
@@ -69,15 +72,6 @@ class SnakemakeAdapter(ABC):
 
                 # if a value is a thread, update it to true value
                 slurmise_data = _correct_threads(slurmise_data, benchmark_data)
-
-                try:
-                    runtime = (float(benchmark_data["s"]) / 60,)
-                except ValueError:
-                    runtime = 0
-                try:
-                    memory = (float(benchmark_data["max_rss"]),)
-                except ValueError:
-                    memory = 0
 
                 job_data = JobData(
                     job_name=benchmark_data["rule_name"],
@@ -148,6 +142,10 @@ class SnakemakeAdapter(ABC):
             rule.resources["mem_mb"] = make_predictor(variables, rule, "memory")
             rule.resources["runtime"] = make_predictor(variables, rule, "runtime")
 
+    def iter_benchmark_data(self, benchmark_dir: Path):
+        """Yield (file_path, benchmark_data_dict) for each benchmark. Default for V8/V9."""
+        for file in benchmark_dir.rglob("*.jsonl"):
+            yield file, json.loads(file.read_text())
 
     def build_variables(self, sources):
         result = {}
@@ -279,7 +277,92 @@ class SnakemakeV7(SnakemakeAdapter):
         pass
 
     def record_benchmark(self, rule, workflow, benchmark_dir, logging_predictor):
-        pass
+        if rule.benchmark is not None:
+            raise ValueError(f"Slurmise needs to set benchmark locations, remove benchmark for rule {rule.name}.")
+
+        old_modifier = rule.benchmark_modifier
+        if old_modifier is None:
+            rule.benchmark_modifier = PathModifier(
+                prefix=None,
+                replace_prefix=None,
+                workflow=workflow,
+            )
+
+        # V7 writes TSV benchmarks; we pair them with .slurmise.json companion files
+        if len(rule.wildcard_names) == 0:
+            benchmark_stem = rule.name
+        else:
+            benchmark_stem = "~".join(f"{wc}:{{{wc}}}" for wc in sorted(rule.wildcard_names))
+
+        rule.benchmark = benchmark_dir / rule.name / f"{benchmark_stem}.tsv"
+        rule.benchmark_modifier = old_modifier
+
+        wildcard_names = sorted(rule.wildcard_names)
+        rule_name = rule.name
+        companion_dir = benchmark_dir / rule.name
+
+        def v7_slurmise_data(wildcards, input, threads=None):
+            # Snakemake v7 passes job.resources._cores (the post-cap actual thread count)
+            # to any resource callable that declares a `threads` parameter.
+            # Resources are always evaluated (unlike params), so this fires for every job.
+            slurmise_json = logging_predictor(wildcards, input)
+
+            if len(wildcard_names) == 0:
+                companion_stem = rule_name
+            else:
+                companion_stem = "~".join(f"{wc}:{wildcards[wc]}" for wc in wildcard_names)
+
+            companion_path = companion_dir / f"{companion_stem}.slurmise.json"
+            companion_path.parent.mkdir(parents=True, exist_ok=True)
+
+            companion_data = {
+                "slurmise_data": slurmise_json,
+                "threads": threads,
+            }
+            companion_path.write_text(json.dumps(companion_data))
+
+            return 0  # must return int/str for a resource
+
+        # Register as a resource so snakemake always evaluates it (params are lazy)
+        rule.resources["_slurmise_log"] = v7_slurmise_data
+
+    def iter_benchmark_data(self, benchmark_dir: Path):
+        """V7 benchmark data: TSV files paired with .slurmise.json companions.
+
+        Yields (jsonl_path, benchmark_dict) where jsonl_path is a .jsonl file
+        written alongside the companion so callers can read JSON at a stable path.
+        """
+        for companion_file in benchmark_dir.rglob("*.slurmise.json"):
+            stem = companion_file.name.removesuffix(".slurmise.json")
+            tsv_file = companion_file.with_name(stem + ".tsv")
+            if not tsv_file.exists():
+                continue
+
+            companion_data = json.loads(companion_file.read_text())
+
+            with open(tsv_file) as f:
+                header = f.readline().strip().split('\t')
+                values = f.readline().strip().split('\t')
+            tsv_data = dict(zip(header, values))
+
+            # V7 TSV uses "-" for missing values; normalize to "NA"
+            def to_na(val):
+                return "NA" if val == "-" else val
+
+            jsonl_content = {
+                "s": to_na(tsv_data.get("s", "-")),
+                "max_rss": to_na(tsv_data.get("max_rss", "-")),
+            }
+            jsonl_file = companion_file.with_name(stem + ".jsonl")
+            jsonl_file.write_text(json.dumps(jsonl_content))
+
+            benchmark_dict = {
+                **jsonl_content,
+                "rule_name": companion_file.parent.name,
+                "threads": companion_data.get("threads"),
+                "params": {"slurmise_data": companion_data["slurmise_data"]},
+            }
+            yield jsonl_file, benchmark_dict
 
 
 class SnakemakeV8(SnakemakeAdapter):
@@ -317,13 +400,15 @@ def _mark_threads(job_data, variable_name):
 
 
 def _correct_threads(slurmise_data, benchmark_data):
+    actual_threads = benchmark_data.get("threads")
     result = {}
     for key, values in slurmise_data.items():
         result[key] = {}
         for name, value in values.items():
             if name.startswith("SLURMISETHREAD"):
                 name = name.removeprefix("SLURMISETHREAD_")
-                value = benchmark_data["threads"]
+                if actual_threads is not None:
+                    value = actual_threads
             result[key][name] = value
 
     return result
