@@ -1,7 +1,7 @@
 # Proposal: `lazy-record` (record-then-exec)
 
 > **This is a design proposal, not a slurmise feature.** Everything here runs
-> against `./lazy_slurmise`, a small prototype that imports the installed
+> against `./slrmise`, a small prototype that imports the installed
 > slurmise package (config/job_spec parsing, sacct helpers, and the HDF5
 > `JobDatabase` -- no slurmise source is modified) and adds only the lazy
 > recording logic on top. It lives in the tutorial tree only so it can ride
@@ -29,7 +29,7 @@ slurmise --toml slurmise.toml record $CMD
 This prototype implements two alternatives, `record` and `lazy-record`, and
 `run_perfectScaler.sbatch` runs both in the same job so they can be compared
 directly (`run_perfectScaler_loop.sbatch` does the same 13 times for a fuller
-side-by-side table -- run either, then `./lazy_slurmise display`).
+side-by-side table -- run either, then `./slrmise --toml slurmise.toml display`).
 
 ## `record` (eager, mimics upstream)
 
@@ -38,7 +38,7 @@ string, exactly like upstream:
 
 ```bash
 srun ../bin/perfectScaler --intensity 5000 --duration 10
-./lazy_slurmise --toml slurmise.toml record "perfectScaler --intensity 5000 --duration 10"
+./slrmise --toml slurmise.toml record "perfectScaler --intensity 5000 --duration 10"
 ```
 
 Because it runs in the batch shell (no `SLURM_STEP_ID` there), it cannot know
@@ -62,7 +62,7 @@ Trade-offs:
 Wraps the command directly, specified once:
 
 ```bash
-srun ./lazy_slurmise --toml slurmise.toml lazy-record -- ../bin/perfectScaler --intensity 5000 --duration 10
+srun ./slrmise --toml slurmise.toml lazy-record -- ../bin/perfectScaler --intensity 5000 --duration 10
 ```
 
 It inserts a placeholder row (features known, runtime/memory absent) keyed by
@@ -89,3 +89,16 @@ never gets partial data recorded against it. Trade-offs:
 
 `no-update-display` prints the database as-is without backfilling, useful for
 seeing which lazy rows are still pending while a job runs.
+
+## A note on step-qualified ids
+
+This proposal implicitly changes what a database key is. Upstream records one
+row per *job* (bare `<jobid>`, like tutorial 01); `lazy-record` always keys by
+`<jobid>.<stepid>`, because a wrapped command *is* a step and knows its own
+identity from `SLURM_STEP_ID`. That per-step keying is what lets one job
+contribute several recordings (see the loop demo, where each job holds 26
+steps). The eager path can only get this by having the user count steps by
+hand and pass `--step-id` -- and in the loop demo it must, or its rows would
+collide on the bare job id. The single-job demo deliberately omits `--step-id`
+to mirror tutorial 01's ergonomics. If `lazy-record` is adopted, per-step keys
+become the natural default and this bookkeeping disappears.

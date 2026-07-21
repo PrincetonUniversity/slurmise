@@ -21,17 +21,21 @@ for i in "${!intensities[@]}"; do
     intensity=${intensities[$i]}
     duration=${durations[$i]}
 
-    # srun the command and then record (eager). `|| true` so the known eager
-    # sacct race can't fail the job; a missing row is itself the result.
+    # srun the command and then record (eager). Unlike the single-job demo,
+    # --step-id is required here: it targets the right step's metrics AND
+    # keeps the 13 eager rows' database keys (<jobid>.<step>) unique --
+    # without it every eager record would collide on the bare job id.
+    # `|| true` so the known eager sacct race can't fail the job; a missing
+    # row is itself the result.
     srun ../bin/perfectScaler --intensity "$intensity" --duration "$duration"
 
-    ./lazy_slurmise --toml slurmise.toml --step-id "$step" record \
+    ./slrmise --toml slurmise.toml --step-id "$step" record \
         "perfectScaler --intensity $intensity --duration $duration" || true
 
     step=$((step + 1))
 
     # srun the wrapped command, which records itself (lazy)
-    srun ./lazy_slurmise --toml slurmise.toml lazy-record -- \
+    srun ./slrmise --toml slurmise.toml lazy-record -- \
         ../bin/perfectScaler --intensity "$intensity" --duration "$duration"
 
     step=$((step + 1))

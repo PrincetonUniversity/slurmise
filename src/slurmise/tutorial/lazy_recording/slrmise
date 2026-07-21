@@ -1,19 +1,6 @@
 #!/usr/bin/env python3
 """Prototype comparing slurmise's eager `record` against a proposed lazy
 `lazy-record` (record-then-exec + read-time backfill).
-
-This is a design proposal, not a slurmise feature. It imports the installed
-slurmise package (config parsing, sacct helpers, and the HDF5 JobDatabase --
-no slurmise source is modified) and adds only what the proposal needs:
-
-- placeholder rows: `JobDatabase.record()` already skips the memory/runtime
-  datasets when they are None, so a lazy row is just a job recorded before
-  its metrics exist;
-- read-time backfill: `JobDatabase.update_missing_data()` already fills
-  missing metrics from sacct; we add the guard that a job must be in a
-  TERMINAL state first, so a still-running job never records partial data;
-- a `method` (eager/lazy) and final job `state` stamped as HDF5 attributes
-  on each job's group, so the two recording styles can be compared.
 """
 
 from __future__ import annotations
@@ -25,8 +12,6 @@ import pathlib
 from slurmise import slurm
 from slurmise.config import SlurmiseConfiguration
 from slurmise.job_database import JobDatabase
-
-TERMINAL_STATES = {"COMPLETED", "FAILED", "TIMEOUT", "OUT_OF_MEMORY", "CANCELLED"}
 
 
 def get_current_step_id() -> str | None:
@@ -58,6 +43,7 @@ def backfill_pending(config: SlurmiseConfiguration) -> None:
     state (a job still running only has partial sacct data).
     """
     with JobDatabase.get_database(config.db_filename) as db:
+        # Collect jobs without recorded time/mem
         jobs_to_rows = {}
         for _, jobs in db.iterate_database():
             for jd in jobs:
@@ -65,6 +51,7 @@ def backfill_pending(config: SlurmiseConfiguration) -> None:
                     job_id, _ = slurm.split_job_id(jd.slurm_id)
                     jobs_to_rows.setdefault(job_id, []).append(jd)
 
+        # Iterate and update jobs w/out record time/mem
         for job_id, rows in jobs_to_rows.items():
             try:
                 sacct_json = slurm.get_slurm_job_sacct(job_id)
@@ -72,7 +59,7 @@ def backfill_pending(config: SlurmiseConfiguration) -> None:
                 continue  # sacct data not available yet; try again next time
 
             state = job_state(sacct_json)
-            if state not in TERMINAL_STATES:
+            if state not in {"COMPLETED", "FAILED", "TIMEOUT", "OUT_OF_MEMORY", "CANCELLED"}:
                 continue  # job still running; only partial data would be available
 
             for jd in rows:
@@ -87,16 +74,12 @@ def record(args):
     """Eager record, mimicking upstream slurmise: run *after* the srun
 
         srun ../bin/perfectScaler --intensity 5000 --duration 10
-        ./lazy_slurmise --toml slurmise.toml record "perfectScaler --intensity 5000 --duration 10"
+        ./slrmise --toml slurmise.toml record "perfectScaler --intensity 5000 --duration 10"
 
     Runs in the batch shell, which has no SLURM_STEP_ID, so it cannot know
     which srun step just finished. Pass --step-id to attribute the record to a
     specific step; otherwise sacct's last listed step is used (upstream's
     heuristic).
-
-    Does a one-shot sacct read. If accounting data isn't committed yet
-    (slurmdbd lag), this fails loudly instead of retrying -- that fragility
-    is exactly what `lazy-record` avoids.
     """
     config = SlurmiseConfiguration(args.toml)
     jd = config.parse_job_cmd(cmd=args.command, step_id=args.step_id)
@@ -125,7 +108,7 @@ def record(args):
 def lazy_record(args):
     """Lazy record: insert a placeholder row, then exec the wrapped command in place.
 
-        srun ./lazy_slurmise --toml slurmise.toml lazy-record -- \\
+        srun ./slrmise --toml slurmise.toml lazy-record -- \\
                 ../bin/perfectScaler --intensity 5000 --duration 10
 
     Metrics (runtime/memory/state) are absent until `backfill_pending()` fills
@@ -135,10 +118,7 @@ def lazy_record(args):
 
     job_id = slurm.get_current_job_id()
     if job_id is None:
-        raise SystemExit(
-            "lazy-record must be run inside a SLURM job/step: the SLURM_JOB_ID "
-            "environment variable is not set (not inside a SLURM job)."
-        )
+        raise SystemExit("lazy-record must be run inside a SLURM job/step")
 
     config = SlurmiseConfiguration(args.toml)
     jd = config.parse_job_cmd(
@@ -149,9 +129,10 @@ def lazy_record(args):
     )
 
     with JobDatabase.get_database(config.db_filename) as db:
-        db.record(jd)  # memory/runtime are None -> placeholder row
+        db.record(jd)  # memory/runtime aren't known yet so they are None placeholders for now
         set_job_attrs(db, jd, method="lazy")
 
+    # Have the wrapped command takeover. This exits python
     os.execvp(cmd[0], cmd)
 
 
@@ -201,7 +182,7 @@ def no_update_display(args):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="lazy_slurmise")
+    parser = argparse.ArgumentParser(description="slrmise")
     parser.add_argument(
         "--toml", type=pathlib.Path, required=True, help="Path to TOML config (the database path comes from it)"
     )

@@ -76,9 +76,9 @@ run_sbatch() {
     echo "== submitting $example_dir/$sbatch_file =="
     sbatch --wait "$sbatch_file"
     echo "--- recorded jobs ($example_dir) ---"
-    if [ -x ./lazy_slurmise ]; then
+    if [ -x ./slrmise ]; then
       # lazy_recording proposal dir: its prototype keeps its own sqlite db
-      ./lazy_slurmise --toml slurmise.toml display || true
+      ./slrmise --toml slurmise.toml display || true
     else
       slurmise --toml slurmise.toml print || true
     fi

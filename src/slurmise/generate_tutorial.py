@@ -62,7 +62,7 @@ def main(dest):
                 script.chmod(script.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
     # The lazy_recording proposal's sbatch files invoke this prototype directly.
-    lazy_script = Path(dest) / "lazy_recording" / "lazy_slurmise"
+    lazy_script = Path(dest) / "lazy_recording" / "slrmise"
     if lazy_script.is_file():
         lazy_script.chmod(lazy_script.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
