@@ -7,15 +7,33 @@
 #SBATCH --job-name=perfectScaler
 #SBATCH --output=out_slurm_logs/slurm-%x-%j.out
 
-# Approach 1: eager (upstream-style) -- command specified twice, exactly as
-# tutorial 01 does it (no --step-id: with a single srun, sacct's last listed
-# step is the right one, and the row is keyed by the bare job id).
-# `|| true` so the known eager sacct race can't fail the job; a missing
-# eager row in the database is itself the interesting result.
-srun ../bin/perfectScaler --intensity 5000 --duration 10
-./slrmise --toml slurmise.toml record \
-    "perfectScaler --intensity 5000 --duration 10" || true
+###############################################
+#                                             #
+# Approach 1: (current-style) Run then record #
+#                                             #
+###############################################
+srun ../bin/perfectScaler --intensity 4444 --duration 20
 
-# Approach 2: lazy (record-then-exec) -- command specified once
+./slrmise --toml slurmise.toml record \
+    "perfectScaler --intensity 4444 --duration 20"
+
+./slrmise display
+
+#######################################################
+#                                                     #
+# Approach 2: Wrap the command like when using `time` #
+#                                                     #
+#######################################################
+# slrmise adds a "stub" to the database.
+# It doesn't have time/mem info yet because it is running inside the job.
+# Then it hands off the process to the wrapped command with os.execvp()
 srun ./slrmise --toml slurmise.toml lazy-record -- \
-    ../bin/perfectScaler --intensity 5000 --duration 10
+    ../bin/perfectScaler --intensity 5555 --duration 20
+
+# `no-update-display` prints contents of database, NOTE time/mem not filled in!
+./slrmise no-update-display
+
+# `display` first backfills then displays. The lazy step above has finished,
+# so even though this job is still running, the step's final time/mem/state
+# are available and get filled in here.
+./slrmise display

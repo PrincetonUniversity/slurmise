@@ -76,10 +76,16 @@ later. The prototype only adds the terminal-state guard and the
 `method`/`state` bookkeeping (stored as HDF5 attributes on each job's group).
 
 Metrics are filled in later, at read time (`display` or the standalone
-`backfill` subcommand), which polls `sacct` and only writes
-runtime/memory/state once the job has reached a **terminal** state
-(COMPLETED/FAILED/TIMEOUT/OUT_OF_MEMORY/CANCELLED) -- so a still-running job
-never gets partial data recorded against it. Trade-offs:
+`backfill` subcommand; `--toml` is optional for these -- they default to the
+standard `./slurmise.h5`). Backfill polls `sacct` and only writes
+runtime/memory/state once the row's own srun **step** has reached a terminal
+state (COMPLETED/FAILED/TIMEOUT/OUT_OF_MEMORY/CANCELLED) -- so a still-running
+step never gets partial data recorded against it. A step's elapsed/MaxRSS are
+final once the step ends, so a `display` later in the same sbatch script can
+already fill in earlier steps while the job itself is still running; rows
+keyed by a bare job id instead wait for the whole job to end. The final state
+is stamped as soon as it is known, even if sacct is lagging on the metrics.
+Trade-offs:
 - **Single specification**, no wrapper process during the run.
 - Metrics aren't available until someone calls `display`/`backfill` after
   the job finishes -- there's no "read-your-writes" immediately after

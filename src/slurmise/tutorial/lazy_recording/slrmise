@@ -13,6 +13,8 @@ from slurmise import slurm
 from slurmise.config import SlurmiseConfiguration
 from slurmise.job_database import JobDatabase
 
+TERMINAL_STATES = {"COMPLETED", "FAILED", "TIMEOUT", "OUT_OF_MEMORY", "CANCELLED"}
+
 
 def get_current_step_id() -> str | None:
     """Return the step ID of the current SLURM step, or None when not inside an srun step."""
@@ -28,6 +30,14 @@ def job_state(sacct_json: dict) -> str:
         raise ValueError(msg) from e
 
 
+def step_state(sacct_json: dict, step_key: str) -> str | None:
+    """Return the state of step `<jobid>.<stepid>`, or None if sacct doesn't list it yet."""
+    for step in sacct_json["jobs"][0]["steps"]:
+        if step["step"]["id"] == step_key:
+            return step["state"][0]
+    return None
+
+
 def set_job_attrs(db: JobDatabase, jd, **attrs) -> None:
     """Stamp attributes (method, state) on a job's HDF5 group."""
     table = db.db[JobDatabase.get_table_name(jd)]
@@ -35,14 +45,17 @@ def set_job_attrs(db: JobDatabase, jd, **attrs) -> None:
         table.attrs[key] = value
 
 
-def backfill_pending(config: SlurmiseConfiguration) -> None:
+def backfill_pending(db_filename) -> None:
     """Fill in runtime/memory/state for rows still missing metrics.
 
-    Groups pending rows by their base job id so each job needs only one
-    terminal-state check, and skips jobs that are not yet in a terminal
-    state (a job still running only has partial sacct data).
+    A row is backfilled as soon as its own srun *step* is terminal: a step's
+    elapsed/MaxRSS are final once the step ends, even while the job is still
+    running (e.g. `display` called later in the same sbatch script). Rows
+    keyed by a bare job id (no step) wait for the whole job to be terminal.
+    The final state is stamped as soon as it is known, even if sacct can't
+    provide the metrics yet.
     """
-    with JobDatabase.get_database(config.db_filename) as db:
+    with JobDatabase.get_database(db_filename) as db:
         # Collect jobs without recorded time/mem
         jobs_to_rows = {}
         for _, jobs in db.iterate_database():
@@ -51,23 +64,29 @@ def backfill_pending(config: SlurmiseConfiguration) -> None:
                     job_id, _ = slurm.split_job_id(jd.slurm_id)
                     jobs_to_rows.setdefault(job_id, []).append(jd)
 
-        # Iterate and update jobs w/out record time/mem
+        # Iterate and update jobs w/out recorded time/mem
         for job_id, rows in jobs_to_rows.items():
             try:
                 sacct_json = slurm.get_slurm_job_sacct(job_id)
             except ValueError:
                 continue  # sacct data not available yet; try again next time
 
-            state = job_state(sacct_json)
-            if state not in {"COMPLETED", "FAILED", "TIMEOUT", "OUT_OF_MEMORY", "CANCELLED"}:
-                continue  # job still running; only partial data would be available
-
             for jd in rows:
+                _, step_id = slurm.split_job_id(jd.slurm_id)
+                if step_id is not None:
+                    state = step_state(sacct_json, f"{job_id}.{step_id}")
+                else:
+                    state = job_state(sacct_json)
+
+                if state not in TERMINAL_STATES:
+                    continue  # step/job still running (or not in sacct yet)
+
+                # Stamp the final state even if the metrics lag behind
+                set_job_attrs(db, jd, state=state)
                 try:
-                    (updated,) = db.update_missing_data([jd])
+                    db.update_missing_data([jd])
                 except ValueError:
-                    continue
-                set_job_attrs(db, updated, state=state)
+                    continue  # metrics not in sacct yet; row stays pending
 
 
 def record(args):
@@ -112,7 +131,7 @@ def lazy_record(args):
                 ../bin/perfectScaler --intensity 5000 --duration 10
 
     Metrics (runtime/memory/state) are absent until `backfill_pending()` fills
-    them in once the job reaches a terminal state -- never during this call.
+    them in once this step reaches a terminal state -- never during this call.
     """
     cmd = args.command
 
@@ -136,12 +155,19 @@ def lazy_record(args):
     os.execvp(cmd[0], cmd)
 
 
+def resolve_db_filename(args) -> pathlib.Path:
+    """DB path from --toml when given, else slurmise's default ./slurmise.h5."""
+    if args.toml is not None:
+        return SlurmiseConfiguration(args.toml).db_filename
+    return pathlib.Path("slurmise.h5")
+
+
 def backfill(args):
-    backfill_pending(SlurmiseConfiguration(args.toml))
+    backfill_pending(resolve_db_filename(args))
 
 
-def print_db(config: SlurmiseConfiguration) -> None:
-    with JobDatabase.get_database(config.db_filename) as db:
+def print_db(db_filename) -> None:
+    with JobDatabase.get_database(db_filename) as db:
         rows = []
         for _, jobs in db.iterate_database():
             for jd in jobs:
@@ -171,20 +197,23 @@ def print_db(config: SlurmiseConfiguration) -> None:
 
 
 def display(args):
-    config = SlurmiseConfiguration(args.toml)
-    backfill_pending(config)  # before printing, fill in any newly-terminal jobs
-    print_db(config)
+    db_filename = resolve_db_filename(args)
+    backfill_pending(db_filename)  # before printing, fill in any newly-terminal rows
+    print_db(db_filename)
 
 
 def no_update_display(args):
     """Print the database exactly as-is, without backfilling pending rows."""
-    print_db(SlurmiseConfiguration(args.toml))
+    print_db(resolve_db_filename(args))
 
 
 def main():
     parser = argparse.ArgumentParser(description="slrmise")
     parser.add_argument(
-        "--toml", type=pathlib.Path, required=True, help="Path to TOML config (the database path comes from it)"
+        "--toml",
+        type=pathlib.Path,
+        help="Path to TOML config; required for record/lazy-record, optional for "
+        "display/backfill (which then use the default ./slurmise.h5)",
     )
     parser.add_argument(
         "--step-id", type=str, default=None, help="SLURM step id to attribute an eager record to (record only)"
@@ -231,6 +260,8 @@ def main():
     backfill_parser.set_defaults(func=backfill)
 
     args = parser.parse_args()
+    if args.action in ("record", "lazy-record") and args.toml is None:
+        parser.error(f"{args.action} requires --toml")
     if args.action == "lazy-record":
         # Strip a leading "--" separator if present (argparse.REMAINDER keeps it).
         if args.command and args.command[0] == "--":
