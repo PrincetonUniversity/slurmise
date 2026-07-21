@@ -1,7 +1,7 @@
 # Proposal: `lazy-record` (record-then-exec)
 
 > **This is a design proposal, not a slurmise feature.** Everything here runs
-> against `./slrmise`, a small prototype that imports the installed
+> using `./slrmise`, a small prototype that imports the installed
 > slurmise package (config/job_spec parsing, sacct helpers, and the HDF5
 > `JobDatabase` -- no slurmise source is modified) and adds only the lazy
 > recording logic on top. It lives in the tutorial tree only so it can ride
@@ -77,14 +77,25 @@ later. The prototype only adds the terminal-state guard and the
 
 Metrics are filled in later, at read time (`display` or the standalone
 `backfill` subcommand; `--toml` is optional for these -- they default to the
-standard `./slurmise.h5`). Backfill polls `sacct` and only writes
-runtime/memory/state once the row's own srun **step** has reached a terminal
-state (COMPLETED/FAILED/TIMEOUT/OUT_OF_MEMORY/CANCELLED) -- so a still-running
-step never gets partial data recorded against it. A step's elapsed/MaxRSS are
-final once the step ends, so a `display` later in the same sbatch script can
-already fill in earlier steps while the job itself is still running; rows
-keyed by a bare job id instead wait for the whole job to end. The final state
-is stamped as soon as it is known, even if sacct is lagging on the metrics.
+standard `./slurmise.h5`). Backfill re-checks every row that hasn't *settled*
+-- a row is settled once it has both metrics **and** a terminal state
+(COMPLETED/FAILED/TIMEOUT/OUT_OF_MEMORY/CANCELLED); anything else is looked up
+in `sacct` again on the next read. Two rules keep this safe:
+
+- **State is always refreshed** to sacct's current value -- step-level for
+  `<jobid>.<stepid>` rows, job-level for bare-job-id rows. A row recorded
+  mid-job as RUNNING therefore converges to its terminal state on a later
+  read. (This is what stops eager rows from being frozen at RUNNING forever.)
+- **Metrics are only filled when the step/job is terminal and the metric is
+  still absent** -- never overwritten. A still-running step never gets partial
+  data recorded against it, and a bare-job-id row's metrics are never
+  re-fetched (the "last listed step" heuristic drifts once more steps exist).
+
+Because a step's elapsed/MaxRSS are final the moment the step ends, a
+`display` later in the same sbatch script can already settle earlier steps
+while the job itself is still running; a bare-job-id eager row only settles on
+a read issued *after* the whole job ends.
+
 Trade-offs:
 - **Single specification**, no wrapper process during the run.
 - Metrics aren't available until someone calls `display`/`backfill` after

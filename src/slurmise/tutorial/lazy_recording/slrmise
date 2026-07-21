@@ -46,25 +46,32 @@ def set_job_attrs(db: JobDatabase, jd, **attrs) -> None:
 
 
 def backfill_pending(db_filename) -> None:
-    """Fill in runtime/memory/state for rows still missing metrics.
+    """Refresh state (and fill metrics) for rows that haven't settled yet.
 
-    A row is backfilled as soon as its own srun *step* is terminal: a step's
-    elapsed/MaxRSS are final once the step ends, even while the job is still
-    running (e.g. `display` called later in the same sbatch script). Rows
-    keyed by a bare job id (no step) wait for the whole job to be terminal.
-    The final state is stamped as soon as it is known, even if sacct can't
-    provide the metrics yet.
+    A row is "settled" once it has both metrics AND a terminal state; settled
+    rows are skipped. Everything else is re-checked against sacct:
+
+    - state is always refreshed to sacct's current value -- step-level for
+      `<jobid>.<stepid>` rows, job-level for bare-job-id rows -- so a row
+      recorded mid-job as RUNNING converges to its terminal state on a later
+      read (this is what un-freezes the eager RUNNING rows).
+    - metrics are only filled when they are currently absent AND the step/job
+      is terminal. We never overwrite existing metrics: for a bare-job-id row
+      the "last listed step" heuristic is unstable once more steps exist, and
+      a terminal step's metrics never change anyway.
     """
     with JobDatabase.get_database(db_filename) as db:
-        # Collect jobs without recorded time/mem
+        # Collect unsettled rows: missing metrics OR a non-terminal stored state
         jobs_to_rows = {}
         for _, jobs in db.iterate_database():
             for jd in jobs:
-                if jd.runtime is None or jd.memory is None:
+                attrs = db.db[JobDatabase.get_table_name(jd)].attrs
+                settled = jd.runtime is not None and jd.memory is not None and attrs.get("state") in TERMINAL_STATES
+                if not settled:
                     job_id, _ = slurm.split_job_id(jd.slurm_id)
                     jobs_to_rows.setdefault(job_id, []).append(jd)
 
-        # Iterate and update jobs w/out recorded time/mem
+        # One grouped sacct call per job, then refresh each of its unsettled rows
         for job_id, rows in jobs_to_rows.items():
             try:
                 sacct_json = slurm.get_slurm_job_sacct(job_id)
@@ -73,20 +80,25 @@ def backfill_pending(db_filename) -> None:
 
             for jd in rows:
                 _, step_id = slurm.split_job_id(jd.slurm_id)
-                if step_id is not None:
-                    state = step_state(sacct_json, f"{job_id}.{step_id}")
-                else:
-                    state = job_state(sacct_json)
-
-                if state not in TERMINAL_STATES:
-                    continue  # step/job still running (or not in sacct yet)
-
-                # Stamp the final state even if the metrics lag behind
-                set_job_attrs(db, jd, state=state)
                 try:
-                    db.update_missing_data([jd])
+                    if step_id is not None:
+                        state = step_state(sacct_json, f"{job_id}.{step_id}")
+                    else:
+                        state = job_state(sacct_json)
                 except ValueError:
-                    continue  # metrics not in sacct yet; row stays pending
+                    continue  # sacct has no parseable state for this job yet
+                if state is None:
+                    continue  # step not listed in sacct yet
+
+                # Always refresh the state (RUNNING -> terminal converges here)
+                set_job_attrs(db, jd, state=state)
+
+                # Fill metrics only when terminal and still missing; never overwrite
+                if state in TERMINAL_STATES and (jd.runtime is None or jd.memory is None):
+                    try:
+                        db.update_missing_data([jd])
+                    except ValueError:
+                        continue  # metrics not in sacct yet; row stays pending
 
 
 def record(args):
