@@ -7,6 +7,10 @@
 #SBATCH --job-name=perfectScaler_loop
 #SBATCH --output=out_slurm_logs/slurm-%x-%j.out
 
+# Start from a clean database so this example's output stands alone
+# (lazy_recording/ holds two sbatch files that share ./slurmise.h5).
+rm -f slurmise.h5
+
 # Specify 13 runs on the perfect scaler.
 #
 #       Runs:  1   2     3    4    5    6    7    8    9   10   11   12   13
@@ -21,20 +25,18 @@ for i in "${!intensities[@]}"; do
     intensity=${intensities[$i]}
     duration=${durations[$i]}
 
-    # srun the command and then record (eager). Unlike the single-job demo,
-    # --step-id is required here: it targets the right step's metrics AND
-    # keeps the 13 eager rows' database keys (<jobid>.<step>) unique --
-    # without it every eager record would collide on the bare job id.
-    # `|| true` so the known eager sacct race can't fail the job; a missing
-    # row is itself the result.
+    # srun the command and then record (eager)
+    # --step-id is required to target the right step's metrics AND
+    # keeps the 13 database keys (<jobid>.<step>) unique
     srun ../bin/perfectScaler --intensity "$intensity" --duration "$duration"
 
     ./slrmise --toml slurmise.toml --step-id "$step" record \
-        "perfectScaler --intensity $intensity --duration $duration" || true
+        "perfectScaler --intensity $intensity --duration $duration"
 
     step=$((step + 1))
 
-    # srun the wrapped command, which records itself (lazy)
+    # srun the wrapped command, which records just a stub (lazy)
+    # No need to provide --step-id since slrmise has access to SLURM_STEP_ID here
     srun ./slrmise --toml slurmise.toml lazy-record -- \
         ../bin/perfectScaler --intensity "$intensity" --duration "$duration"
 
