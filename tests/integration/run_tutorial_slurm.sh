@@ -17,7 +17,8 @@ set -euo pipefail
 # Environment knobs:
 #   EXAMPLES        space-separated list of examples to run (default "01 02-perfect").
 #                   Tokens: 01 02-perfect 02-complex 03-perfect 03-complex
-#                           03-category  (or "all"). See run_example() below.
+#                           03-category lazy-single lazy-loop (or "all").
+#                           See run_example() below.
 #   RUN_ACCT_PROBE  set to 1 to run the accounting probe first (CI uses this on a
 #                   freshly stood-up cluster; skip it on a real cluster).
 #   SBATCH_ACCOUNT  honored natively by sbatch -- export it on clusters that
@@ -33,7 +34,7 @@ export PATH="$VENV_BIN:$PATH"
 
 EXAMPLES="${EXAMPLES:-01 02-perfect}"
 if [ "$EXAMPLES" = "all" ]; then
-  EXAMPLES="01 02-perfect 02-complex 03-perfect 03-complex 03-category"
+  EXAMPLES="01 02-perfect 02-complex 03-perfect 03-complex 03-category lazy-single lazy-loop"
 fi
 
 # Overridable so CI can point it at a known path to upload as an artifact.
@@ -59,6 +60,8 @@ example_path() {
     03-perfect)     echo "03_array_jobs/run_perfectScaler.sbatch" ;;
     03-complex)     echo "03_array_jobs/run_complexMemScaler.sbatch" ;;
     03-category) echo "03_array_jobs/run_categoryScaler.sbatch" ;;
+    lazy-single)    echo "lazy_recording/run_perfectScaler.sbatch" ;;
+    lazy-loop)      echo "lazy_recording/run_perfectScaler_loop.sbatch" ;;
     *) echo "unknown EXAMPLES token: $1" >&2; return 1 ;;
   esac
 }
@@ -73,7 +76,12 @@ run_sbatch() {
     echo "== submitting $example_dir/$sbatch_file =="
     sbatch --wait "$sbatch_file"
     echo "--- recorded jobs ($example_dir) ---"
-    slurmise --toml slurmise.toml print || true
+    if [ -x ./lazy_slurmise ]; then
+      # lazy_recording proposal dir: its prototype keeps its own sqlite db
+      ./lazy_slurmise --toml slurmise.toml display || true
+    else
+      slurmise --toml slurmise.toml print || true
+    fi
   )
 }
 

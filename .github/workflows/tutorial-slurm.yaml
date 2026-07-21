@@ -84,7 +84,7 @@ jobs:
       - name: Run tutorial integration
         env:
           RUN_ACCT_PROBE: "1"
-          EXAMPLES: "01 02-perfect"
+          EXAMPLES: "01 02-perfect lazy-single lazy-loop"
           WORK: ${{ github.workspace }}/tutorial-run
         run: ./tests/integration/run_tutorial_slurm.sh
 

@@ -16,7 +16,16 @@ import click
 # Artifacts produced by running the tutorial; ship the starting point only.
 # In editable installs the source tree is copied directly, so these must be
 # filtered here rather than relying on the wheel's exclude-package-data.
-EXCLUDE_PATTERNS = ("slurm*.out", "*.h5", "*.pkl", "fits.json", "slurm_outs")
+EXCLUDE_PATTERNS = (
+    "slurm*.out",
+    "*.h5",
+    "*.pkl",
+    "fits.json",
+    "slurm_outs",
+    "out_slurm_logs",
+    "local.sql",
+    "__pycache__",
+)
 
 
 def _copy_tree(src: Path, dest: Path) -> None:
@@ -51,6 +60,11 @@ def main(dest):
         for script in bin_dir.iterdir():
             if script.is_file():
                 script.chmod(script.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+
+    # The lazy_recording proposal's sbatch files invoke this prototype directly.
+    lazy_script = Path(dest) / "lazy_recording" / "lazy_slurmise"
+    if lazy_script.is_file():
+        lazy_script.chmod(lazy_script.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
     click.echo(f"Tutorial written to {dest}/")
     click.echo("Open the README there, then `cd` into 01_single_job/ to begin.")
