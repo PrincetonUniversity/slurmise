@@ -20,6 +20,10 @@ to access this file.
   to actually train a model, then use `slurmise predict`.
 - [03_array_jobs](03_array_jobs/) — Run jobs in parallel using a SLURM array,
   including a categorical job to show how slurmise handles non-numeric inputs.
+- [lazy_recording](lazy_recording/) — **Not a slurmise feature**: a
+  self-contained prototype of a proposed `lazy-record` command that wraps the
+  job instead of requiring the command to be specified twice. Here temporarily
+  so it can ride the tutorial CI while the idea is discussed.
 
 ## The test jobs
 

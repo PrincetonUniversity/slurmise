@@ -1,0 +1,263 @@
+#!/usr/bin/env python3
+"""Prototype comparing slurmise's eager `record` against a proposed lazy
+`lazy-record` (record-then-exec + read-time backfill).
+
+This is a design proposal, not a slurmise feature. It imports the installed
+slurmise package (config parsing, sacct helpers, and the HDF5 JobDatabase --
+no slurmise source is modified) and adds only what the proposal needs:
+
+- placeholder rows: `JobDatabase.record()` already skips the memory/runtime
+  datasets when they are None, so a lazy row is just a job recorded before
+  its metrics exist;
+- read-time backfill: `JobDatabase.update_missing_data()` already fills
+  missing metrics from sacct; we add the guard that a job must be in a
+  TERMINAL state first, so a still-running job never records partial data;
+- a `method` (eager/lazy) and final job `state` stamped as HDF5 attributes
+  on each job's group, so the two recording styles can be compared.
+"""
+
+from __future__ import annotations
+
+import argparse
+import os
+import pathlib
+
+from slurmise import slurm
+from slurmise.config import SlurmiseConfiguration
+from slurmise.job_database import JobDatabase
+
+TERMINAL_STATES = {"COMPLETED", "FAILED", "TIMEOUT", "OUT_OF_MEMORY", "CANCELLED"}
+
+
+def get_current_step_id() -> str | None:
+    """Return the step ID of the current SLURM step, or None when not inside an srun step."""
+    return os.environ.get("SLURM_STEP_ID")
+
+
+def job_state(sacct_json: dict) -> str:
+    """Return the job-level state from sacct JSON output."""
+    try:
+        return sacct_json["jobs"][0]["state"]["current"][0]
+    except Exception as e:
+        msg = f"Could not parse job state from sacct cmd:\n\n {sacct_json}"
+        raise ValueError(msg) from e
+
+
+def set_job_attrs(db: JobDatabase, jd, **attrs) -> None:
+    """Stamp attributes (method, state) on a job's HDF5 group."""
+    table = db.db[JobDatabase.get_table_name(jd)]
+    for key, value in attrs.items():
+        table.attrs[key] = value
+
+
+def backfill_pending(config: SlurmiseConfiguration) -> None:
+    """Fill in runtime/memory/state for rows still missing metrics.
+
+    Groups pending rows by their base job id so each job needs only one
+    terminal-state check, and skips jobs that are not yet in a terminal
+    state (a job still running only has partial sacct data).
+    """
+    with JobDatabase.get_database(config.db_filename) as db:
+        jobs_to_rows = {}
+        for _, jobs in db.iterate_database():
+            for jd in jobs:
+                if jd.runtime is None or jd.memory is None:
+                    job_id, _ = slurm.split_job_id(jd.slurm_id)
+                    jobs_to_rows.setdefault(job_id, []).append(jd)
+
+        for job_id, rows in jobs_to_rows.items():
+            try:
+                sacct_json = slurm.get_slurm_job_sacct(job_id)
+            except ValueError:
+                continue  # sacct data not available yet; try again next time
+
+            state = job_state(sacct_json)
+            if state not in TERMINAL_STATES:
+                continue  # job still running; only partial data would be available
+
+            for jd in rows:
+                try:
+                    (updated,) = db.update_missing_data([jd])
+                except ValueError:
+                    continue
+                set_job_attrs(db, updated, state=state)
+
+
+def record(args):
+    """Eager record, mimicking upstream slurmise: run *after* the srun
+
+        srun ../bin/perfectScaler --intensity 5000 --duration 10
+        ./lazy_slurmise --toml slurmise.toml record "perfectScaler --intensity 5000 --duration 10"
+
+    Runs in the batch shell, which has no SLURM_STEP_ID, so it cannot know
+    which srun step just finished. Pass --step-id to attribute the record to a
+    specific step; otherwise sacct's last listed step is used (upstream's
+    heuristic).
+
+    Does a one-shot sacct read. If accounting data isn't committed yet
+    (slurmdbd lag), this fails loudly instead of retrying -- that fragility
+    is exactly what `lazy-record` avoids.
+    """
+    config = SlurmiseConfiguration(args.toml)
+    jd = config.parse_job_cmd(cmd=args.command, step_id=args.step_id)
+    jd.slurm_id = slurm.resolve_job_id(jd.slurm_id)
+    job_id, step_id = slurm.split_job_id(jd.slurm_id)
+
+    try:
+        metadata = slurm.parse_slurm_job_metadata(job_id, step_id)
+    except ValueError as e:
+        msg = (
+            f"Could not fetch sacct metadata for job {jd.slurm_id} right after it ran. "
+            "This is the eager-record race: slurmdbd may not have the job's "
+            "accounting data yet. Try `lazy-record` instead, or re-run `record` "
+            "later once sacct has the data."
+        )
+        raise SystemExit(msg) from e
+
+    jd.memory = metadata["max_rss"]
+    jd.runtime = metadata["elapsed_seconds"]
+
+    with JobDatabase.get_database(config.db_filename) as db:
+        db.record(jd)
+        set_job_attrs(db, jd, method="eager", state=metadata["state"])
+
+
+def lazy_record(args):
+    """Lazy record: insert a placeholder row, then exec the wrapped command in place.
+
+        srun ./lazy_slurmise --toml slurmise.toml lazy-record -- \\
+                ../bin/perfectScaler --intensity 5000 --duration 10
+
+    Metrics (runtime/memory/state) are absent until `backfill_pending()` fills
+    them in once the job reaches a terminal state -- never during this call.
+    """
+    cmd = args.command
+
+    job_id = slurm.get_current_job_id()
+    if job_id is None:
+        raise SystemExit(
+            "lazy-record must be run inside a SLURM job/step: the SLURM_JOB_ID "
+            "environment variable is not set (not inside a SLURM job)."
+        )
+
+    config = SlurmiseConfiguration(args.toml)
+    jd = config.parse_job_cmd(
+        cmd=" ".join(cmd[1:]),
+        job_name=pathlib.Path(cmd[0]).name,
+        slurm_id=job_id,
+        step_id=get_current_step_id(),
+    )
+
+    with JobDatabase.get_database(config.db_filename) as db:
+        db.record(jd)  # memory/runtime are None -> placeholder row
+        set_job_attrs(db, jd, method="lazy")
+
+    os.execvp(cmd[0], cmd)
+
+
+def backfill(args):
+    backfill_pending(SlurmiseConfiguration(args.toml))
+
+
+def print_db(config: SlurmiseConfiguration) -> None:
+    with JobDatabase.get_database(config.db_filename) as db:
+        rows = []
+        for _, jobs in db.iterate_database():
+            for jd in jobs:
+                attrs = db.db[JobDatabase.get_table_name(jd)].attrs
+                # .item() unwraps numpy scalars so features print as plain numbers
+                numerics = {k: v.item() if hasattr(v, "item") else v for k, v in jd.numerics.items()}
+                features = {**jd.categories, **numerics}
+                rows.append(
+                    (
+                        jd.slurm_id,
+                        jd.job_name,
+                        jd.runtime,
+                        jd.memory,
+                        attrs.get("method", "?"),
+                        attrs.get("state", None),
+                        features,
+                    )
+                )
+
+    rows.sort(key=lambda r: r[0])
+    print(f"{'slurm_id':<15} {'job_name':<15} {'runtime':<10} {'memory':<10} {'method':<8} {'state':<12} features")
+    for slurm_id, job_name, runtime, memory, method, state, features in rows:
+        print(
+            f"{slurm_id:<15} {job_name:<15} {str(runtime):<10} {str(memory):<10} "
+            f"{str(method):<8} {str(state):<12} {features}"
+        )
+
+
+def display(args):
+    config = SlurmiseConfiguration(args.toml)
+    backfill_pending(config)  # before printing, fill in any newly-terminal jobs
+    print_db(config)
+
+
+def no_update_display(args):
+    """Print the database exactly as-is, without backfilling pending rows."""
+    print_db(SlurmiseConfiguration(args.toml))
+
+
+def main():
+    parser = argparse.ArgumentParser(description="lazy_slurmise")
+    parser.add_argument(
+        "--toml", type=pathlib.Path, required=True, help="Path to TOML config (the database path comes from it)"
+    )
+    parser.add_argument(
+        "--step-id", type=str, default=None, help="SLURM step id to attribute an eager record to (record only)"
+    )
+    subparsers = parser.add_subparsers(dest="action", required=True)
+
+    # Record (eager, mimics upstream)
+    record_parser = subparsers.add_parser(
+        "record",
+        help="Eager record: run after `srun cmd` and pass the command as one quoted string.",
+    )
+    record_parser.add_argument(
+        "command", help='Wrapped command as one quoted string, e.g. "perfectScaler --intensity 5000 --duration 10"'
+    )
+    record_parser.set_defaults(func=record)
+
+    # Lazy record (record-then-exec)
+    lazy_record_parser = subparsers.add_parser(
+        "lazy-record",
+        help="Lazy record: insert a placeholder row then exec the command in place.",
+    )
+    lazy_record_parser.add_argument(
+        "command",
+        nargs=argparse.REMAINDER,
+        help="Wrapped command to exec, e.g. -- ../bin/perfectScaler --intensity 5000 --duration 10",
+    )
+    lazy_record_parser.set_defaults(func=lazy_record)
+
+    # Display
+    display_parser = subparsers.add_parser("display", help="Print recorded jobs (backfills pending rows first).")
+    display_parser.set_defaults(func=display)
+
+    # No-update display
+    no_update_display_parser = subparsers.add_parser(
+        "no-update-display",
+        help="Print recorded jobs as-is, without backfilling pending rows.",
+    )
+    no_update_display_parser.set_defaults(func=no_update_display)
+
+    # Backfill
+    backfill_parser = subparsers.add_parser(
+        "backfill", help="Backfill pending runtime/memory/state without displaying."
+    )
+    backfill_parser.set_defaults(func=backfill)
+
+    args = parser.parse_args()
+    if args.action == "lazy-record":
+        # Strip a leading "--" separator if present (argparse.REMAINDER keeps it).
+        if args.command and args.command[0] == "--":
+            args.command = args.command[1:]
+        if not args.command:
+            parser.error("lazy-record requires a command after `--`")
+    args.func(args)
+
+
+if __name__ == "__main__":
+    main()

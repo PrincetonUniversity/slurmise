@@ -1,0 +1,6 @@
+[slurmise]
+base_dir = "."
+
+[slurmise.job.perfectScaler]
+job_spec = "--intensity {intensity:numeric} --duration {duration:numeric}"
+default_time = 234
