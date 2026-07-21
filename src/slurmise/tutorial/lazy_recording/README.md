@@ -58,7 +58,7 @@ sequenceDiagram
         rec->>h5: write complete row (features + runtime + memory + state)
     else not committed yet (the race)
         slurm-->>rec: step not found
-        rec-->>rec: fail loudly (SystemExit); row is lost
+        rec-->>rec: fail loudly (SystemExit), row is lost
     end
 ```
 
@@ -109,7 +109,7 @@ sequenceDiagram
     participant slurm as SLURM database
     participant disp as slrmise display / backfill
 
-    lazy->>h5: write placeholder row<br/>(features known; runtime/memory/state = None)
+    lazy->>h5: write placeholder row<br/>(features known, runtime/memory/state = None)
     lazy->>cmd: os.execvp() hands off the process (no python left running)
     cmd->>slurm: run, then report accounting when the step ends
 
@@ -117,7 +117,7 @@ sequenceDiagram
     disp->>h5: find unsettled rows (missing metrics or non-terminal state)
     disp->>slurm: sacct -j <job> --json
     slurm-->>disp: step state (+ runtime/max_rss if the step is terminal)
-    disp->>h5: refresh state; fill runtime/memory once the step is terminal
+    disp->>h5: refresh state, fill runtime/memory once the step is terminal
 ```
 
 Trade-offs:
