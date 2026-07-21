@@ -46,20 +46,14 @@ srun ../bin/perfectScaler --intensity 5000 --duration 10
 ```mermaid
 sequenceDiagram
     participant srun as srun (the command)
-    participant rec as slrmise record
     participant slurm as SLURM database
+    participant rec as slrmise record
     participant h5 as h5 database
 
     srun->>slurm: run, then report accounting when the step ends
-    Note over rec: runs in the batch shell, after srun returns,<br/>while the job itself is still RUNNING
     rec->>slurm: sacct -j <job> --json
-    alt accounting already committed
-        slurm-->>rec: runtime, max_rss (+ job state = RUNNING)
-        rec->>h5: write complete row (features + runtime + memory + state)
-    else not committed yet (the race)
-        slurm-->>rec: step not found
-        rec-->>rec: fail loudly (SystemExit), row is lost
-    end
+    slurm-->>rec: runtime, max_rss (+ job state = RUNNING)
+    rec->>h5: write complete row (features + runtime + memory + state)
 ```
 
 Trade-offs:
@@ -113,11 +107,11 @@ sequenceDiagram
     lazy->>cmd: os.execvp() hands off the process (no python left running)
     cmd->>slurm: run, then report accounting when the step ends
 
-    Note over disp: later, at read time (job may still be running)
-    disp->>h5: find unsettled rows (missing metrics or non-terminal state)
-    disp->>slurm: sacct -j <job> --json
-    slurm-->>disp: step state (+ runtime/max_rss if the step is terminal)
-    disp->>h5: refresh state, fill runtime/memory once the step is terminal
+    disp->>h5: query for stubs (unsettled rows)
+    h5-->>disp: list of stubs
+    disp->>slurm: query missing sacct data
+    slurm-->>disp: sacct data (state + runtime/max_rss if terminal)
+    disp->>h5: backfill (refresh state, fill runtime/memory)
 ```
 
 Trade-offs:
