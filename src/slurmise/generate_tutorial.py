@@ -61,10 +61,12 @@ def main(dest):
             if script.is_file():
                 script.chmod(script.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
-    # The lazy_recording proposal's sbatch files invoke this prototype directly.
-    lazy_script = Path(dest) / "lazy_recording" / "slrmise"
-    if lazy_script.is_file():
-        lazy_script.chmod(lazy_script.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    # The slurmise_run proposal's scripts are invoked directly (./slrmise, ./*.sh).
+    proposal_dir = Path(dest) / "slurmise_run"
+    if proposal_dir.is_dir():
+        for script in [proposal_dir / "slrmise", *proposal_dir.glob("*.sh")]:
+            if script.is_file():
+                script.chmod(script.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
     click.echo(f"Tutorial written to {dest}/")
     click.echo("Open the README there, then `cd` into 01_single_job/ to begin.")

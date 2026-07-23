@@ -1,0 +1,438 @@
+#!/usr/bin/env python3
+"""Prototype of a slurmise that owns the run: predict a command's resources,
+submit it, and record what it actually used in a lazy, eventually-consistent
+way.
+"""
+
+from __future__ import annotations
+
+import dataclasses
+import pathlib
+import shlex
+import subprocess
+import sys
+from math import ceil
+
+import click
+
+from slurmise import slurm
+from slurmise.api import Slurmise
+from slurmise.config import SlurmiseConfiguration
+from slurmise.job_data import JobData
+from slurmise.job_database import JobDatabase
+
+TERMINAL_STATES = {"COMPLETED", "FAILED", "TIMEOUT", "OUT_OF_MEMORY", "CANCELLED"}
+MIN_FIT_SAMPLES = 10  # slurmise's own threshold below which predict returns defaults
+
+
+# ---------------------------------------------------------------------------
+# sacct helpers
+# ---------------------------------------------------------------------------
+
+
+def fetch_sacct(job_id: str) -> dict | None:
+    """Return the sacct JSON for a job, or None if it isn't available yet.
+
+    This is the one genuinely-expected failure (a job too fresh to appear, or
+    sacct erroring), so it fails quietly. Parsing the JSON below stays loud --
+    a parse error means slurmise's sacct contract changed, which we want to see.
+    """
+    try:
+        sacct_json = slurm.get_slurm_job_sacct(job_id)
+    except ValueError:
+        return None
+    return sacct_json if sacct_json.get("jobs") else None
+
+
+def job_state(sacct_json: dict) -> str:
+    """Return the job-level state from sacct JSON output."""
+    try:
+        return sacct_json["jobs"][0]["state"]["current"][0]
+    except Exception as e:
+        raise ValueError(f"Could not parse job state from sacct cmd:\n\n {sacct_json}") from e
+
+
+def job_level_metrics(sacct_json: dict) -> tuple[int, int]:
+    """Return (elapsed_seconds, max_rss_MB) for the whole job.
+
+    elapsed is a genuine job-level field, but sacct only reports memory per
+    step -- so the job's peak is the max over ALL steps (including .batch),
+    which also covers shell/module overhead the allocation had to provide.
+    (slurmise.slurm.parse_slurm_job_metadata iterates steps for memory the
+    same way.)
+    """
+    try:
+        job = sacct_json["jobs"][0]
+        elapsed = int(job["time"]["elapsed"])
+        max_rss = 0
+        for step in job["steps"]:
+            task_count = step["tasks"]["count"]
+            for item in step["tres"]["requested"]["max"]:
+                if item["type"] == "mem":
+                    max_rss = max(max_rss, ceil(item["count"] / (2**20)) * task_count)
+    except Exception as e:
+        raise ValueError(f"Could not parse job-level metrics from sacct cmd:\n\n {sacct_json}") from e
+    return elapsed, max_rss
+
+
+# ---------------------------------------------------------------------------
+# database
+# ---------------------------------------------------------------------------
+
+
+def set_job_attrs(db: JobDatabase, jd: JobData, **attrs) -> None:
+    """Add attributes (method, state, predictions) on a job's HDF5 group."""
+    table = db.db[JobDatabase.get_table_name(jd)]
+    for key, value in attrs.items():
+        table.attrs[key] = value
+
+
+def find_unsettled(db: JobDatabase) -> list[JobData]:
+    """Return rows that are not yet "settled" (both metrics AND a terminal state).
+
+    NOTE: a real implementation would index pending jobs instead of walking
+    the whole database on every sync.
+    """
+    pending = []
+    for _, jobs in db.iterate_database():
+        for jd in jobs:
+            state = db.db[JobDatabase.get_table_name(jd)].attrs.get("state")
+            has_metrics = jd.runtime is not None and jd.memory is not None
+            is_terminal = state in TERMINAL_STATES
+            if not (has_metrics and is_terminal):
+                pending.append(jd)
+    return pending
+
+
+def settle_row(db: JobDatabase, jd: JobData, sacct_json: dict) -> None:
+    """Refresh one row's state and, once terminal, fill any missing metrics."""
+    state = job_state(sacct_json)
+    set_job_attrs(db, jd, state=state)  # RUNNING -> terminal converges here
+
+    if state not in TERMINAL_STATES or (jd.runtime is not None and jd.memory is not None):
+        return
+
+    # Fill missing metrics, never overwrite existing ones
+    elapsed, max_rss = job_level_metrics(sacct_json)
+    db.record(
+        dataclasses.replace(
+            jd,
+            runtime=elapsed if jd.runtime is None else None,
+            memory=max_rss if jd.memory is None else None,
+            numerics={},
+        )
+    )
+
+
+def sync_pending(db_filename) -> None:
+    """Synchronize the database with sacct: refresh states, fill metrics.
+
+    Failed rows (TIMEOUT/OOM/...) keep their state as evidence; fitting
+    excludes them from training.
+    """
+    with JobDatabase.get_database(db_filename) as db:
+        for jd in find_unsettled(db):
+            sacct_json = fetch_sacct(jd.slurm_id)
+            if sacct_json is not None:
+                settle_row(db, jd, sacct_json)
+
+
+def fit_models(slurmise: Slurmise) -> None:
+    """Train per-command models from settled COMPLETED runs.
+
+    Non-COMPLETED rows (TIMEOUT/OOM) are kept as evidence but excluded from
+    training -- a TIMEOUT elapsed only says "longer than the limit". A command
+    is only fit once it has MIN_FIT_SAMPLES completed runs (below that, predict
+    returns defaults anyway, and the train/test split needs the data). For the
+    prototype we refit every time; a real version would skip if nothing new
+    completed.
+    """
+    model_path = slurmise.configuration.slurmise_base_dir
+
+    with JobDatabase.get_database(slurmise.configuration.db_filename) as db:
+        # Collect groups to fit inside the db context; fitting itself only
+        # touches on-disk model files, so it runs after we close the database.
+        to_fit = []
+        for query_jd, jobs in db.iterate_database():
+            complete = [
+                jd
+                for jd in jobs
+                if jd.runtime is not None
+                and jd.memory is not None
+                and db.db[JobDatabase.get_table_name(jd)].attrs.get("state") == "COMPLETED"
+            ]
+            if len(complete) >= MIN_FIT_SAMPLES:
+                to_fit.append((query_jd, complete))
+
+    for query_jd, complete in to_fit:
+        model_cls = slurmise.configuration.get_model_class(query_jd.job_name)
+        try:
+            model = model_cls.load(query=query_jd, path=model_path)
+        except FileNotFoundError:
+            model = model_cls(query=query_jd, path=model_path)
+        # fixed seed for a reproducible train/test split
+        model.fit(complete, random_state=42)
+        model.save()
+        click.echo(f"Fit {query_jd.job_name} on {len(complete)} completed runs")
+
+
+# ---------------------------------------------------------------------------
+# prediction
+# ---------------------------------------------------------------------------
+
+
+def predict_resources(slurmise: Slurmise, cmd: list, margin: float) -> tuple[int, int, list[str]]:
+    """Predict (mem_MB, time_minutes) for a command argv, with margin applied.
+
+    Hard-errors only when the command can't be parsed against the toml's
+    job_specs. Low-confidence predictions come back as warnings with the toml
+    defaults. The model stores runtime in seconds; sbatch --time wants minutes.
+    """
+    try:
+        query_jd, warns = slurmise.predict(cmd=" ".join(cmd[1:]), job_name=pathlib.Path(cmd[0]).name)
+    except ValueError as e:
+        raise click.ClickException(f"Could not parse command against the toml job_specs: {e}") from e
+
+    mem_mb = max(1, ceil(float(query_jd.memory) * margin))
+    minutes = max(1, ceil(float(query_jd.runtime) * margin / 60))
+    return mem_mb, minutes, warns
+
+
+def _same_numerics(a: dict, b: dict) -> bool:
+    """True if two feature dicts have the same keys and (numeric) values."""
+    return a.keys() == b.keys() and all(float(a[k]) == float(b[k]) for k in a)
+
+
+def adjust_from_exact_history(slurmise: Slurmise, command: list, mem_mb: int, minutes: int) -> tuple[int, int]:
+    """Override the prediction using history for the *exact same* parameters.
+
+    Exact-param history is the most specific evidence there is, so it wins over
+    the model:
+
+    - a prior SUCCESS is ground truth -> reuse the smallest allocation that
+      completed (known to work, and minimal avoids waste);
+    - with only FAILURES and no success, escalate past the largest failing
+      allocation (double the memory for OOM, the time for TIMEOUT), so a
+      repeatedly-underallocated job grows until it fits without waiting for the
+      model -- which matters when the model can't help (undersampled MaxRSS on
+      short jobs);
+    - with no exact-param history, keep the model/default prediction.
+    """
+    query_jd = slurmise.configuration.parse_job_cmd(cmd=" ".join(command[1:]), job_name=pathlib.Path(command[0]).name)
+
+    ok_mem, ok_sec = [], []  # allocations of COMPLETED runs at these exact params
+    worst_oom_mem = worst_timeout_sec = 0
+    with JobDatabase.get_database(slurmise.configuration.db_filename) as db:
+        for jd in db.query(query_jd):  # same job_name + categories
+            if not _same_numerics(jd.numerics, query_jd.numerics):
+                continue
+            attrs = db.db[JobDatabase.get_table_name(jd)].attrs
+            pred_mem = int(attrs.get("predicted_memory", 0))
+            pred_sec = int(attrs.get("predicted_runtime", 0))
+            match attrs.get("state"):
+                case "COMPLETED":
+                    ok_mem.append(pred_mem)
+                    ok_sec.append(pred_sec)
+                case "OUT_OF_MEMORY":
+                    worst_oom_mem = max(worst_oom_mem, pred_mem)
+                case "TIMEOUT":
+                    worst_timeout_sec = max(worst_timeout_sec, pred_sec)
+
+    if ok_mem:
+        mem_mb = min(ok_mem)  # known-good, prefer the tightest that worked
+    elif 2 * worst_oom_mem > mem_mb:
+        mem_mb = 2 * worst_oom_mem
+        click.echo(f"Prior OUT_OF_MEMORY at these params -> raising memory to {mem_mb}M", err=True)
+
+    if ok_sec:
+        minutes = max(1, ceil(min(ok_sec) / 60))
+    elif ceil(2 * worst_timeout_sec / 60) > minutes:
+        minutes = ceil(2 * worst_timeout_sec / 60)
+        click.echo(f"Prior TIMEOUT at these params -> raising time to {minutes} min", err=True)
+
+    return mem_mb, minutes
+
+
+def emit_warns(warns: list[str]) -> None:
+    for warn in warns:
+        click.echo(f"WARNING: {warn}", err=True)
+
+
+def _fmt(value) -> str:
+    """Render a metric/attr for the table -- unknowns show as '-', not 'None'."""
+    return "-" if value is None else str(value)
+
+
+def print_db(db_filename) -> None:
+    with JobDatabase.get_database(db_filename) as db:
+        rows = []
+        for _, jobs in db.iterate_database():
+            for jd in jobs:
+                attrs = db.db[JobDatabase.get_table_name(jd)].attrs
+                # .item() unwraps numpy scalars so features print as plain numbers
+                numerics = {k: v.item() if hasattr(v, "item") else v for k, v in jd.numerics.items()}
+                features = {**jd.categories, **numerics}
+                rows.append(
+                    (
+                        jd.slurm_id,
+                        jd.job_name,
+                        jd.runtime,
+                        jd.memory,
+                        attrs.get("predicted_runtime", None),
+                        attrs.get("predicted_memory", None),
+                        attrs.get("method", None),
+                        attrs.get("state", None),
+                        features,
+                    )
+                )
+
+    rows.sort(key=lambda r: r[0])
+    header = (
+        f"{'slurm_id':<12} {'job_name':<15} {'runtime':<8} {'memory':<8} "
+        f"{'pred_time':<10} {'pred_mem':<9} {'method':<7} {'state':<11} features"
+    )
+    click.echo(header)
+    for slurm_id, job_name, runtime, memory, pred_time, pred_mem, method, state, features in rows:
+        click.echo(
+            f"{slurm_id:<12} {job_name:<15} {_fmt(runtime):<8} {_fmt(memory):<8} "
+            f"{_fmt(pred_time):<10} {_fmt(pred_mem):<9} {_fmt(method):<7} {_fmt(state):<11} {features}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# CLI (click, like the real slurmise). The wrapped command (everything after
+# the first `--`) is split off in __main__ and passed via ctx.obj["command"],
+# because click consumes the `--` separator itself.
+# ---------------------------------------------------------------------------
+
+
+@click.group()
+@click.option(
+    "--toml",
+    "-t",
+    type=click.Path(exists=True),
+    required=False,
+    help="Path to the slurmise configuration file (required for run/predict)",
+)
+@click.pass_context
+def main(ctx, toml):
+    ctx.ensure_object(dict)  # obj already carries "command" from __main__
+    ctx.obj["toml"] = pathlib.Path(toml) if toml else None
+
+
+def _slurmise(ctx) -> Slurmise:
+    """Build the Slurmise API; requires --toml (for job_specs and models)."""
+    if ctx.obj["toml"] is None:
+        raise click.UsageError("this command requires --toml")
+    return Slurmise(ctx.obj["toml"])
+
+
+def _db_filename(ctx):
+    """DB path from --toml when given, else the default ./slurmise.h5."""
+    if ctx.obj["toml"] is not None:
+        return SlurmiseConfiguration(ctx.obj["toml"]).db_filename
+    return pathlib.Path("slurmise.h5")
+
+
+@main.command()
+@click.option("--margin", type=float, default=1.5, help="Safety factor on predicted resources")
+@click.option("--dry-run", is_flag=True, help="Print the sbatch command instead of submitting")
+@click.pass_context
+def run(ctx, margin, dry_run):
+    """Predict resources, sbatch the command, and record a stub for later sync.
+
+        ./slrmise --toml slurmise.toml run -- CMD...
+
+    Cluster-required flags (account, partition, ...) come from the usual sbatch
+    environment variables (SBATCH_ACCOUNT, ...).
+    """
+    command = ctx.obj["command"]
+    if not command:
+        raise click.UsageError("run requires a command after `--`")
+    slurmise = _slurmise(ctx)
+
+    sync_pending(slurmise.configuration.db_filename)  # settle prior runs
+    fit_models(slurmise)  # learn from any newly-finished runs
+
+    mem_mb, minutes, warns = predict_resources(slurmise, command, margin)
+    emit_warns(warns)
+    mem_mb, minutes = adjust_from_exact_history(slurmise, command, mem_mb, minutes)
+
+    sbatch_cmd = [
+        "sbatch",
+        "--parsable",
+        f"--mem={mem_mb}M",
+        f"--time={minutes}",
+        "--wrap",
+        shlex.join(command),
+    ]
+
+    if dry_run:
+        click.echo(shlex.join(sbatch_cmd))
+        return
+
+    result = subprocess.run(sbatch_cmd, capture_output=True, text=True, check=False)
+    if result.returncode != 0:
+        click.echo(result.stderr, err=True, nl=False)
+        raise SystemExit(result.returncode)
+    job_id = result.stdout.strip().split(";")[0]
+
+    # Add a stub to the database: run info known now, metrics arrive via sync
+    jd = slurmise.configuration.parse_job_cmd(
+        cmd=" ".join(command[1:]),
+        job_name=pathlib.Path(command[0]).name,
+        slurm_id=job_id,
+    )
+    with JobDatabase.get_database(slurmise.configuration.db_filename) as db:
+        db.record(jd)  # creates the group that set_job_attrs writes onto
+        set_job_attrs(
+            db,
+            jd,
+            method="run",
+            predicted_memory=mem_mb,
+            predicted_runtime=minutes * 60,
+            margin=margin,
+        )
+
+    click.echo(f"Submitted job {job_id} with --mem={mem_mb}M --time={minutes}")
+
+
+@main.command()
+@click.pass_context
+def predict(ctx):
+    """Predict resources for a command; submit nothing.
+
+        ./slrmise --toml slurmise.toml predict -- CMD...
+
+    Shows the raw model estimate (no safety margin -- that is `run`'s job).
+    """
+    command = ctx.obj["command"]
+    if not command:
+        raise click.UsageError("predict requires a command after `--`")
+    mem_mb, minutes, warns = predict_resources(_slurmise(ctx), command, margin=1.0)
+    emit_warns(warns)
+    click.echo(f"Predicted resources for {shlex.join(command)}:")
+    click.echo(f"  memory:  {mem_mb} MB")
+    click.echo(f"  time:    {minutes} min")
+
+
+@main.command()
+@click.option("--no-sync", is_flag=True, help="Print as-is, without syncing pending rows first")
+@click.pass_context
+def display(ctx, no_sync):
+    """Print recorded jobs (syncs pending rows first unless --no-sync)."""
+    db_filename = _db_filename(ctx)
+    if not no_sync:
+        sync_pending(db_filename)
+    print_db(db_filename)
+
+
+if __name__ == "__main__":
+    # Split off the wrapped command (everything after the first standalone `--`)
+    # before click parses, since click consumes `--` and we need the boundary.
+    argv = sys.argv[1:]
+    command: list = []
+    if "--" in argv:
+        idx = argv.index("--")
+        argv, command = argv[:idx], argv[idx + 1 :]
+    main(args=argv, obj={"command": command})
