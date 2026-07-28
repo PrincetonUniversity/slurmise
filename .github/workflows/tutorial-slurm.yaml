@@ -1,12 +1,7 @@
 name: Tutorial SLURM integration
 
-# Heavy, end-to-end test of the getting-started tutorial against a SLURM
-# scheduler on GHA. Not run on every push/PR (see test.yaml for that) --
-# it stands up a single-node cluster and actually submits jobs
 on:
-  # TEMPORARY: run on pushes to fix/docs to validate this workflow before it
-  # reaches main (workflow_dispatch only works once the file is on the default
-  # branch). REMOVE this push trigger before merging.
+  # TEMPORARY: run on pushes to fix/docs to validate this workflow
   push:
     branches: [fix/docs]
   workflow_dispatch: {}
@@ -47,17 +42,12 @@ jobs:
       - name: Install slurmise
         run: uv sync --python 3.12
 
-      # Single-node cluster with slurmdbd accounting. `memory` is the node's
-      # RealMemory in MB -- 15000 leaves headroom under the 16 GB runner while
-      # admitting the tutorial's 10 GB jobs.
+      # Single-node cluster with slurmdbd accounting
       - name: Set up SLURM
         uses: koesterlab/setup-slurm-action@v1
         with:
           memory: 12000
-          # NOTE: the action maps `cpus` to slurm.conf Sockets, with a hardcoded
-          # CoresPerSocket=2, so effective CPUs = cpus * 2. A standard GitHub
-          # runner has 4 vCPUs, so cpus must be <= 2 or the node registers with
-          # fewer CPUs than configured and is marked DOWN (jobs hang forever).
+          # cpus must be <= 2. GHA quir
           cpus: 2
 
       # The action does NOT set JobAcctGatherType (defaults to
@@ -84,9 +74,15 @@ jobs:
       - name: Run tutorial integration
         env:
           RUN_ACCT_PROBE: "1"
-          EXAMPLES: "01 02-perfect slurmise-run"
+          EXAMPLES: "01 02-perfect"
           WORK: ${{ github.workspace }}/tutorial-run
         run: ./tests/integration/run_tutorial_slurm.sh
+
+      # The slurmise_run proposal is work in progress and kept out
+      # of the run_tutorial_slurm.sh for now
+      - name: Run slurmise_run tour
+        working-directory: src/slurmise/tutorial/slurmise_run
+        run: uv run --script ./tutorial.py --yes
 
       # Upload the generated tutorial tree (per-example slurmise.h5, fits, and
       # SLURM job logs) for manual inspection. `always()` so it is captured even

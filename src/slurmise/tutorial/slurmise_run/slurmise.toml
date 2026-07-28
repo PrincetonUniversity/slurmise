@@ -3,4 +3,5 @@ base_dir = "."
 
 [slurmise.job.perfectScaler]
 job_spec = "--intensity {intensity:numeric} --duration {duration:numeric}"
-default_time = 234
+default_mem = 3000
+default_time = 60

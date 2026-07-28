@@ -17,7 +17,7 @@ set -euo pipefail
 # Environment knobs:
 #   EXAMPLES        space-separated list of examples to run (default "01 02-perfect").
 #                   Tokens: 01 02-perfect 02-complex 03-perfect 03-complex
-#                           03-category slurmise-run (or "all").
+#                           03-category (or "all").
 #                           See run_example() below.
 #   RUN_ACCT_PROBE  set to 1 to run the accounting probe first (CI uses this on a
 #                   freshly stood-up cluster; skip it on a real cluster).
@@ -34,7 +34,7 @@ export PATH="$VENV_BIN:$PATH"
 
 EXAMPLES="${EXAMPLES:-01 02-perfect}"
 if [ "$EXAMPLES" = "all" ]; then
-  EXAMPLES="01 02-perfect 02-complex 03-perfect 03-complex 03-category slurmise-run"
+  EXAMPLES="01 02-perfect 02-complex 03-perfect 03-complex 03-category"
 fi
 
 # Overridable so CI can point it at a known path to upload as an artifact.
@@ -60,7 +60,6 @@ example_path() {
     03-perfect)     echo "03_array_jobs/run_perfectScaler.sbatch" ;;
     03-complex)     echo "03_array_jobs/run_complexMemScaler.sbatch" ;;
     03-category) echo "03_array_jobs/run_categoryScaler.sbatch" ;;
-    slurmise-run)   echo "slurmise_run/run_perfectScaler.sh" ;;
     *) echo "unknown EXAMPLES token: $1" >&2; return 1 ;;
   esac
 }
@@ -81,27 +80,6 @@ run_sbatch() {
     else
       slurmise --toml slurmise.toml print || true
     fi
-  )
-}
-
-# Run a login-node .sh example (e.g. `slrmise run`, which submits its own
-# jobs), wait for this user's queue to drain, then sync + display + fit.
-run_login_sh() {
-  local example_dir="$1" sh_file="$2"
-  (
-    cd "$TUTORIAL/$example_dir"
-    rm -f slurmise.h5  # examples in this dir share the db; start clean
-    echo "== running $example_dir/$sh_file =="
-    bash "$sh_file"
-    echo "--- waiting for submitted jobs to finish ---"
-    for _ in $(seq 1 120); do
-      squeue -u "$USER" -h 2>/dev/null | grep -q . || break
-      sleep 10
-    done
-    echo "--- recorded jobs ($example_dir) ---"
-    ./slrmise --toml slurmise.toml display || true
-    echo "--- a dry-run now syncs, fits on the completed data, and predicts ---"
-    ./slrmise --toml slurmise.toml run --dry-run -- ../bin/perfectScaler --intensity 3200 --duration 9 || true
   )
 }
 
@@ -147,8 +125,5 @@ fi
 # -----------------------------------------------------------------------------
 for token in $EXAMPLES; do
   path="$(example_path "$token")"
-  case "$path" in
-    *.sh) run_login_sh "${path%%/*}" "${path#*/}" ;;
-    *)    run_sbatch "${path%%/*}" "${path#*/}" ;;
-  esac
+  run_sbatch "${path%%/*}" "${path#*/}"
 done

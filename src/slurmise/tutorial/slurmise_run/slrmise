@@ -1,4 +1,11 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["slurmise", "rich"]
+#
+# [tool.uv.sources]
+# slurmise = { path = "../../../..", editable = true }
+# ///
 """Prototype of a slurmise that owns the run: predict a command's resources,
 submit it, and record what it actually used in a lazy, eventually-consistent
 way.
@@ -7,6 +14,7 @@ way.
 from __future__ import annotations
 
 import dataclasses
+import os
 import pathlib
 import shlex
 import subprocess
@@ -14,6 +22,11 @@ import sys
 from math import ceil
 
 import click
+
+from rich import box
+from rich.console import Console
+from rich.table import Table
+from rich.text import Text
 
 from slurmise import slurm
 from slurmise.api import Slurmise
@@ -80,6 +93,66 @@ def job_level_metrics(sacct_json: dict) -> tuple[int, int]:
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# SLRMISE_MOCK=1 -- pretend there is a scheduler
+# ---------------------------------------------------------------------------
+#
+# For taking the tutorial when the queue is busy, or with no cluster at all.
+# It replaces exactly two things: the `sbatch` submission, and the answer sync
+# gets back about how a job went. That answer is a plain
+# (state, elapsed, max_rss) triple -- slurmise's own vocabulary -- so it feeds
+# the same recording path as the real thing and nothing here has to know the
+# shape of sacct's JSON. Everything else (prediction, self-heal, fitting) runs
+# for real.
+
+MOCK = bool(os.environ.get("SLRMISE_MOCK"))
+
+# perfectScaler allocates exactly --intensity MB and holds it for --duration
+# seconds; the interpreter and batch step add a little on top. Both figures come
+# from real cluster runs (intensity 2000 -> 2015 MB, duration 5 -> 7 s elapsed).
+MOCK_MEM_OVERHEAD_MB = 15
+MOCK_TIME_OVERHEAD_S = 2
+
+# A job that overshoots its allocation is not automatically killed: the cgroup
+# reclaims pages first, and only a decisive overshoot dies. Measured on the
+# cluster against a 4500M allocation -- 1.33x over COMPLETED (MaxRSS pinned at
+# the limit), 1.78x and 2.67x were OUT_OF_MEMORY. Without this the mock reports
+# failures the real scheduler would absorb.
+MOCK_RECLAIM_HEADROOM = 1.5
+
+
+def mock_outcome(jd: JobData, alloc_mem_mb: int, alloc_time_s: int) -> tuple[str, int, int]:
+    """How the job would have gone, given what it was allocated.
+
+    perfectScaler is deterministic, so its resource use can simply be computed
+    from the features slurmise already parsed out of the command line -- no need
+    to run anything, which also keeps a login node from allocating the 6 GB
+    lesson 04 escalates to.
+    """
+    used_mb = int(jd.numerics.get("intensity", 100)) + MOCK_MEM_OVERHEAD_MB
+    elapsed = int(jd.numerics.get("duration", 1)) + MOCK_TIME_OVERHEAD_S
+
+    # Order matters: an over-allocation dies almost immediately, long before it
+    # could also have run out of wall clock.
+    if used_mb > alloc_mem_mb * MOCK_RECLAIM_HEADROOM:
+        return "OUT_OF_MEMORY", min(elapsed, 2), alloc_mem_mb
+    if used_mb > alloc_mem_mb:
+        used_mb = alloc_mem_mb  # absorbed by reclaim; MaxRSS pins at the limit
+    if elapsed > alloc_time_s:
+        return "TIMEOUT", alloc_time_s, used_mb
+    return "COMPLETED", elapsed, used_mb
+
+
+def mock_sacct(db: JobDatabase, jd: JobData) -> tuple[str, int, int]:
+    """The mock's stand-in for a sacct round trip.
+
+    The allocation is read back off the row that `run` recorded, so the mock
+    needs no state of its own.
+    """
+    attrs = db.db[JobDatabase.get_table_name(jd)].attrs
+    return mock_outcome(jd, int(attrs.get("allocated_mem", 0)), int(attrs.get("allocated_time", 0)))
+
+
 def set_job_attrs(db: JobDatabase, jd: JobData, **attrs) -> None:
     """Add attributes (method, state, predictions) on a job's HDF5 group."""
     table = db.db[JobDatabase.get_table_name(jd)]
@@ -104,16 +177,20 @@ def find_unsettled(db: JobDatabase) -> list[JobData]:
     return pending
 
 
-def settle_row(db: JobDatabase, jd: JobData, sacct_json: dict) -> None:
-    """Refresh one row's state and, once terminal, fill any missing metrics."""
-    state = job_state(sacct_json)
+def settle_row(db: JobDatabase, jd: JobData, state: str, metrics) -> None:
+    """Refresh one row's state and, once terminal, fill any missing metrics.
+
+    `metrics` is a zero-arg callable returning (elapsed_s, max_rss_mb). It is
+    deferred because a still-RUNNING job has no meaningful metrics to parse --
+    and because it is the one part the mock supplies differently.
+    """
     set_job_attrs(db, jd, state=state)  # RUNNING -> terminal converges here
 
     if state not in TERMINAL_STATES or (jd.runtime is not None and jd.memory is not None):
         return
 
     # Fill missing metrics, never overwrite existing ones
-    elapsed, max_rss = job_level_metrics(sacct_json)
+    elapsed, max_rss = metrics()
     db.record(
         dataclasses.replace(
             jd,
@@ -132,9 +209,13 @@ def sync_pending(db_filename) -> None:
     """
     with JobDatabase.get_database(db_filename) as db:
         for jd in find_unsettled(db):
+            if MOCK:
+                state, elapsed, max_rss = mock_sacct(db, jd)
+                settle_row(db, jd, state, lambda e=elapsed, m=max_rss: (e, m))
+                continue
             sacct_json = fetch_sacct(jd.slurm_id)
             if sacct_json is not None:
-                settle_row(db, jd, sacct_json)
+                settle_row(db, jd, job_state(sacct_json), lambda j=sacct_json: job_level_metrics(j))
 
 
 def fit_models(slurmise: Slurmise) -> None:
@@ -181,21 +262,27 @@ def fit_models(slurmise: Slurmise) -> None:
 # ---------------------------------------------------------------------------
 
 
-def predict_resources(slurmise: Slurmise, cmd: list, margin: float) -> tuple[int, int, list[str]]:
-    """Predict (mem_MB, time_minutes) for a command argv, with margin applied.
+def predict_resources(slurmise: Slurmise, cmd: list) -> tuple[int, int, list[str]]:
+    """Predict (mem_MB, runtime_seconds) for a command argv -- the model's own
+    numbers, with no margin applied. Callers add the margin to get what they
+    actually ask sbatch for; the raw prediction is what gets recorded, so the
+    table shows what slurmise thought rather than what it padded to.
 
     Hard-errors only when the command can't be parsed against the toml's
     job_specs. Low-confidence predictions come back as warnings with the toml
-    defaults. The model stores runtime in seconds; sbatch --time wants minutes.
+    defaults.
     """
     try:
         query_jd, warns = slurmise.predict(cmd=" ".join(cmd[1:]), job_name=pathlib.Path(cmd[0]).name)
     except ValueError as e:
         raise click.ClickException(f"Could not parse command against the toml job_specs: {e}") from e
 
-    mem_mb = max(1, ceil(float(query_jd.memory) * margin))
-    minutes = max(1, ceil(float(query_jd.runtime) * margin / 60))
-    return mem_mb, minutes, warns
+    return max(1, ceil(float(query_jd.memory))), max(1, ceil(float(query_jd.runtime))), warns
+
+
+def with_margin(mem_mb: int, runtime_s: int, margin: float) -> tuple[int, int]:
+    """Raw prediction -> what to ask sbatch for. sbatch --time wants minutes."""
+    return max(1, ceil(mem_mb * margin)), max(1, ceil(runtime_s * margin / 60))
 
 
 def _same_numerics(a: dict, b: dict) -> bool:
@@ -203,49 +290,57 @@ def _same_numerics(a: dict, b: dict) -> bool:
     return a.keys() == b.keys() and all(float(a[k]) == float(b[k]) for k in a)
 
 
-def adjust_from_exact_history(slurmise: Slurmise, command: list, mem_mb: int, minutes: int) -> tuple[int, int]:
+def adjust_from_exact_history(
+    slurmise: Slurmise, command: list, mem_mb: int, minutes: int, margin: float
+) -> tuple[int, int]:
     """Override the prediction using history for the *exact same* parameters.
 
     Exact-param history is the most specific evidence there is, so it wins over
     the model:
 
-    - a prior SUCCESS is ground truth -> reuse the smallest allocation that
-      completed (known to work, and minimal avoids waste);
+    - a prior SUCCESS is ground truth -> right-size every resource to what the
+      run *actually used* (its MaxRSS / elapsed) plus the safety margin, so
+      reuse ratchets *down* toward the true need instead of freezing the first
+      allocation that happened to work (which is only an upper bound);
     - with only FAILURES and no success, escalate past the largest failing
-      allocation (double the memory for OOM, the time for TIMEOUT), so a
+      *allocation* (double the memory for OOM, the time for TIMEOUT), so a
       repeatedly-underallocated job grows until it fits without waiting for the
       model -- which matters when the model can't help (undersampled MaxRSS on
-      short jobs);
+      short jobs). Escalation stays allocation-based: to beat a failure you must
+      exceed the allocation that failed, not its (unknown) usage;
     - with no exact-param history, keep the model/default prediction.
     """
     query_jd = slurmise.configuration.parse_job_cmd(cmd=" ".join(command[1:]), job_name=pathlib.Path(command[0]).name)
 
-    ok_mem, ok_sec = [], []  # allocations of COMPLETED runs at these exact params
-    worst_oom_mem = worst_timeout_sec = 0
+    ok_mem, ok_sec = [], []  # actual MaxRSS / elapsed of COMPLETED runs at these exact params
+    worst_oom_mem = worst_timeout_sec = 0  # allocations (allocated_*) of failing runs
     with JobDatabase.get_database(slurmise.configuration.db_filename) as db:
         for jd in db.query(query_jd):  # same job_name + categories
             if not _same_numerics(jd.numerics, query_jd.numerics):
                 continue
             attrs = db.db[JobDatabase.get_table_name(jd)].attrs
-            pred_mem = int(attrs.get("predicted_memory", 0))
-            pred_sec = int(attrs.get("predicted_runtime", 0))
             match attrs.get("state"):
                 case "COMPLETED":
-                    ok_mem.append(pred_mem)
-                    ok_sec.append(pred_sec)
+                    if jd.memory is not None:
+                        ok_mem.append(jd.memory)
+                    if jd.runtime is not None:
+                        ok_sec.append(jd.runtime)
                 case "OUT_OF_MEMORY":
-                    worst_oom_mem = max(worst_oom_mem, pred_mem)
+                    worst_oom_mem = max(worst_oom_mem, int(attrs.get("allocated_mem", 0)))
                 case "TIMEOUT":
-                    worst_timeout_sec = max(worst_timeout_sec, pred_sec)
+                    worst_timeout_sec = max(worst_timeout_sec, int(attrs.get("allocated_time", 0)))
 
     if ok_mem:
-        mem_mb = min(ok_mem)  # known-good, prefer the tightest that worked
+        # known-good: shrink to the tightest observed usage + margin
+        mem_mb = max(1, ceil(min(ok_mem) * margin))
+        mem_mb = max(mem_mb, worst_oom_mem + 1)  # defensive: never below a prior OOM allocation
     elif 2 * worst_oom_mem > mem_mb:
         mem_mb = 2 * worst_oom_mem
         click.echo(f"Prior OUT_OF_MEMORY at these params -> raising memory to {mem_mb}M", err=True)
 
     if ok_sec:
-        minutes = max(1, ceil(min(ok_sec) / 60))
+        minutes = max(1, ceil(min(ok_sec) * margin / 60))
+        minutes = max(minutes, ceil((worst_timeout_sec + 1) / 60))  # defensive: never below a prior TIMEOUT
     elif ceil(2 * worst_timeout_sec / 60) > minutes:
         minutes = ceil(2 * worst_timeout_sec / 60)
         click.echo(f"Prior TIMEOUT at these params -> raising time to {minutes} min", err=True)
@@ -263,40 +358,89 @@ def _fmt(value) -> str:
     return "-" if value is None else str(value)
 
 
-def print_db(db_filename) -> None:
+# Short headers on purpose: the whole row has to fit a terminal without rich
+# truncating a cell, since a clipped value is both unreadable and ungreppable.
+FIXED_COLUMNS = ("slurm_id", "job_name", "runtime", "memory", "allocated_time", "allocated_mem", "state")
+# Stacked two-word headers: keeps the names readable without each column
+# inheriting a 10-character header width the values never need.
+HEADERS = ("job id", "job", "used\ntime", "used\nmem", "alloc\ntime", "alloc\nmem", "state")
+
+STATE_STYLE = {
+    "COMPLETED": "green",
+    "OUT_OF_MEMORY": "red",
+    "TIMEOUT": "red",
+    "FAILED": "red",
+    "CANCELLED": "yellow",
+}
+
+
+def _feature(value) -> str:
+    """Features are stored as floats; show whole numbers as ints (2000, not 2000.0)."""
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    return str(value)
+
+
+def collect_rows(db_filename) -> list[dict]:
+    """One dict per recorded job, sorted by slurm id."""
+    rows = []
     with JobDatabase.get_database(db_filename) as db:
-        rows = []
         for _, jobs in db.iterate_database():
             for jd in jobs:
                 attrs = db.db[JobDatabase.get_table_name(jd)].attrs
                 # .item() unwraps numpy scalars so features print as plain numbers
                 numerics = {k: v.item() if hasattr(v, "item") else v for k, v in jd.numerics.items()}
-                features = {**jd.categories, **numerics}
                 rows.append(
-                    (
-                        jd.slurm_id,
-                        jd.job_name,
-                        jd.runtime,
-                        jd.memory,
-                        attrs.get("predicted_runtime", None),
-                        attrs.get("predicted_memory", None),
-                        attrs.get("method", None),
-                        attrs.get("state", None),
-                        features,
-                    )
+                    {
+                        "slurm_id": jd.slurm_id,
+                        "job_name": jd.job_name,
+                        "runtime": jd.runtime,
+                        "memory": jd.memory,
+                        "allocated_time": attrs.get("allocated_time", None),
+                        "allocated_mem": attrs.get("allocated_mem", None),
+                        "method": attrs.get("method", None),
+                        "state": attrs.get("state", None),
+                        "features": {**jd.categories, **numerics},
+                    }
                 )
+    # Numerically, not lexically: slurm ids grow, and a string sort would put
+    # "9999999" after "10000000". Newest job therefore ends up last.
+    rows.sort(key=lambda r: (len(str(r["slurm_id"])), str(r["slurm_id"])))
+    return rows
 
-    rows.sort(key=lambda r: r[0])
-    header = (
-        f"{'slurm_id':<12} {'job_name':<15} {'runtime':<8} {'memory':<8} "
-        f"{'pred_time':<10} {'pred_mem':<9} {'method':<7} {'state':<11} features"
-    )
-    click.echo(header)
-    for slurm_id, job_name, runtime, memory, pred_time, pred_mem, method, state, features in rows:
-        click.echo(
-            f"{slurm_id:<12} {job_name:<15} {_fmt(runtime):<8} {_fmt(memory):<8} "
-            f"{_fmt(pred_time):<10} {_fmt(pred_mem):<9} {_fmt(method):<7} {_fmt(state):<11} {features}"
+
+def _features(features: dict) -> str:
+    """`{intensity: 2000, duration: 5}` -- a dict, but without the float noise
+    and quoting a repr would add. Kept on one line so a row stays greppable."""
+    return "{" + ", ".join(f"{k}: {_feature(v)}" for k, v in sorted(features.items())) + "}"
+
+
+def print_db(db_filename) -> None:
+    """Print recorded jobs, one row per job.
+
+    `alloc_time`/`alloc_mem` are what the job was actually given -- the
+    prediction with the margin applied, then any exact-param self-heal. That is
+    what the next escalation has to beat, so it is what gets recorded.
+    """
+    rows = collect_rows(db_filename)
+    # collapse_padding keeps the table narrow enough to sit inside the tutorial's
+    # output frame without rich having to wrap any cell.
+    table = Table(box=box.SIMPLE_HEAD, pad_edge=False, header_style="bold", collapse_padding=True)
+    for head in HEADERS:
+        # `job` is the one column allowed to give up space on a narrow terminal.
+        # Everything else is pinned: the numbers and the state have to stay
+        # whole, and on one line, or the tutorial's `#>` checks can't read them.
+        table.add_column(head, no_wrap=(head != "job"), overflow="ellipsis")
+    table.add_column("features", no_wrap=True, style="cyan")
+
+    for row in rows:
+        state = row["state"]
+        table.add_row(
+            *(_fmt(row[name]) for name in FIXED_COLUMNS[:-1]),
+            Text(_fmt(state), style=STATE_STYLE.get(state, "dim")),
+            _features(row["features"]),
         )
+    Console().print(table)
 
 
 # ---------------------------------------------------------------------------
@@ -354,9 +498,10 @@ def run(ctx, margin, dry_run):
     sync_pending(slurmise.configuration.db_filename)  # settle prior runs
     fit_models(slurmise)  # learn from any newly-finished runs
 
-    mem_mb, minutes, warns = predict_resources(slurmise, command, margin)
+    pred_mem, pred_secs, warns = predict_resources(slurmise, command)
     emit_warns(warns)
-    mem_mb, minutes = adjust_from_exact_history(slurmise, command, mem_mb, minutes)
+    mem_mb, minutes = with_margin(pred_mem, pred_secs, margin)
+    mem_mb, minutes = adjust_from_exact_history(slurmise, command, mem_mb, minutes, margin)
 
     sbatch_cmd = [
         "sbatch",
@@ -371,11 +516,20 @@ def run(ctx, margin, dry_run):
         click.echo(shlex.join(sbatch_cmd))
         return
 
-    result = subprocess.run(sbatch_cmd, capture_output=True, text=True, check=False)
-    if result.returncode != 0:
-        click.echo(result.stderr, err=True, nl=False)
-        raise SystemExit(result.returncode)
-    job_id = result.stdout.strip().split(";")[0]
+    if MOCK:
+        # No scheduler: invent an id now, and work out how the job went at the
+        # next sync (mock_sacct), from the allocation recorded just below.
+        # One past the highest id on record, so mock ids increase with
+        # submission the way real slurm ids do.
+        existing = [int(r["slurm_id"]) for r in collect_rows(slurmise.configuration.db_filename)
+                    if str(r["slurm_id"]).isdigit()]
+        job_id = str(max(existing, default=90_000_000) + 1)
+    else:
+        result = subprocess.run(sbatch_cmd, capture_output=True, text=True, check=False)
+        if result.returncode != 0:
+            click.echo(result.stderr, err=True, nl=False)
+            raise SystemExit(result.returncode)
+        job_id = result.stdout.strip().split(";")[0]
 
     # Add a stub to the database: run info known now, metrics arrive via sync
     jd = slurmise.configuration.parse_job_cmd(
@@ -389,8 +543,12 @@ def run(ctx, margin, dry_run):
             db,
             jd,
             method="run",
-            predicted_memory=mem_mb,
-            predicted_runtime=minutes * 60,
+            # What the job was actually given: the prediction with the margin
+            # applied, then any exact-param self-heal. Not the raw prediction --
+            # this is the number the job lived or died by, and the number the
+            # next escalation has to beat.
+            allocated_mem=mem_mb,
+            allocated_time=minutes * 60,
             margin=margin,
         )
 
@@ -409,7 +567,8 @@ def predict(ctx):
     command = ctx.obj["command"]
     if not command:
         raise click.UsageError("predict requires a command after `--`")
-    mem_mb, minutes, warns = predict_resources(_slurmise(ctx), command, margin=1.0)
+    mem_mb, seconds, warns = predict_resources(_slurmise(ctx), command)
+    minutes = max(1, ceil(seconds / 60))
     emit_warns(warns)
     click.echo(f"Predicted resources for {shlex.join(command)}:")
     click.echo(f"  memory:  {mem_mb} MB")

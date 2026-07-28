@@ -25,6 +25,7 @@ EXCLUDE_PATTERNS = (
     "out_slurm_logs",
     "local.sql",
     "__pycache__",
+    "slurmise_run",  # wip, only run through a clone of the repo
 )
 
 
@@ -58,13 +59,6 @@ def main(dest):
     bin_dir = Path(dest) / "bin"
     if bin_dir.is_dir():
         for script in bin_dir.iterdir():
-            if script.is_file():
-                script.chmod(script.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
-
-    # The slurmise_run proposal's scripts are invoked directly (./slrmise, ./*.sh).
-    proposal_dir = Path(dest) / "slurmise_run"
-    if proposal_dir.is_dir():
-        for script in [proposal_dir / "slrmise", *proposal_dir.glob("*.sh")]:
             if script.is_file():
                 script.chmod(script.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
