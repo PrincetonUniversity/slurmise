@@ -272,7 +272,12 @@ class Tour:
         # and it would break the `#>` expectations that match on those values.
         # Give them room: the table sizes itself to its content, and on a narrow
         # terminal we'd rather the frame split a full row than lose characters.
-        self.env["COLUMNS"] = str(max(console.width - 4, 60))
+        # Never below the width `display`'s table needs. Squeezing it makes rich
+        # clip cells with an ellipsis, and a clipped value both reads badly and
+        # silently defeats any `#>` expectation that matches on it. If the frame
+        # is narrower than that, we would rather it split a full row than lose
+        # characters.
+        self.env["COLUMNS"] = str(max(console.width - 4, 120))
         if console.is_terminal:  # keep their colour across the pipe we capture on
             self.env["FORCE_COLOR"] = "1"
 
@@ -482,7 +487,13 @@ def main() -> int:
     parser.add_argument("--mock", action="store_true", help="SLRMISE_MOCK=1: pretend there's a scheduler.")
     args = parser.parse_args()
 
-    console = Console(highlight=False, theme=PROSE_THEME)
+    # With no terminal to fit (CI, or piped to a file) rich assumes 80 columns,
+    # which is narrower than the tutorial's own output. Pick a width that fits it.
+    console = Console(
+        highlight=False,
+        theme=PROSE_THEME,
+        width=None if sys.stdout.isatty() else 140,
+    )
     os.chdir(HERE)  # so '.' base_dir and ../bin/... resolve on the shared fs
     (HERE / "out_slurm_logs").mkdir(exist_ok=True)
     os.environ.setdefault("SBATCH_OUTPUT", "out_slurm_logs/slurm-%j.out")

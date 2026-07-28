@@ -440,7 +440,17 @@ def print_db(db_filename) -> None:
             Text(_fmt(state), style=STATE_STYLE.get(state, "dim")),
             _features(row["features"]),
         )
-    Console().print(table)
+
+    # Never let rich shrink a column: it clips with an ellipsis, and a clipped
+    # value is both unreadable and silently unmatchable by anything grepping
+    # this output (the tutorial's `#>` checks do exactly that). If the terminal
+    # is too narrow, print the full table and let the terminal wrap it.
+    # measure() is clamped by the console it is asked on, so ask a wide one.
+    natural = Console(width=10_000).measure(table).maximum
+    console = Console()
+    if natural > console.width:
+        console = Console(width=natural)
+    console.print(table)
 
 
 # ---------------------------------------------------------------------------
