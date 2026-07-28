@@ -15,7 +15,12 @@ permissions:
 jobs:
   tutorial-slurm:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # The tour waits up to ~45 min for the scheduler (retry=180 delay=10 in
+    # tutorial.md). Nothing queues on this single-node cluster so it should
+    # finish in minutes, but the timeout has to exceed that budget or a genuine
+    # failure gets killed by the runner before the tour prints which
+    # expectation was not met.
+    timeout-minutes: 50
 
     # koesterlab/setup-slurm-action wires slurmdbd accounting to MySQL on
     # 127.0.0.1:8888, which `slurmise record` needs (`sacct -j <id> --json`).
@@ -78,11 +83,69 @@ jobs:
           WORK: ${{ github.workspace }}/tutorial-run
         run: ./tests/integration/run_tutorial_slurm.sh
 
+      # The tour's failure and self-heal lessons need `--mem` to actually be
+      # enforced. The action leaves memory advisory: a job can exceed its
+      # allocation and still COMPLETE, so OUT_OF_MEMORY never happens and those
+      # lessons wait forever. That needs memory to be a consumable resource AND
+      # the cgroup task plugin to constrain it.
+      #
+      # Runs after the integration test above, so a bad config here cannot break
+      # the examples that already pass.
+      - name: Enforce memory limits
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          conf="$(scontrol show config | awk '/^SLURM_CONF/{print $3}')"
+          conf="${conf:-/etc/slurm/slurm.conf}"
+          echo "--- before ---"
+          scontrol show config | grep -iE '^(SelectType|TaskPlugin|ProctrackType)' || true
+          sudo sed -i '/^SelectTypeParameters=/d;/^TaskPlugin=/d;/^ProctrackType=/d' "$conf"
+          printf 'SelectTypeParameters=CR_Core_Memory\nTaskPlugin=task/cgroup\nProctrackType=proctrack/cgroup\n' \
+            | sudo tee -a "$conf"
+          printf 'ConstrainRAMSpace=yes\nConstrainSwapSpace=yes\nAllowedRAMSpace=100\n' \
+            | sudo tee "$(dirname "$conf")/cgroup.conf"
+          sudo systemctl restart slurmdbd slurmctld slurmd || true
+          sleep 8
+          echo "--- after ---"
+          scontrol show config | grep -iE '^(SelectType|TaskPlugin|ProctrackType)' || true
+          sinfo || true
+
+      # Ask the cluster rather than assume the patch took: run a job that wants
+      # 4x its allocation and see whether SLURM kills it. The answer picks the
+      # mode below, so a cgroup setup that does not work on this runner degrades
+      # to --mock instead of waiting 45 minutes for an OOM that cannot happen.
+      - name: Probe memory enforcement
+        id: memcheck
+        run: |
+          set -euo pipefail
+          jid="$(sbatch --parsable --mem=500M --time=00:03:00 \
+            --wrap "$PWD/src/slurmise/tutorial/bin/perfectScaler --intensity 2000 --duration 3")"
+          echo "probe job $jid: 500M allocation, wants ~2000M"
+          for _ in $(seq 60); do
+            squeue -j "$jid" -h 2>/dev/null | grep -q . || break
+            sleep 5
+          done
+          sleep 5
+          state="$(sacct -j "$jid" -X -n --format=State%20 | head -1 | tr -d ' ')"
+          sacct -j "$jid" --format=JobID,State%16,ReqMem,MaxRSS,Elapsed || true
+          if [ "$state" = "OUT_OF_MEMORY" ]; then
+            echo "enforced=true" >> "$GITHUB_OUTPUT"
+            echo "--mem is enforced; the tour will submit real jobs."
+          else
+            echo "enforced=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::SLURM is not enforcing --mem (probe came back ${state:-<none>}, wanted OUT_OF_MEMORY). Running the tour with --mock, so the failure and self-heal lessons are simulated rather than scheduled."
+          fi
+
       # The slurmise_run proposal is work in progress and kept out
       # of the run_tutorial_slurm.sh for now
       - name: Run slurmise_run tour
         working-directory: src/slurmise/tutorial/slurmise_run
-        run: uv run --script ./tutorial.py --yes
+        run: |
+          if [ "${{ steps.memcheck.outputs.enforced }}" = "true" ]; then
+            uv run --script ./tutorial.py --yes
+          else
+            uv run --script ./tutorial.py --yes --mock
+          fi
 
       # Upload the generated tutorial tree (per-example slurmise.h5, fits, and
       # SLURM job logs) for manual inspection. `always()` so it is captured even
