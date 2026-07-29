@@ -19,6 +19,7 @@ def _make_patch(adapter: snake_parsers.SnakemakeAdapter):
 
     return patch
 
+
 patching_fncs = {
     7: _make_patch(snake_parsers.SnakemakeV7()),
     8: _make_patch(snake_parsers.SnakemakeV8()),

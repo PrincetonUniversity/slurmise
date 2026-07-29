@@ -178,7 +178,6 @@ class JobSpec:
 
         return self.sources.copy()
 
-
     def align_and_indicate_differences(self, cmd: str, try_exact_match: bool = False) -> str:
         """
         Compares two strings and aligns with indicators for differences.

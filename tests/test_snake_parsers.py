@@ -110,11 +110,11 @@ def test_build_variables():
     parsed = {var: parser(rule, wildcards, inputs) for var, parser in parsers.items()}
 
     assert parsed == {
-            "input_var": "input0",
-            "input_var_key": "input1",
-            "wildcards_var": "tested wildcards",
-            "threads_var": 4,
-            "params_var": "tested param",
+        "input_var": "input0",
+        "input_var_key": "input1",
+        "wildcards_var": "tested wildcards",
+        "threads_var": 4,
+        "params_var": "tested param",
     }
 
 

@@ -169,4 +169,4 @@ class SlurmiseConfiguration:
         return model_factory(model_name)
 
     def get_sources(self, job_name: str) -> dict:
-        return self.jobs[job_name]['job_spec_obj'].get_sources()
+        return self.jobs[job_name]["job_spec_obj"].get_sources()

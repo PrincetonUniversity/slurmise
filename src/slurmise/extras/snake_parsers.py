@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import shutil
-from abc import ABC, abstractmethod
+from abc import ABC
 from contextlib import contextmanager
 import inspect
 from pathlib import Path
@@ -15,11 +15,15 @@ from slurmise.api import Slurmise
 from slurmise.job_data import JobData
 from slurmise.job_parse.file_parsers import FileMD5
 
-from snakemake.logging import logger
-from snakemake.path_modifier import PathModifier
-
 if TYPE_CHECKING:
     from snakemake.workflow import Workflow
+
+try:
+    from snakemake.logging import logger
+    from snakemake.path_modifier import PathModifier
+except ImportError:
+    logger = None  # type: ignore[assignment]
+    PathModifier = None  # type: ignore[assignment]
 
 
 class ResourceFunction(Protocol):
@@ -27,9 +31,9 @@ class ResourceFunction(Protocol):
 
 
 class SnakemakeAdapter(ABC):
-    '''Abstract Adapter class for different version of snakemake.
+    """Abstract Adapter class for different version of snakemake.
 
-    Most implemented methods are for version 9.'''
+    Most implemented methods are for version 9."""
 
     def patch_snakemake_workflow(
         self,
@@ -37,9 +41,9 @@ class SnakemakeAdapter(ABC):
         workflow: Workflow,
         rules: list | None = None,
     ):
-        extras = slurmise.configuration.extras.get('snakemake', {})
-        benchmark_dir = Path(extras.get('benchmark_dir', 'slurmise/benchmarks'))
-        record_benchmarks = extras.get('record_benchmarks', True)
+        extras = slurmise.configuration.extras.get("snakemake", {})
+        benchmark_dir = Path(extras.get("benchmark_dir", "slurmise/benchmarks"))
+        record_benchmarks = extras.get("record_benchmarks", True)
 
         original_onstart = workflow._onstart
 
@@ -84,7 +88,7 @@ class SnakemakeAdapter(ABC):
                 )
 
                 slurmise.raw_record(job_data, processed_data=True)
-            if not extras.get('keep_benchmarks', False):
+            if not extras.get("keep_benchmarks", False):
                 shutil.rmtree(benchmark_dir)
 
         workflow.onsuccess(onsuccess_slurmise_update)
@@ -184,14 +188,13 @@ class SnakemakeAdapter(ABC):
                 arg_list = [wildcards]
                 # we support fewer options than snakemake, prevent circular dependencies
                 if any(input_type in call_params for input_type in ("output", "threads", "resources")):
-                    message = (
-                        f"Cannot use param {name!r} in slurmise.  Input functions may only depend on wildcards or input."
-                    )
+                    message = f"Cannot use param {name!r} in slurmise.  Input functions may only depend on wildcards or input."
                     raise ValueError(message)
                 # if the param function also takes snakemake input add it to the call
                 if "input" in call_params:
                     arg_list.append(input)
                 return param(*arg_list)
+
         return get_params
 
     def input(self, index: str | int | None = None) -> ResourceFunction:
@@ -310,8 +313,8 @@ class SnakemakeV7(SnakemakeAdapter):
             companion_data = json.loads(companion_file.read_text())
 
             with open(tsv_file) as f:
-                header = f.readline().strip().split('\t')
-                values = f.readline().strip().split('\t')
+                header = f.readline().strip().split("\t")
+                values = f.readline().strip().split("\t")
             tsv_data = dict(zip(header, values))
 
             # V7 TSV uses "-" for missing values; normalize to "NA"

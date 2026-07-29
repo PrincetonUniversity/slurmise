@@ -247,7 +247,7 @@ record_benchmarks = false
     snakefile = make_snakefile(
         tmp_path,
         slurmise_toml=toml,
-        append=f"""
+        append="""
 slurmise.patch(workflow=workflow)
 """,
     )
@@ -292,7 +292,7 @@ keep_benchmarks = true
     snakefile = make_snakefile(
         tmp_path,
         slurmise_toml=toml,
-        append=f"""
+        append="""
 slurmise.patch(workflow=workflow)
 """,
     )
@@ -533,5 +533,3 @@ slurmise.patch(workflow=workflow)
 
             # we only ran with 2 cores.  The 3 core job should have recorded 2 threads here
             assert job.numerics["thread"] == min(job.numerics["thread_wc"], 2)
-
-

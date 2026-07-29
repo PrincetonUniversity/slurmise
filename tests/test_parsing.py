@@ -762,16 +762,15 @@ def test_job_spec_model_default_is_none():
 def test_variable_sources():
     spec = JobSpec({"threads": {"type": "numeric"}, "another": {"type": "category"}})
 
-    with pytest.raises(ValueError, match="Variables do not match source specification") as ve:
+    with pytest.raises(ValueError, match="Variables do not match source specification"):
         spec.get_sources()
 
-    spec = JobSpec({
-        "threads": {"type": "numeric", "source": "threads"},
-        "another": {"type": "category", "source": "params", "key": "another"},
-    })
+    spec = JobSpec(
+        {
+            "threads": {"type": "numeric", "source": "threads"},
+            "another": {"type": "category", "source": "params", "key": "another"},
+        }
+    )
 
     result = spec.get_sources()
-    assert result == {
-        "threads": "threads",
-        "another": ("params", "another")
-    }
+    assert result == {"threads": "threads", "another": ("params", "another")}
