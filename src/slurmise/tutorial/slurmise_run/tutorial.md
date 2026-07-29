@@ -25,11 +25,10 @@ They're shell comments, so pasting a whole block into your own shell is harmless
 `./tutorial.py` reads them and checks the command output, waiting on
 the scheduler where a `retry=` or `repeat-until` says to.
 
-If the queue is busy — or you have no scheduler at all — set `SLRMISE_MOCK=1`
-(or run `./tutorial.py --mock`) and `slrmise` will pretend: it skips `sbatch` and
-works out how each job would have gone instead. The whole tour then takes under
-a minute. Prediction, self-heal and model fitting all still run for real; only
-the scheduler is imaginary.
+If the queue is busy set `SLRMISE_MOCK=1`, or exit if you're looking at this
+interactively and run `./tutorial.py --mock`. In `mock` mode, `slrmise` will
+pretend: it skips `sbatch` and `sacct`, instad working  out how each job would
+have gone instead.
 
 ## 02 — what's here, and `predict`
 
@@ -144,7 +143,7 @@ watches this job's own row rather than anything else you happen to have queued:
 
 ```bash
 $ ./slrmise --toml slurmise.toml display
-#> expect /COMPLETED.*\b2000\b/ retry=180 delay=10
+#> expect /COMPLETED.*\b2000\b/ retry=16 delay=10
 ```
 
 Compare `alloc_mem` (what the job was actually given — 4500M, the 3000M default
@@ -164,7 +163,7 @@ $ ./slrmise --toml slurmise.toml run -- \
     ../bin/perfectScaler --intensity 8000 --duration 5
 #> expect /Submitted job/
 $ ./slrmise --toml slurmise.toml display
-#> expect /OUT_OF_MEMORY.*\b8000\b/ retry=180 delay=10
+#> expect /OUT_OF_MEMORY.*\b8000\b/ retry=16 delay=10
 ```
 
 ## 05 — self-heal: double the memory until it fits
@@ -185,7 +184,7 @@ below is `./tutorial.py` doing exactly that for you until it completes:
 $ ./slrmise --toml slurmise.toml run -- \
     ../bin/perfectScaler --intensity 8000 --duration 5
 $ ./slrmise --toml slurmise.toml display
-#> expect /COMPLETED.*\b8000\b/ retry=180 delay=10
+#> expect /COMPLETED.*\b8000\b/ retry=16 delay=10
 #> repeat-until /COMPLETED.*\b8000\b/ max=3
 ```
 
@@ -201,7 +200,7 @@ $ ./slrmise --toml slurmise.toml run -- \
     ../bin/perfectScaler --intensity 2000 --duration 5
 #> expect /Submitted job/
 $ ./slrmise --toml slurmise.toml display
-#> expect /(COMPLETED.*\b2000\b[\s\S]*){2}/ retry=180 delay=10
+#> expect /(COMPLETED.*\b2000\b[\s\S]*){2}/ retry=16 delay=10
 ```
 
 The newest intensity-2000 row's `alloc_mem` is ~3023M, down from ~4500M — the
@@ -231,7 +230,7 @@ attempt syncs, so this doubles as the wait for that batch to land:
 ```bash
 $ ./slrmise --toml slurmise.toml run --dry-run -- \
     ../bin/perfectScaler --intensity 1500 --duration 6
-#> expect /^(?![\s\S]*Not enough fitting data points)[\s\S]*Fit perfectScaler on \d+ completed/ retry=180 delay=10
+#> expect /^(?![\s\S]*Not enough fitting data points)[\s\S]*Fit perfectScaler on \d+ completed/ retry=24 delay=10
 ```
 
 Look for a `--mem` near 2270M instead of the flat 4500M cold default. That is

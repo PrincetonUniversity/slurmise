@@ -15,12 +15,7 @@ permissions:
 jobs:
   tutorial-slurm:
     runs-on: ubuntu-latest
-    # The tour waits up to ~45 min for the scheduler (retry=180 delay=10 in
-    # tutorial.md). Nothing queues on this single-node cluster so it should
-    # finish in minutes, but the timeout has to exceed that budget or a genuine
-    # failure gets killed by the runner before the tour prints which
-    # expectation was not met.
-    timeout-minutes: 50
+    timeout-minutes: 30
 
     # koesterlab/setup-slurm-action wires slurmdbd accounting to MySQL on
     # 127.0.0.1:8888, which `slurmise record` needs (`sacct -j <id> --json`).
@@ -76,21 +71,16 @@ jobs:
           sinfo || true
           scontrol show config | grep -iE 'jobacctgather|accountingstorage' || true
 
-      - name: Run tutorial integration
-        env:
-          RUN_ACCT_PROBE: "1"
-          EXAMPLES: "01 02-perfect"
-          WORK: ${{ github.workspace }}/tutorial-run
-        run: ./tests/integration/run_tutorial_slurm.sh
-
       # The tour's failure and self-heal lessons need `--mem` to actually be
       # enforced. The action leaves memory advisory: a job can exceed its
       # allocation and still COMPLETE, so OUT_OF_MEMORY never happens and those
       # lessons wait forever. That needs memory to be a consumable resource AND
       # the cgroup task plugin to constrain it.
       #
-      # Runs after the integration test above, so a bad config here cannot break
-      # the examples that already pass.
+      # Runs before the integration test so the part we are least sure of
+      # reports first. The cost of that ordering: if this config breaks slurmd,
+      # the integration test below fails too -- hence continue-on-error here and
+      # a probe that checks the cluster still works before the tour runs.
       - name: Enforce memory limits
         continue-on-error: true
         run: |
@@ -146,6 +136,13 @@ jobs:
           else
             uv run --script ./tutorial.py --yes --mock
           fi
+
+      - name: Run tutorial integration
+        env:
+          RUN_ACCT_PROBE: "1"
+          EXAMPLES: "01 02-perfect"
+          WORK: ${{ github.workspace }}/tutorial-run
+        run: ./tests/integration/run_tutorial_slurm.sh
 
       # Upload the generated tutorial tree (per-example slurmise.h5, fits, and
       # SLURM job logs) for manual inspection. `always()` so it is captured even
