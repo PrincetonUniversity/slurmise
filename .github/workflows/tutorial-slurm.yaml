@@ -71,17 +71,8 @@ jobs:
           sinfo || true
           scontrol show config | grep -iE 'jobacctgather|accountingstorage' || true
 
-      # The tour's failure and self-heal lessons need `--mem` to actually be
-      # enforced. The action leaves memory advisory: a job can exceed its
-      # allocation and still COMPLETE, so OUT_OF_MEMORY never happens and those
-      # lessons wait forever. That needs memory to be a consumable resource AND
-      # the cgroup task plugin to constrain it.
-      #
-      # Runs before the integration test so the part we are least sure of
-      # reports first. The cost of that ordering: if this config breaks slurmd,
-      # the integration test below fails too -- hence continue-on-error here and
-      # a probe that checks the cluster still works before the tour runs.
-      - name: Enforce memory limits
+      # Without this SLURM never gives OUT_OF_MEMORY errors
+      - name: Setup memory limits
         continue-on-error: true
         run: |
           set -euo pipefail
@@ -100,12 +91,8 @@ jobs:
           scontrol show config | grep -iE '^(SelectType|TaskPlugin|ProctrackType)' || true
           sinfo || true
 
-      # Ask the cluster rather than assume the patch took: run a job that wants
-      # 4x its allocation and see whether SLURM kills it. The answer picks the
-      # mode below, so a cgroup setup that does not work on this runner degrades
-      # to --mock instead of waiting 45 minutes for an OOM that cannot happen.
+      # Validate that OUT_OF_MEMORY can happen
       - name: Probe memory enforcement
-        id: memcheck
         run: |
           set -euo pipefail
           jid="$(sbatch --parsable --mem=500M --time=00:03:00 \
@@ -118,24 +105,19 @@ jobs:
           sleep 5
           state="$(sacct -j "$jid" -X -n --format=State%20 | head -1 | tr -d ' ')"
           sacct -j "$jid" --format=JobID,State%16,ReqMem,MaxRSS,Elapsed || true
-          if [ "$state" = "OUT_OF_MEMORY" ]; then
-            echo "enforced=true" >> "$GITHUB_OUTPUT"
-            echo "--mem is enforced; the tour will submit real jobs."
-          else
-            echo "enforced=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::SLURM is not enforcing --mem (probe came back ${state:-<none>}, wanted OUT_OF_MEMORY). Running the tour with --mock, so the failure and self-heal lessons are simulated rather than scheduled."
+          if [ "$state" != "OUT_OF_MEMORY" ]; then
+            echo "::error::SLURM is not enforcing --mem (probe came back ${state:-<none>}, wanted OUT_OF_MEMORY). Stopping rather than running the --slurm tour, whose failure and self-heal lessons cannot pass without enforcement."
+            exit 1
           fi
+          echo "--mem is enforced; the --slurm tour can submit real jobs."
 
-      # The slurmise_run proposal is work in progress and kept out
-      # of the run_tutorial_slurm.sh for now
-      - name: Run slurmise_run tour
+      - name: Run ./slrmise tour mocking the sbatch calls
         working-directory: src/slurmise/tutorial/slurmise_run
-        run: |
-          if [ "${{ steps.memcheck.outputs.enforced }}" = "true" ]; then
-            uv run --script ./tutorial.py --yes
-          else
-            uv run --script ./tutorial.py --yes --mock
-          fi
+        run: uv run --script ./tutorial.py --yes
+
+      - name: Run slurmise_run tour (--slurm, real jobs)
+        working-directory: src/slurmise/tutorial/slurmise_run
+        run: uv run --script ./tutorial.py --yes --slurm
 
       - name: Run tutorial integration
         env:

@@ -12,10 +12,11 @@ the markdown says it should.
 
     ./tutorial.py                # interactive: shows each command, pauses, runs it
     ./tutorial.py --yes          # run the whole tour unattended (CI)
-    ./tutorial.py --mock         # SLRMISE_MOCK=1: no scheduler, whole tour in <1 min
+    ./tutorial.py --slurm        # really submit, instead of declaring what jobs cost
 
 Every run starts from a clean database -- the `#> reset` block runs first, always.
-Ctrl-C stops; there is no resuming, because `--mock --yes` takes under a minute.
+Ctrl-C stops; there is no resuming, because `--yes` takes under a minute unless
+`--slurm` puts it on a queue.
 
 Expectations are the `#>` lines in the fences -- shell comments, so they're
 inert if you copy a block and paste it into your own shell:
@@ -30,6 +31,16 @@ inert if you copy a block and paste it into your own shell:
 
 `retry=`/`repeat-until` is how the markdown says "we're waiting on the cluster".
 Anything else that doesn't match its expectation stops the tour loudly.
+
+By default no scheduler is needed: blocks that submit a job first declare what
+that job would have used, and `slrmise` records it without submitting it.
+
+    export SLRMISE_USED_MEM=2015 SLRMISE_USED_TIME=7
+    $ ./slrmise --toml slurmise.toml run -- ...
+
+`--slurm` comments those lines out, which is all it does -- with nothing
+declared, `slrmise` really calls `sbatch`. So the tour a reader can always take
+is the one written in the markdown, and submitting for real is the opt-in.
 
 The shebang runs this under `uv`, which supplies `rich`. It does NOT need
 `slurmise` importable -- but the commands it runs (`./slrmise`) do, under
@@ -65,7 +76,7 @@ HERE = pathlib.Path(__file__).resolve().parent
 TUTORIAL_MD = HERE / "tutorial.md"
 
 
-def child_env(mock: bool = False) -> dict[str, str]:
+def child_env() -> dict[str, str]:
     """The environment the tutorial's commands run in.
 
     `uv run --script` puts its ephemeral env (which has `rich` but not
@@ -73,9 +84,6 @@ def child_env(mock: bool = False) -> dict[str, str]:
     `./slrmise` would pick up uv's interpreter instead of the user's. Strip that
     entry back out: the commands should see the shell the reader started from,
     exactly as if they had typed them.
-
-    `--mock` is just `SLRMISE_MOCK=1` -- slrmise itself does the pretending, so
-    you can equally well export it and type the commands by hand.
     """
     env = os.environ.copy()
     if "UV_RUN_RECURSION_DEPTH" in env and sys.prefix != sys.base_prefix:
@@ -83,9 +91,30 @@ def child_env(mock: bool = False) -> dict[str, str]:
         env["PATH"] = os.pathsep.join(p for p in env.get("PATH", "").split(os.pathsep) if p != ours)
         if env.get("VIRTUAL_ENV") == sys.prefix:
             env.pop("VIRTUAL_ENV", None)
-    if mock:
-        env["SLRMISE_MOCK"] = "1"
     return env
+
+
+# `#export SLRMISE_USED_...` inside a command: the tutorial's way of saying what
+# a job would have used. Deliberately narrow -- it must not touch `#>` directives
+# or any other comment a lesson happens to contain.
+DECLARED_EXPORT_RE = re.compile(r"^(\s*)(export\s+SLRMISE_USED_)", re.MULTILINE)
+
+# The same thing on its own line in a fence, ahead of the command it applies to.
+# Written unglued because that is what a person would type; the parser folds it
+# onto the following command so that one `bash -c` sees both. (A `#` is accepted
+# so a lesson can still write one out already disabled.)
+ENV_LINE_RE = re.compile(r"^#?\s*export\s+SLRMISE_USED_\w+=")
+
+
+def disable_declared_exports(cmd: str) -> str:
+    """Comment out a command's declared-usage exports (`--slurm` only).
+
+    With nothing declared, `slrmise` really submits. Bash ends a comment at the
+    newline even when the line ends in `\\`, so a commented-out export sits
+    inertly inside a `\\`-continued command and the rest still runs -- which is
+    what lets one written command serve both modes.
+    """
+    return DECLARED_EXPORT_RE.sub(r"\1#\2", cmd)
 
 
 # ---------------------------------------------------------------------------
@@ -179,6 +208,13 @@ def parse_walkthrough(path: pathlib.Path) -> list[Section]:
     Inside a fence, `$ `-prefixed lines are commands (a trailing `\\` continues
     one onto the next line), `#>` lines are directives, and everything else is
     an output annotation for the reader and is ignored here.
+
+    A `#export SLRMISE_USED_...` line is the exception: it belongs to the command
+    below it, and is folded onto the front of it so both reach the same shell.
+    Each command runs in its own `bash -c`, so an export left as a step of its
+    own would evaporate before the command that needs it -- but a reader's shell
+    keeps it, so the markdown must show it on its own line the way they'd type
+    it, not welded on with a backslash to suit this script.
     """
     sections: list[Section] = [Section(id=None, title="", body=[])]
     prose: list[str] = []
@@ -187,12 +223,18 @@ def parse_walkthrough(path: pathlib.Path) -> list[Section]:
     # folded into one: bash runs it either way, and the tour can then show the
     # command broken exactly where the markdown breaks it.
     pending: list[str] | None = None
+    env_prefix: list[str] = []  # `#export` lines awaiting their command
 
     def flush_prose() -> None:
         text = "\n".join(prose).strip("\n")
         if text.strip():
             sections[-1].body.append(text)
         prose.clear()
+
+    def add_step(lines: list[str]) -> None:
+        """Record a command, carrying any `#export` lines in front of it."""
+        block.steps.append(Step("\n".join(env_prefix + lines)))
+        env_prefix.clear()
 
     for raw in path.read_text().splitlines():
         line = raw.rstrip()
@@ -208,6 +250,7 @@ def parse_walkthrough(path: pathlib.Path) -> list[Section]:
                 flush_prose()
                 block = Block()
                 pending = None
+                env_prefix.clear()
                 continue
             prose.append(line)
             continue
@@ -215,16 +258,17 @@ def parse_walkthrough(path: pathlib.Path) -> list[Section]:
         # --- inside a fence ---
         if stripped.startswith("```"):
             if pending is not None:
-                block.steps.append(Step("\n".join(pending)))
+                add_step(pending)
             if block.steps or block.is_reset:
                 sections[-1].body.append(block)
             block, pending = None, None
+            env_prefix.clear()
             continue
 
         if pending is not None:  # continuation of a `\`-terminated command
             pending.append(line)
             if not stripped.endswith("\\"):
-                block.steps.append(Step("\n".join(pending)))
+                add_step(pending)
                 pending = None
             continue
 
@@ -250,8 +294,13 @@ def parse_walkthrough(path: pathlib.Path) -> list[Section]:
             if cmd.endswith("\\"):
                 pending = [cmd]
             elif cmd:
-                block.steps.append(Step(cmd))
-        # non-`$`, non-`#>` fence lines are output annotations -> ignored
+                add_step([cmd])
+            continue
+
+        if ENV_LINE_RE.match(stripped):
+            env_prefix.append(stripped)
+            continue
+        # any other non-`$`, non-`#>` fence line is an output annotation -> ignored
 
     flush_prose()
     return [s for s in sections if s.body]
@@ -263,10 +312,17 @@ def parse_walkthrough(path: pathlib.Path) -> list[Section]:
 
 
 class Tour:
-    def __init__(self, console: Console, assume_yes: bool, mock: bool = False):
+    def __init__(self, console: Console, assume_yes: bool, slurm: bool = False):
         self.console = console
         self.assume_yes = assume_yes
-        self.env = child_env(mock)
+        self.slurm = slurm
+        self.env = child_env()
+        if slurm:
+            # --slurm means "really submit", so a stray SLRMISE_USED_* left over
+            # in the reader's shell must not quietly cancel that. Commenting out
+            # the markdown's own exports is not enough on its own.
+            for key in [k for k in self.env if k.startswith("SLRMISE_USED_")]:
+                del self.env[key]
         # Commands run on a pipe, where rich would assume 80 columns and squeeze
         # `display`'s table until it clips cells with an ellipsis -- unreadable,
         # and it would break the `#>` expectations that match on those values.
@@ -364,7 +420,13 @@ class Tour:
         Streaming matters: the `while squeue` waits produce nothing for minutes,
         and capture_output() would make them look like a hang. A spinner covers
         that silence and disappears as soon as the command says anything.
+
+        Under `--slurm` the declared-usage exports are commented out here, at the
+        last moment: what the reader was shown stays exactly what tutorial.md
+        says, and only what bash receives differs.
         """
+        if self.slurm:
+            cmd = disable_declared_exports(cmd)
         proc = subprocess.Popen(
             cmd,
             shell=True,
@@ -484,7 +546,11 @@ def run_reset(tour: Tour, sections: list[Section]) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--yes", action="store_true", help="Run everything without pausing (CI).")
-    parser.add_argument("--mock", action="store_true", help="SLRMISE_MOCK=1: pretend there's a scheduler.")
+    parser.add_argument(
+        "--slurm",
+        action="store_true",
+        help="Really submit: comment out each block's declared-usage exports.",
+    )
     args = parser.parse_args()
 
     # With no terminal to fit (CI, or piped to a file) rich assumes 80 columns,
@@ -504,9 +570,13 @@ def main() -> int:
         console.print(f"[bold red]tutorial.md:[/bold red] {exc}")
         return 2
 
-    tour = Tour(console, assume_yes=args.yes, mock=args.mock)
-    if args.mock:
-        console.print("[yellow]--mock:[/yellow] SLRMISE_MOCK=1 — no jobs will actually be submitted.")
+    tour = Tour(console, assume_yes=args.yes, slurm=args.slurm)
+    if args.slurm:
+        console.print("[yellow]--slurm:[/yellow] declared usage disabled — jobs will really be submitted.")
+    else:
+        console.print(
+            "[dim]Using each block's declared usage — no jobs will be submitted. Pass --slurm to really submit.[/dim]"
+        )
     run_reset(tour, sections)
 
     for section in (s for s in sections if s.id):

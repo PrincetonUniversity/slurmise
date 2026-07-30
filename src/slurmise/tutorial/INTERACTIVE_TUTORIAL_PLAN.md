@@ -94,21 +94,56 @@ and it is how `slurmise_run` already works. But it means:
 - you can no longer jump to lesson 03 in isolation.
 
 `tutorial.py` currently has no `--from` / `--stop-after`; they were deliberately
-removed because `--mock --yes` made a full re-run cheap. These tutorials submit
+removed because a declared-usage `--yes` run made a full re-run cheap. These tutorials submit
 real jobs with no mock, so a full re-run is *not* cheap, and resume may need to
 come back. **Decide this before migrating**, since it shapes whether one combined
 `tutorial.md` or three (one per subfolder, sharing a runner) is the better shape.
 
 ## What the runner needs
 
-Probably nothing. `tutorial.py` imports nothing from slurmise and takes its
-content entirely from `tutorial.md`. Worth confirming during the work:
+Very little. `tutorial.py` imports nothing from slurmise and takes its content
+entirely from `tutorial.md`. Worth confirming during the work:
 
 - It hardcodes `TUTORIAL_MD = HERE / "tutorial.md"`; sharing one runner across
   three folders means either a copy per folder or a path argument.
 - It sets `SBATCH_OUTPUT`, which these `.sbatch` files override with their own
   `#SBATCH --output=`. Harmless, but the prose should not claim otherwise.
 - `#>` has no "assert on a file" directive — `cat … #> expect /re/` covers it.
+- `#export SLRMISE_USED_…` lines get folded onto the command below them by the
+  parser (so one `bash -c` sees both — each command otherwise gets its own
+  shell, and an export left standing alone would evaporate), and `--slurm`
+  comments them out on the way to bash. This is the one thing the runner knows
+  about `slrmise`'s contract rather than about markdown. It is inert for these
+  tutorials, which submit with `sbatch` rather than `./slrmise run`, so nothing
+  breaks — but "the runner is content-agnostic" is no longer strictly true.
+
+## Prior art: is the markdown runner reinventing a wheel?
+
+Reviewed before committing to keep it. Partly yes, but not in the part that
+matters:
+
+| tool | asserts on output | interactive walkthrough | waits for a scheduler |
+|---|---|---|---|
+| [byexample](https://byexamples.github.io/byexample/) | yes — `$ cmd` + expected output, `<...>` placeholders, `+timeout` | no | no |
+| [Runme](https://github.com/runmedev/runme) | no | yes — TUI over markdown blocks | no |
+| [mdsh](https://github.com/zimbatm/mdsh), [mdtest](https://github.com/crabtw/mdtest), [md-cli-test](https://lib.rs/crates/md-cli-test) | yes | no | no |
+| [pytest-markdown-docs](https://github.com/modal-labs/pytest-markdown-docs), [phmdoctest](https://github.com/tmarktaylor/phmdoctest) | yes, Python blocks | no | no |
+
+byexample is the closest match and covers `#> expect /re/` and `#> expect fail`
+almost exactly. What nothing off-the-shelf has is `retry=` / `repeat-until`,
+which is the whole point here — these tutorials wait on a scheduler. byexample's
+answer would be `$ while ! cmd | grep -q X; do sleep 10; done`, which is exactly
+the polling loop `slurmise_run/tutorial.md` deliberately does not teach.
+
+So: the *parser* (~110 lines) is reinvented and could have been borrowed; the
+*scheduler-waiting* could not. Keeping the custom runner. Do not re-litigate
+without new evidence that one of these grew retry support.
+
+Related: `tutorial.py` uses `rich`, not Textual. The tour is a linear scrolling
+transcript — output must stay in native scrollback and in plain CI logs, and
+Textual would take the alt-screen and make both its own problem. Revisit only if
+lesson navigation or resume becomes a requirement (see "Sequencing" above, which
+is the one thing that might justify it).
 
 ## Migration steps
 
@@ -125,7 +160,8 @@ content entirely from `tutorial.md`. Worth confirming during the work:
 
 ## Verification
 
-- A green `--mock` run proves lesson *logic* only. It cannot prove lesson
+- A green declared-usage run (the default, no `--slurm`) proves lesson *logic*
+  only. It cannot prove lesson
   *waiting*, because mocked jobs settle instantly — that gap hid two real bugs in
   `slurmise_run`. There is no mock here anyway, which is a point in this
   migration's favour.

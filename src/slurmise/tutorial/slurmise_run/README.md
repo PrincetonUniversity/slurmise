@@ -44,9 +44,11 @@ commands yourself, or use `tutorial.py` to drive those same commands for you:
 ./tutorial.py
 ```
 
-This will submit actual slurm jobs unless you use `./tutorial.py --mock` when
-running the tutorial which will instead just write directly the the slurmise
-database. This is nice to avoid queue times but doesn't test `slrmise` as well.
+By default this submits nothing: each lesson tells `slrmise` what its job would
+have used, and the result is written straight to the slurmise database. That
+avoids queue times entirely, so the whole tour takes under a minute and needs no
+cluster — but it doesn't exercise `sbatch` or `sacct`. Use `./tutorial.py
+--slurm` to submit real jobs instead.
 
 ## The subcommands
 

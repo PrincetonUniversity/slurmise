@@ -1,41 +1,78 @@
-## 01 — what `./slrmise run` is
+## 01 - overview
 
-The goal of this tutorial is to show a prototype of how slurmise might work
-using an "all-in-one" approach where `slurmise` actually submits `sbatch`
-jobs for you.
+Currently, slurmise asks the user to `record` after an `srun` step has
+finished:
 
-Type the `$` commands below yourself, making sure you're in this directory — or run
-`./tutorial.py` to be walked through these exact commands interactively.
+    srun ../bin/perfectScaler --intensity 5000 --duration 10
 
-Prereqs: run on a login node from this directory, with `slurmise` importable by
-your `python3`, and export any cluster submit vars first (`SBATCH_ACCOUNT`, ...).
+    slurmise --toml slurmise.toml record \
+        "perfectScaler --intensity 5000 --duration 10"
 
-Send SLURM's job output somewhere tidy while you're at it. `sbatch` writes
-`slurm-<jobid>.out` into whatever directory you submitted from unless you tell it
-otherwise, so the tutorial directory fills up with stray files:
+The alternate approach shown in this tutorial is using
+slurmise as a wrapper like unix `time`:
+
+    ./slrmise --toml slurmise.toml run -- \
+        ../bin/perfectScaler --intensity 5000 --duration 10
+
+This requires a lot of changes, largest being that slurmise is now
+running `sbatch` for us.
+
+Instead of actually changing the `slurmise` source code, there is
+a `./slrmise` python script in this folder which imports `slurmise`
+but wraps a new `CLI` around it.
+
+## 01 - about this tutorial
+
+There are two ways of working through this tutorial:
+
+1. Run `./tutorial.py` for an interactive walkthrough
+2. Manually type/copy the `$` commands below yourself
+
+If you choose to manually enter the commands
+you may want to specify a dedicated output folder for the
+slurm logs so they don't clutter this directory:
 
     mkdir -p out_slurm_logs
     export SBATCH_OUTPUT=out_slurm_logs/slurm-%j.out
 
-`./tutorial.py` does exactly that for you before it runs anything, and it only
-sets `SBATCH_OUTPUT` if you haven't — so your own setting always wins.
+## 02 - about the code blocks
 
-The `#>` lines inside the code blocks say what each command is expected to do.
-They're shell comments, so pasting a whole block into your own shell is harmless;
-`./tutorial.py` reads them and checks the command output, waiting on
-the scheduler where a `retry=` or `repeat-until` says to.
+You might notice that the code blocks are slightly weird
+because of the added `#>` and `export` lines.
 
-If the queue is busy set `SLRMISE_MOCK=1`, or exit if you're looking at this
-interactively and run `./tutorial.py --mock`. In `mock` mode, `slrmise` will
-pretend: it skips `sbatch` and `sacct`, instad working  out how each job would
-have gone instead.
+1. The `#>` line describes expected output of the command.  For example the
+   following block prints the help message for `./slrmise` on the `$` line
+   and checks that the string "Commands:" is part of the output on the `#>` line:
 
-## 02 — what's here, and `predict`
+       $ ./slrmise --help
+       #> expect /Commands:/
+
+   These `#>` are for the `tutorial.py` to use for validation, you can ignore
+   them if you're running manually.
+
+2. The `export` lines avoid actually submitting sbatch jobs. This is the default
+   behavior because waiting for these small tutorial jobs to queue might take a while.
+
+   As a concrete example, the following block tells `./slrmise` to pretend the run
+   command produced a job that used 3315 MB of memory and took 7 seconds,
+   instead of actually `sbatch` submitting it:
+
+        export SLRMISE_USED_MEM=3315 SLRMISE_USED_TIME=7
+        $ ./slrmise --toml slurmise.toml run -- ...
+
+   `slrmise` submits whenever these `SLRMISE_USED_MEM` or `SLRMISE_USED_TIME`
+   variables are unset, so to really use the scheduler, just skip the `export` line
+   and `unset` any you already set.
+
+   Or run `./tutorial.py --slurm` and it submits real jobs instead of mocking.
+
+#TODO have a separate section for each of the files of interest
+## 02 — files of interest, and `predict`
 
 Important files for this tutorial:
 
 - `./slrmise` — the prototype. It's a stand-in for a hypothetical
-  `slurmise run`, so the name is deliberately misspelled (no `u`). It
+  `slurmise run`, again the name is deliberately misspelled (no `u`). It
   is not installed on the PATH so we'll always run as `./slrmise`.
   It predicts a job's resources, submits it, and records what it used; its
   subcommands are `run`, `predict`, and `display`:
@@ -46,20 +83,15 @@ $ ./slrmise --help
 ```
 
 - `../bin/perfectScaler` — the example command whose time and memory we're
-  trying to predict. It's an uninteresting 25-line python script that just
-  allocates `--intensity` MB of memory and holds it for `--duration` seconds,
-  then exits.
-  In real use you'd point slurmise at your command of interest
-  instead. Take a look, then run it directly on the login node
+  trying to predict. It's a toy python script that just
+  allocates and holds memory before exiting.
 
-```bash
-$ cat ../bin/perfectScaler
-#> expect /intensity/
-$ ../bin/perfectScaler
-```
+  By default, it holds ~200 MB for ~2 s and prints nothing, but you can use the
+  `--duration` and `--intensity` flags which directly control the time and memory
+  respectively.
 
-  By default, it holds ~200 MB for ~2 s and prints nothing. Try it again with
-  `../bin/perfectScaler --duration 10` if you're patient.
+  This is a helpful toy command where we know exactly how much time and memory each
+  invocation will take which is why it's named `perfectScaler`!
 
 - `slurmise.toml` — the config. `job_spec` tells slurmise how to parse the
   command into features; `default_mem` / `default_time` are the initial
@@ -106,6 +138,13 @@ caveat about accuracy — no model is consulted at all, and what comes back is
 points to train on, and holds back 20% of the runs to test against, so it takes
 about 13 COMPLETED runs before predictions stop being the defaults.
 
+From lesson 05 on you'll see `Fit perfectScaler on N completed runs` appear
+*above* that same warning, which looks contradictory but isn't: slurmise fits a
+model as soon as it has enough runs to split into train and test, and keeps
+returning defaults until the training half of that split reaches 10. `./slrmise`
+hands over every completed run and lets slurmise decide when a fit is worth
+trusting.
+
 Finally, ask again with wildly different features:
 
 ```bash
@@ -124,6 +163,7 @@ row exists but its actual memory/time are unknown (`-`) until the job finishes
 and a later sync pulls them from `sacct`.
 
 ```bash
+export SLRMISE_USED_MEM=2015 SLRMISE_USED_TIME=7
 $ ./slrmise --toml slurmise.toml run -- \
     ../bin/perfectScaler --intensity 2000 --duration 5
 #> expect /Submitted job/
@@ -152,23 +192,23 @@ gap is real waste — lesson 06 reclaims it.
 
 ## 04 — a failure is data, not a loss
 
-The toml's 3000M default becomes a 4500M allocation, so we ask for far more than
-that — intensity 8000 needs about 8015M. It has to be far more: a job that only
-slightly overshoots gets the excess reclaimed and survives, so a small overshoot
-would quietly COMPLETE instead of failing. The job can't fit and is
-recorded `OUT_OF_MEMORY` — it didn't vanish, the failure is evidence, and it's excluded from model training.
+The toml's 3000M default becomes a 4500M allocation, and intensity 8500 needs
+about 8515M — far more than it is given. The job can't fit and is recorded
+`OUT_OF_MEMORY`. It didn't vanish: the failure is evidence, and it's excluded
+from model training.
 
 ```bash
+export SLRMISE_USED_MEM=8515 SLRMISE_USED_TIME=7
 $ ./slrmise --toml slurmise.toml run -- \
-    ../bin/perfectScaler --intensity 8000 --duration 5
+    ../bin/perfectScaler --intensity 8500 --duration 5
 #> expect /Submitted job/
 $ ./slrmise --toml slurmise.toml display
-#> expect /OUT_OF_MEMORY.*\b8000\b/ retry=16 delay=10
+#> expect /OUT_OF_MEMORY.*\b8500\b/ retry=16 delay=10
 ```
 
 ## 05 — self-heal: double the memory until it fits
 
-Re-run the same intensity-8000 command. With a failure on record and no
+Re-run the same intensity-8500 command. With a failure on record and no
 success, `slrmise` escalates past the largest failing allocation — doubling the
 memory (4500 → 9000) until the job COMPLETES. No model is involved; this
 is pure exact-history logic.
@@ -181,11 +221,12 @@ Run this block again each time it's still `OUT_OF_MEMORY` — the `repeat-until`
 below is `./tutorial.py` doing exactly that for you until it completes:
 
 ```bash
+export SLRMISE_USED_MEM=8515 SLRMISE_USED_TIME=7
 $ ./slrmise --toml slurmise.toml run -- \
-    ../bin/perfectScaler --intensity 8000 --duration 5
+    ../bin/perfectScaler --intensity 8500 --duration 5
 $ ./slrmise --toml slurmise.toml display
-#> expect /COMPLETED.*\b8000\b/ retry=16 delay=10
-#> repeat-until /COMPLETED.*\b8000\b/ max=3
+#> expect /COMPLETED.*\b8500\b/ retry=16 delay=10
+#> repeat-until /COMPLETED.*\b8500\b/ max=3
 ```
 
 ## 06 — right-size reuse: reclaim the headroom
@@ -196,6 +237,7 @@ it actually used × the margin (~3150M), ratcheting the allocation down.
 (Contrast lesson 05, which ratcheted up to fit.)
 
 ```bash
+export SLRMISE_USED_MEM=2015 SLRMISE_USED_TIME=7
 $ ./slrmise --toml slurmise.toml run -- \
     ../bin/perfectScaler --intensity 2000 --duration 5
 #> expect /Submitted job/
@@ -216,6 +258,7 @@ COMPLETED runs, not 10. Submit a spread of varied jobs to cross that threshold:
 
 ```bash
 $ for i in 400 600 800 1000 1200 1400 1600 1800 2000 2200 2400 2500 2600; do \
+      export SLRMISE_USED_MEM=$((i + 15)) SLRMISE_USED_TIME=8; \
       ./slrmise --toml slurmise.toml run -- \
           ../bin/perfectScaler --intensity $i --duration 6; \
   done
@@ -255,4 +298,12 @@ runs exactly this block for you, every time, before lesson 02:
 #> reset
 $ rm -f slurmise.h5 fits.json poly_runtime_model.pkl poly_memory_model.pkl
 $ rm -f out_slurm_logs/*.out
+$ unset SLRMISE_USED_MEM SLRMISE_USED_TIME
 ```
+
+That last line matters if you worked through the lessons by hand and then want a
+pass that really submits: the `export`s are still set in your shell, and they
+would keep `run` from submitting anything — a stale environment is the one piece
+of leftover state that deleting the database doesn't clear. `./tutorial.py`
+doesn't need it (each command gets a fresh shell, and `--slurm` drops these
+variables outright), but your own shell does.
