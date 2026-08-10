@@ -123,6 +123,82 @@ def test_raw_record(simple_toml, sacct_mock):
     assert split_std[3].split("-")[-1] == " 1234"
 
 
+def test_raw_record_with_usage_skips_sacct(simple_toml):
+    """--memory and --runtime are taken at face value, with no sacct call.
+
+    Deliberately no `sacct_mock` fixture: if this ever starts asking SLURM for
+    the numbers it should fail, rather than quietly use whatever is there.
+    """
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "--toml",
+            simple_toml.toml,
+            "raw-record",
+            "--job-name",
+            "nupack",
+            "--slurm-id",
+            "1234",
+            "--numerics",
+            '"threads":2',
+            "--categories",
+            '"complexity":"simple"',
+            "--memory",
+            "512",
+            "--runtime",
+            "60",
+        ],
+    )
+    assert result.exit_code == 0
+
+    with job_database.JobDatabase.get_database(simple_toml.db) as db:
+        query = JobData(job_name="nupack", categories={"complexity": "simple"})
+        assert db.query(query) == [
+            JobData(
+                job_name="nupack",
+                slurm_id="1234",
+                runtime=60,
+                memory=512,
+                categories={"complexity": "simple"},
+                numerics={"threads": 2},
+                cmd=None,
+            ),
+        ]
+
+
+def test_raw_record_partial_usage_still_uses_sacct(simple_toml, sacct_mock):
+    """One of the two isn't enough -- sacct supplies both, as it always did."""
+    sacct_mock(task_count=1, mem_count=232 * 2**20)  # parses to max_rss=232, elapsed=97201
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "--toml",
+            simple_toml.toml,
+            "raw-record",
+            "--job-name",
+            "nupack",
+            "--slurm-id",
+            "1234",
+            "--numerics",
+            '"threads":2',
+            "--categories",
+            '"complexity":"simple"',
+            "--memory",
+            "512",
+        ],
+    )
+    assert result.exit_code == 0
+
+    with job_database.JobDatabase.get_database(simple_toml.db) as db:
+        query = JobData(job_name="nupack", categories={"complexity": "simple"})
+        recorded = db.query(query)
+
+    assert [(job.memory, job.runtime) for job in recorded] == [(232, 97201)]
+
+
 def test_record_step_id_without_slurm_id(simple_toml, monkeypatch, no_slurm_env, sacct_mock):
     """Regression test for issue 79: `record --step-id N` without `--slurm-id` inside
     a SLURM job must resolve the job id from the environment."""

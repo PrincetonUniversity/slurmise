@@ -25,7 +25,8 @@ EXCLUDE_PATTERNS = (
     "out_slurm_logs",
     "local.sql",
     "__pycache__",
-    "slurmise_run",  # wip, only run through a clone of the repo
+    "05_slurmise_run",  # wip, only run through a clone of the repo
+    "INTERACTIVE_TUTORIAL_PLAN.md",  # internal notes about the tutorial, not part of it
 )
 
 
@@ -56,14 +57,16 @@ def main(dest):
 
     # Restore the executable bit on the example job scripts; wheel installs
     # don't reliably preserve it, and the sbatch files invoke them directly.
-    bin_dir = Path(dest) / "bin"
-    if bin_dir.is_dir():
-        for script in bin_dir.iterdir():
-            if script.is_file():
-                script.chmod(script.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    # Same for the `tutorial.py` walkthrough, which the README tells the reader
+    # to run as `./tutorial.py`, and each lesson's no-cluster `mock_*.sh`.
+    executables = [p for p in (Path(dest) / "bin").glob("*") if p.is_file()]
+    executables += [p for p in [Path(dest) / "tutorial.py"] if p.is_file()]
+    executables += [p for p in Path(dest).glob("*/mock_*.sh") if p.is_file()]
+    for script in executables:
+        script.chmod(script.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
     click.echo(f"Tutorial written to {dest}/")
-    click.echo("Open the README there, then `cd` into 01_single_job/ to begin.")
+    click.echo(f"Run `cd {dest} && ./tutorial.py` to begin, or read 01_single_job/README.md.")
 
 
 if __name__ == "__main__":

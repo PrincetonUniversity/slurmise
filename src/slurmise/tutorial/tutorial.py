@@ -3,20 +3,22 @@
 # requires-python = ">=3.11"
 # dependencies = ["rich"]
 # ///
-"""Walks you through tutorial.md, running its commands as you go.
+"""Walks you through a lesson's README.md, running its commands as you go.
 
-The tutorial itself -- the narration, the commands, and what each command is
-expected to do -- lives entirely in tutorial.md. This drives it: renders the
-prose, shows each `$` command before running it, and checks the command did what
-the markdown says it should.
+A lesson is any subdirectory holding a `README.md`. That file is the tutorial
+-- the narration, the commands, and what each command is expected to do -- and
+this drives it: renders the prose, shows each `$` command before running it, and
+checks the command did what the markdown says it should. Commands run in the
+lesson's own directory, so its `slurmise.toml` and `../bin/...` resolve.
 
-    ./tutorial.py                # interactive: shows each command, pauses, runs it
-    ./tutorial.py --yes          # run the whole tour unattended (CI)
-    ./tutorial.py --slurm        # really submit, instead of declaring what jobs cost
+    ./tutorial.py                  # pick a lesson from the menu, then walk it
+    ./tutorial.py 02_jobs_in_loop  # skip the menu
+    ./tutorial.py --yes            # every lesson, in order, unattended (CI)
+    ./tutorial.py --option mock    # answer every either/or block with "mock"
 
-Every run starts from a clean database -- the `#> reset` block runs first, always.
-Ctrl-C stops; there is no resuming, because `--yes` takes under a minute unless
-`--slurm` puts it on a queue.
+Every lesson starts from a clean database -- its `#> reset` block runs first,
+always -- so lessons can be taken in any order, or one on its own. Ctrl-C stops;
+there is no resuming.
 
 Expectations are the `#>` lines in the fences -- shell comments, so they're
 inert if you copy a block and paste it into your own shell:
@@ -26,25 +28,31 @@ inert if you copy a block and paste it into your own shell:
 
     #> expect ok              exit 0, output unchecked (the default)
     #> expect fail            must exit non-zero
-    #> repeat-until /re/ max=8    (last line of a fence) re-run the whole block
     #> reset                  (first line of a fence) run once, up front
+    #> option <name>          opens one of several ways to do the same thing
 
-`retry=`/`repeat-until` is how the markdown says "we're waiting on the cluster".
-Anything else that doesn't match its expectation stops the tour loudly.
+`retry=` is how the markdown says "we're waiting on the cluster". Anything else
+that doesn't match its expectation stops the tour loudly.
 
-By default no scheduler is needed: blocks that submit a job first declare what
-that job would have used, and `slrmise` records it without submitting it.
+`#> option` is how a lesson offers a choice -- typically the same step done on
+the cluster or faked locally. Each option runs until the next `#> option` or the
+end of the fence:
 
-    export SLRMISE_USED_MEM=2015 SLRMISE_USED_TIME=7
-    $ ./slrmise --toml slurmise.toml run -- ...
+    #> option cluster
+    $ sbatch --wait run_thing.sbatch
+    #> expect ok
+    #> option mock
+    $ bash mock_thing.sh
+    #> expect ok
 
-`--slurm` comments those lines out, which is all it does -- with nothing
-declared, `slrmise` really calls `sbatch`. So the tour a reader can always take
-is the one written in the markdown, and submitting for real is the opt-in.
+You pick one; `--option <name>` picks for you, and `--yes` alone takes the
+first. The names mean nothing here -- they are the lesson's words, printed back
+to whoever is choosing. Whether the options really are interchangeable, so the
+rest of the lesson holds either way, is the lesson author's problem.
 
 The shebang runs this under `uv`, which supplies `rich`. It does NOT need
-`slurmise` importable -- but the commands it runs (`./slrmise`) do, under
-whatever `python3` is on your PATH.
+`slurmise` importable -- but the commands it runs do, under whatever `python3`
+is on your PATH.
 """
 
 from __future__ import annotations
@@ -73,7 +81,6 @@ from rich.theme import Theme
 PROSE_THEME = Theme({"markdown.code": "cyan", "markdown.code_block": "cyan"})
 
 HERE = pathlib.Path(__file__).resolve().parent
-TUTORIAL_MD = HERE / "tutorial.md"
 
 
 def child_env() -> dict[str, str]:
@@ -94,27 +101,10 @@ def child_env() -> dict[str, str]:
     return env
 
 
-# `#export SLRMISE_USED_...` inside a command: the tutorial's way of saying what
-# a job would have used. Deliberately narrow -- it must not touch `#>` directives
-# or any other comment a lesson happens to contain.
-DECLARED_EXPORT_RE = re.compile(r"^(\s*)(export\s+SLRMISE_USED_)", re.MULTILINE)
-
-# The same thing on its own line in a fence, ahead of the command it applies to.
+# An `export` on its own line in a fence, ahead of the command it applies to.
 # Written unglued because that is what a person would type; the parser folds it
-# onto the following command so that one `bash -c` sees both. (A `#` is accepted
-# so a lesson can still write one out already disabled.)
-ENV_LINE_RE = re.compile(r"^#?\s*export\s+SLRMISE_USED_\w+=")
-
-
-def disable_declared_exports(cmd: str) -> str:
-    """Comment out a command's declared-usage exports (`--slurm` only).
-
-    With nothing declared, `slrmise` really submits. Bash ends a comment at the
-    newline even when the line ends in `\\`, so a commented-out export sits
-    inertly inside a `\\`-continued command and the rest still runs -- which is
-    what lets one written command serve both modes.
-    """
-    return DECLARED_EXPORT_RE.sub(r"\1#\2", cmd)
+# onto the following command so that one `bash -c` sees both.
+ENV_LINE_RE = re.compile(r"^export\s+\w+=")
 
 
 # ---------------------------------------------------------------------------
@@ -156,28 +146,84 @@ class Step:
 
 
 @dataclass
-class Block:
-    """A fenced block: the commands in it plus its block-level directives."""
+class Option:
+    """One of several interchangeable ways to do the same step.
 
+    `name` is whatever the markdown wrote after `#> option`, or None for a fence
+    that offered no choice at all. It is never interpreted -- only shown to
+    whoever is choosing, and matched against `--option`.
+    """
+
+    name: str | None = None
     steps: list[Step] = field(default_factory=list)
-    repeat_until: re.Pattern[str] | None = None
-    repeat_max: int = 8
+
+
+@dataclass
+class Block:
+    """A fenced block: one or more alternatives, of which exactly one is run."""
+
+    options: list[Option] = field(default_factory=lambda: [Option()])
     is_reset: bool = False
+
+    @property
+    def offers_choice(self) -> bool:
+        return len(self.options) > 1
+
+    def pick(self, name: str | None) -> Option:
+        """The option called `name`, else the first. Used when nobody is asked."""
+        if name is not None:
+            for option in self.options:
+                if option.name == name:
+                    return option
+        return self.options[0]
 
 
 @dataclass
 class Section:
-    id: str | None  # "01".."08" for a numbered lesson, else None
+    id: str | None  # "01".."08" for a numbered section, else None
     title: str
     body: list[str | Block] = field(default_factory=list)  # prose | code
 
 
+@dataclass
+class Lesson:
+    """A directory holding a `README.md`, and that file already parsed."""
+
+    path: pathlib.Path
+    title: str  # the markdown's `# Heading`, for the menu
+    sections: list[Section]
+
+    @property
+    def name(self) -> str:
+        return self.path.name
+
+
+def find_lessons(root: pathlib.Path) -> list[Lesson]:
+    """Every `<dir>/README.md` under `root`, in directory-name order.
+
+    Which lessons exist depends on where this is run from: a generated tutorial
+    ships only the numbered getting-started lessons, while a clone also has the
+    work-in-progress ones that `generate_tutorial.py` excludes.
+    """
+    return [_load_lesson(path.parent) for path in sorted(root.glob("*/README.md"))]
+
+
+def _load_lesson(path: pathlib.Path) -> Lesson:
+    markdown = path / "README.md"
+    title = next((line[2:].strip() for line in markdown.read_text().splitlines() if line.startswith("# ")), "")
+    try:
+        sections = parse_walkthrough(markdown)
+    except ValueError as exc:  # say which file, now that there are several
+        raise ValueError(f"{path.name}/README.md: {exc}") from exc
+    return Lesson(path=path, title=title, sections=sections)
+
+
 # ---------------------------------------------------------------------------
-# parsing tutorial.md
+# parsing README.md
 # ---------------------------------------------------------------------------
 
 HEADING_RE = re.compile(r"^##\s+(?:(\d\d)\s*[—–-]\s*)?(.+?)\s*$")
-DIRECTIVE_RE = re.compile(r"^#>\s*(expect|repeat-until|reset)\b\s*(.*)$")
+DIRECTIVE_RE = re.compile(r"^#>\s*(expect|option|reset)\b\s*(.*)$")
 ARG_RE = re.compile(r"^/(.*)/\s*(.*)$")  # /regex/ trailing key=value pairs
 
 
@@ -209,12 +255,15 @@ def parse_walkthrough(path: pathlib.Path) -> list[Section]:
     one onto the next line), `#>` lines are directives, and everything else is
     an output annotation for the reader and is ignored here.
 
-    A `#export SLRMISE_USED_...` line is the exception: it belongs to the command
-    below it, and is folded onto the front of it so both reach the same shell.
-    Each command runs in its own `bash -c`, so an export left as a step of its
-    own would evaporate before the command that needs it -- but a reader's shell
-    keeps it, so the markdown must show it on its own line the way they'd type
-    it, not welded on with a backslash to suit this script.
+    An `export ...` line is the exception: it belongs to the command below it,
+    and is folded onto the front of it so both reach the same shell. Each command
+    runs in its own `bash -c`, so an export left as a step of its own would
+    evaporate before the command that needs it -- but a reader's shell keeps it,
+    so the markdown must show it on its own line the way they'd type it, not
+    welded on with a backslash to suit this script.
+
+    `#> option <name>` starts a new alternative within the fence; the commands
+    that follow belong to it until the next one.
     """
     sections: list[Section] = [Section(id=None, title="", body=[])]
     prose: list[str] = []
@@ -223,7 +272,7 @@ def parse_walkthrough(path: pathlib.Path) -> list[Section]:
     # folded into one: bash runs it either way, and the tour can then show the
     # command broken exactly where the markdown breaks it.
     pending: list[str] | None = None
-    env_prefix: list[str] = []  # `#export` lines awaiting their command
+    env_prefix: list[str] = []  # `export` lines awaiting their command
 
     def flush_prose() -> None:
         text = "\n".join(prose).strip("\n")
@@ -232,8 +281,8 @@ def parse_walkthrough(path: pathlib.Path) -> list[Section]:
         prose.clear()
 
     def add_step(lines: list[str]) -> None:
-        """Record a command, carrying any `#export` lines in front of it."""
-        block.steps.append(Step("\n".join(env_prefix + lines)))
+        """Record a command, carrying any `export` lines in front of it."""
+        block.options[-1].steps.append(Step("\n".join(env_prefix + lines)))
         env_prefix.clear()
 
     for raw in path.read_text().splitlines():
@@ -259,7 +308,7 @@ def parse_walkthrough(path: pathlib.Path) -> list[Section]:
         if stripped.startswith("```"):
             if pending is not None:
                 add_step(pending)
-            if block.steps or block.is_reset:
+            if any(option.steps for option in block.options) or block.is_reset:
                 sections[-1].body.append(block)
             block, pending = None, None
             env_prefix.clear()
@@ -278,15 +327,20 @@ def parse_walkthrough(path: pathlib.Path) -> list[Section]:
             if name == "reset":
                 block.is_reset = True
             elif name == "expect":
-                if not block.steps:
+                if not block.options[-1].steps:
                     raise ValueError(f"`#> expect` with no command before it: {stripped}")
-                block.steps[-1].expect = _parse_expect(arg)
-            else:  # repeat-until
-                match = ARG_RE.match(arg)
-                if not match:
-                    raise ValueError(f"cannot parse `#> repeat-until {arg}`")
-                block.repeat_until = re.compile(match.group(1))
-                block.repeat_max = int(_parse_options(match.group(2)).get("max", 8))
+                block.options[-1].steps[-1].expect = _parse_expect(arg)
+            else:  # option
+                if not arg.strip():
+                    raise ValueError("`#> option` needs a name")
+                # The first one replaces the unnamed default, so a fence that
+                # opens with `#> option` doesn't carry an empty option around.
+                if block.options[-1].steps or block.options[-1].name:
+                    block.options.append(Option(name=arg.strip()))
+                else:
+                    block.options[-1] = Option(name=arg.strip())
+                pending = None
+                env_prefix.clear()
             continue
 
         if stripped.startswith("$ ") or stripped == "$":
@@ -312,17 +366,19 @@ def parse_walkthrough(path: pathlib.Path) -> list[Section]:
 
 
 class Tour:
-    def __init__(self, console: Console, assume_yes: bool, slurm: bool = False):
+    def __init__(
+        self,
+        console: Console,
+        lesson: Lesson,
+        assume_yes: bool,
+        option: str | None = None,
+    ):
         self.console = console
+        self.lesson = lesson
+        self.cwd = lesson.path  # commands run here, not next to this script
         self.assume_yes = assume_yes
-        self.slurm = slurm
+        self.option = option  # answer every `#> option` block with this name
         self.env = child_env()
-        if slurm:
-            # --slurm means "really submit", so a stray SLRMISE_USED_* left over
-            # in the reader's shell must not quietly cancel that. Commenting out
-            # the markdown's own exports is not enough on its own.
-            for key in [k for k in self.env if k.startswith("SLRMISE_USED_")]:
-                del self.env[key]
         # Commands run on a pipe, where rich would assume 80 columns and squeeze
         # `display`'s table until it clips cells with an ellipsis -- unreadable,
         # and it would break the `#>` expectations that match on those values.
@@ -371,6 +427,39 @@ class Tour:
         except EOFError:  # non-tty without --yes: behave like --yes
             self.assume_yes = True
 
+    def choose_option(self, block: Block) -> Option:
+        """Ask which of a block's alternatives to run.
+
+        Asked every time a block offers a choice, rather than remembered: the
+        lesson author is the one promising they leave the same state, so nothing
+        here should quietly carry an earlier answer into a later block.
+        """
+        if self.option is not None or self.assume_yes:
+            chosen = block.pick(self.option)
+            self.console.print(f"\n[dim]option:[/dim] {chosen.name}")
+            return chosen
+
+        self.console.print()
+        width = max(len(option.name or "") for option in block.options)
+        for number, option in enumerate(block.options, start=1):
+            first = option.steps[0].command.splitlines()[0] if option.steps else ""
+            more = " …" if len(option.steps) > 1 or "\n" in option.steps[0].command else ""
+            name = (option.name or "").ljust(width)
+            self.console.print(f"  [bold]{number}[/bold]) [cyan]{name}[/cyan]  [dim]{first}{more}[/dim]")
+
+        while True:
+            try:
+                answer = self.console.input("[dim]Choose ▸ [/dim]").strip()
+            except EOFError:  # non-tty without --yes: behave like --yes
+                self.assume_yes = True
+                return block.options[0]
+            if answer.isdigit() and 1 <= int(answer) <= len(block.options):
+                return block.options[int(answer) - 1]
+            by_name = [o for o in block.options if o.name == answer]
+            if by_name:
+                return by_name[0]
+            self.console.print(f"[yellow]Not one of the choices:[/yellow] {answer}")
+
     def failure(self, cmd: str, expect: Expect, reason: str, output: str) -> None:
         tail = "\n".join(output.splitlines()[-15:]) or "(no output)"
         self.console.print()
@@ -417,20 +506,18 @@ class Tour:
     def run_command(self, cmd: str) -> tuple[int, str]:
         """Run under bash, streaming output live while capturing it.
 
-        Streaming matters: the `while squeue` waits produce nothing for minutes,
-        and capture_output() would make them look like a hang. A spinner covers
-        that silence and disappears as soon as the command says anything.
+        Streaming matters: a command that waits on the cluster produces nothing
+        for minutes, and capture_output() would make that look like a hang. A
+        spinner covers the silence and disappears as soon as it says anything.
 
-        Under `--slurm` the declared-usage exports are commented out here, at the
-        last moment: what the reader was shown stays exactly what tutorial.md
-        says, and only what bash receives differs.
+        What runs is exactly what the reader was shown -- there is no rewriting
+        between the box and bash. A lesson that wants a command run differently
+        says so with `#> option`.
         """
-        if self.slurm:
-            cmd = disable_declared_exports(cmd)
         proc = subprocess.Popen(
             cmd,
             shell=True,
-            cwd=HERE,
+            cwd=self.cwd,
             executable="/bin/bash",
             env=self.env,
             stdout=subprocess.PIPE,
@@ -461,8 +548,8 @@ class Tour:
                 self.console.print("  [dim]╰─[/dim]")
         return proc.wait(), "".join(lines)
 
-    def run_step(self, step: Step, strict: bool = True, show: bool = True) -> tuple[bool, str]:
-        """Run one command, honouring its `retry=`. Returns (satisfied, output).
+    def run_step(self, step: Step, show: bool = True) -> str:
+        """Run one command, honouring its `retry=`. Returns its output.
 
         `show=False` runs it as housekeeping -- no box, no pause.
         """
@@ -477,38 +564,19 @@ class Tour:
             code, output = self.run_command(step.command)
             reason = step.expect.check(code, output)
             if reason is None:
-                return True, output
+                return output
 
-        if strict:
-            self.failure(step.command, step.expect, reason, output)
-        return False, output
+        self.failure(step.command, step.expect, reason, output)
+        raise TourFailure(f"`{step.command}`")
 
     def run_block(self, block: Block) -> None:
-        """Run a block's commands, re-running the whole block while a
-        `repeat-until` is unsatisfied. Inside such a block an unmet per-command
-        expectation is not fatal either -- it just means "go round again"."""
+        """Run one of a block's alternatives, start to finish."""
         if block.is_reset:
             return  # already run, up front, by run_reset()
 
-        looping = block.repeat_until is not None
-        for attempt in range(block.repeat_max if looping else 1):
-            if attempt:
-                self.console.print(
-                    f"[dim]not settled yet — running the block again ({attempt}/{block.repeat_max})[/dim]"
-                )
-            output, ok = "", True
-            for step in block.steps:
-                ok, output = self.run_step(step, strict=not looping)
-                if not ok:
-                    if not looping:
-                        raise TourFailure(f"`{step.command}`")
-                    break
-            if not looping:
-                return
-            if ok and block.repeat_until.search(output):
-                return
-
-        raise TourFailure(f"block never reached /{block.repeat_until.pattern}/ in {block.repeat_max} attempts")
+        option = self.choose_option(block) if block.offers_choice else block.options[0]
+        for step in option.steps:
+            self.run_step(step)
 
     def run_section(self, section: Section) -> None:
         self.section_banner(section)
@@ -528,28 +596,82 @@ class TourFailure(Exception):
 # ---------------------------------------------------------------------------
 
 
-def run_reset(tour: Tour, sections: list[Section]) -> None:
-    """Clear the database and models so the tour starts from nothing.
+def run_reset(tour: Tour) -> None:
+    """Clear the lesson's database and models so it starts from nothing.
 
-    Unconditional, because the lessons only hold from a clean slate: lesson 04
-    can only be OUT_OF_MEMORY if there is no earlier success at that intensity
-    for self-heal to have learned from.
+    Unconditional, and per lesson rather than once up front: a lesson only holds
+    from a clean slate, and running it here is what keeps every lesson
+    independent of the ones before it.
     """
-    for section in sections:
+    for section in tour.lesson.sections:
         for block in section.body:
             if isinstance(block, Block) and block.is_reset:
-                for step in block.steps:
+                for step in block.options[0].steps:
                     tour.run_step(step, show=False)
     tour.console.print("[dim]Cleared previous runs — starting from an empty database.[/dim]")
 
 
+def choose_lessons(console: Console, lessons: list[Lesson], assume_yes: bool) -> list[Lesson]:
+    """Ask which lesson to walk. Everything, in order, if there's no one to ask."""
+    if assume_yes or not sys.stdin.isatty():
+        return lessons
+
+    console.print()
+    console.print("[bold cyan]Lessons in this tutorial[/bold cyan]")
+    width = max(len(lesson.name) for lesson in lessons)
+    for number, lesson in enumerate(lessons, start=1):
+        console.print(f"  [bold]{number}[/bold]) {lesson.name:<{width}}  [dim]{lesson.title}[/dim]")
+    console.print("  [bold]a[/bold]) all of them, in order")
+    console.print()
+
+    while True:
+        try:
+            answer = console.input("[dim]Choose ▸ [/dim]").strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            return []
+        if answer in ("a", "all"):
+            return lessons
+        if answer.isdigit() and 1 <= int(answer) <= len(lessons):
+            return [lessons[int(answer) - 1]]
+        by_name = [lesson for lesson in lessons if lesson.name == answer]
+        if by_name:
+            return by_name
+        console.print(f"[yellow]Not one of the choices:[/yellow] {answer}")
+
+
+def run_lesson(console: Console, lesson: Lesson, args: argparse.Namespace) -> int:
+    """Walk one lesson end to end. Returns a process exit code."""
+    console.print()
+    console.print(Rule(f"[bold]{lesson.name}[/bold] — {lesson.title}", style="white"))
+
+    tour = Tour(console, lesson, assume_yes=args.yes, option=args.option)
+    run_reset(tour)
+
+    for section in (s for s in lesson.sections if s.id):
+        try:
+            tour.run_section(section)
+        except KeyboardInterrupt:
+            console.print(f"\n[dim]Stopped. ./tutorial.py {lesson.name} starts again from the top.[/dim]")
+            return 130
+        except TourFailure as exc:
+            console.print(f"\n[bold red]{lesson.name} section {section.id} failed:[/bold red] {exc}")
+            return 1
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument(
+        "lessons",
+        nargs="*",
+        metavar="LESSON",
+        help="Lesson directories to walk. Default: ask, or all of them under --yes.",
+    )
     parser.add_argument("--yes", action="store_true", help="Run everything without pausing (CI).")
     parser.add_argument(
-        "--slurm",
-        action="store_true",
-        help="Really submit: comment out each block's declared-usage exports.",
+        "--option",
+        metavar="NAME",
+        help="Answer every `#> option` block with this name, instead of asking.",
     )
     args = parser.parse_args()
 
@@ -560,34 +682,33 @@ def main() -> int:
         theme=PROSE_THEME,
         width=None if sys.stdout.isatty() else 140,
     )
-    os.chdir(HERE)  # so '.' base_dir and ../bin/... resolve on the shared fs
-    (HERE / "out_slurm_logs").mkdir(exist_ok=True)
-    os.environ.setdefault("SBATCH_OUTPUT", "out_slurm_logs/slurm-%j.out")
 
     try:
-        sections = parse_walkthrough(TUTORIAL_MD)
+        lessons = find_lessons(HERE)
     except ValueError as exc:
-        console.print(f"[bold red]tutorial.md:[/bold red] {exc}")
+        console.print(f"[bold red]{exc}[/bold red]")
+        return 2
+    if not lessons:
+        console.print(f"[bold red]No lessons found:[/bold red] no */README.md under {HERE}")
         return 2
 
-    tour = Tour(console, assume_yes=args.yes, slurm=args.slurm)
-    if args.slurm:
-        console.print("[yellow]--slurm:[/yellow] declared usage disabled — jobs will really be submitted.")
+    if args.lessons:
+        by_name = {lesson.name: lesson for lesson in lessons}
+        unknown = [name for name in args.lessons if name.rstrip("/") not in by_name]
+        if unknown:
+            console.print(f"[bold red]No such lesson:[/bold red] {', '.join(unknown)}")
+            console.print(f"[dim]Available: {', '.join(by_name)}[/dim]")
+            return 2
+        chosen = [by_name[name.rstrip("/")] for name in args.lessons]
     else:
-        console.print(
-            "[dim]Using each block's declared usage — no jobs will be submitted. Pass --slurm to really submit.[/dim]"
-        )
-    run_reset(tour, sections)
-
-    for section in (s for s in sections if s.id):
-        try:
-            tour.run_section(section)
-        except KeyboardInterrupt:
-            console.print("\n[dim]Stopped. ./tutorial.py starts again from the top.[/dim]")
+        chosen = choose_lessons(console, lessons, assume_yes=args.yes)
+        if not chosen:  # Ctrl-C at the menu
             return 0
-        except TourFailure as exc:
-            console.print(f"\n[bold red]Lesson {section.id} failed:[/bold red] {exc}")
-            return 1
+
+    for lesson in chosen:
+        code = run_lesson(console, lesson, args)
+        if code:
+            return 0 if code == 130 else code
 
     console.print()
     console.print(Rule("[bold green]tour complete[/bold green]", style="green"))

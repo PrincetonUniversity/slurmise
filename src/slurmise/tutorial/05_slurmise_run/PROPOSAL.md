@@ -36,7 +36,7 @@ CLI.
 
 ## Tutorial for this new approach
 
-[`tutorial.md`](tutorial.md) is a follow-along tutorial showing
+[`README.md`](README.md) is a follow-along tutorial showing
 how the `./slrmise` prototype works. You can read it and type the
 commands yourself, or use `tutorial.py` to drive those same commands for you:
 

@@ -505,11 +505,17 @@ def run(ctx, margin, dry_run):
     mem_mb, minutes = with_margin(pred_mem, pred_secs, margin)
     mem_mb, minutes = adjust_from_exact_history(slurmise, command, mem_mb, minutes, margin)
 
+    # Keep the job logs out of the working directory. The thing that submits is
+    # the thing that should say where output goes -- relying on the caller's
+    # SBATCH_OUTPUT would leave that to whoever happened to run us.
+    pathlib.Path("out_slurm_logs").mkdir(exist_ok=True)
+
     sbatch_cmd = [
         "sbatch",
         "--parsable",
         f"--mem={mem_mb}M",
         f"--time={minutes}",
+        "--output=out_slurm_logs/slurm-%j.out",
         "--wrap",
         shlex.join(command),
     ]

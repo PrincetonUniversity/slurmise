@@ -36,6 +36,3 @@ for i in "${!intensities[@]}"; do
     done
 
 done
-
-# Show what was recorded (visible in this job's slurm .out)
-slurmise --toml slurmise.toml print

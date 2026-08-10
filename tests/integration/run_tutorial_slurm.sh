@@ -11,14 +11,14 @@
 # You might need to export your SBATCH_ACCOUNT
 set -euo pipefail
 
-# It runs `slurmise-generate-tutorial` and submits the shipped `.sbatch`
-# files to catch bugs in the tutorial
+# It runs `slurmise-generate-tutorial` and then walks the generated tutorial with
+# its own `tutorial.py`, which submits the shipped `.sbatch` files and checks
+# each lesson's `#>` expectations -- so a broken lesson fails here, not just a
+# broken job.
 #
 # Environment knobs:
-#   EXAMPLES        space-separated list of examples to run (default "01 02-perfect").
-#                   Tokens: 01 02-perfect 02-complex 03-perfect 03-complex
-#                           03-category (or "all").
-#                           See run_example() below.
+#   LESSONS         space-separated lesson directories to walk (default: all of
+#                   them, in order). e.g. LESSONS="01_single_job 02_jobs_in_loop"
 #   RUN_ACCT_PROBE  set to 1 to run the accounting probe first (CI uses this on a
 #                   freshly stood-up cluster; skip it on a real cluster).
 #   SBATCH_ACCOUNT  honored natively by sbatch -- export it on clusters that
@@ -32,11 +32,6 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 VENV_BIN="$(cd "$ROOT" && uv run python -c 'import os, sys; print(os.path.dirname(sys.executable))')"
 export PATH="$VENV_BIN:$PATH"
 
-EXAMPLES="${EXAMPLES:-01 02-perfect}"
-if [ "$EXAMPLES" = "all" ]; then
-  EXAMPLES="01 02-perfect 02-complex 03-perfect 03-complex 03-category"
-fi
-
 # Overridable so CI can point it at a known path to upload as an artifact.
 # The default temp dir is created next to the repo (a shared filesystem) rather
 # than in /tmp: /tmp is node-local on many clusters, so a /tmp workdir is
@@ -46,42 +41,10 @@ mkdir -p "$WORK"
 TUTORIAL="$WORK/tutorial"
 echo "Work dir:   $WORK"
 echo "venv bin:   $VENV_BIN"
-echo "examples:   $EXAMPLES"
+echo "lessons:    ${LESSONS:-all}"
 
 # Generate the tutorial files
 slurmise-generate-tutorial --dest "$TUTORIAL"
-
-# Map an example token to "<subdir>/<sbatch file>".
-example_path() {
-  case "$1" in
-    01)             echo "01_single_job/run_perfectScaler.sbatch" ;;
-    02-perfect)     echo "02_jobs_in_loop/run_perfectScaler_loop.sbatch" ;;
-    02-complex)     echo "02_jobs_in_loop/run_complexMemScaler_loop.sbatch" ;;
-    03-perfect)     echo "03_array_jobs/run_perfectScaler.sbatch" ;;
-    03-complex)     echo "03_array_jobs/run_complexMemScaler.sbatch" ;;
-    03-category) echo "03_array_jobs/run_categoryScaler.sbatch" ;;
-    *) echo "unknown EXAMPLES token: $1" >&2; return 1 ;;
-  esac
-}
-
-# Submit a shipped .sbatch unmodified and block until it finishes.
-# Must run from inside the example dir so `srun ../bin/...` and `--toml
-# slurmise.toml` resolve.
-run_sbatch() {
-  local example_dir="$1" sbatch_file="$2"
-  (
-    cd "$TUTORIAL/$example_dir"
-    echo "== submitting $example_dir/$sbatch_file =="
-    sbatch --wait "$sbatch_file"
-    echo "--- recorded jobs ($example_dir) ---"
-    if [ -x ./slrmise ]; then
-      # slurmise_run proposal dir: prototype with its own display
-      ./slrmise --toml slurmise.toml display || true
-    else
-      slurmise --toml slurmise.toml print || true
-    fi
-  )
-}
 
 # -----------------------------------------------------------------------------
 # Optional accounting probe: confirm sacct reports nonzero MaxRSS for a short
@@ -121,9 +84,12 @@ print(best)
 fi
 
 # -----------------------------------------------------------------------------
-# Run the selected tutorial examples (the "Run it" step in each README).
+# Walk the tutorial. The markdown supplies the ordering and the assertions, so
+# there is no example-to-sbatch mapping here any more.
+#
+# `--yes` runs unattended and answers every `#> option` block with its first
+# alternative, which the lessons write as the real one -- so this submits for
+# real. `--option mock` would be the no-cluster path, which is not what this
+# workflow is for.
 # -----------------------------------------------------------------------------
-for token in $EXAMPLES; do
-  path="$(example_path "$token")"
-  run_sbatch "${path%%/*}" "${path#*/}"
-done
+( cd "$TUTORIAL" && ./tutorial.py --yes ${LESSONS:-} )

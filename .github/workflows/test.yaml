@@ -29,6 +29,16 @@ jobs:
         run: |
           uv run poe test
 
+      - name: Walk the tutorial with no scheduler
+        # Every block that submits a job offers a `mock` option that declares
+        # what the job would have used instead of running it. Proves the lessons'
+        # logic and their `#>` expectations on every push; the real srun/sacct
+        # path is covered by the tutorial-slurm workflow, which needs a cluster.
+        # The lessons call a bare `slurmise`, and tutorial.py deliberately keeps
+        # uv's ephemeral env off their PATH, so put the project venv there.
+        run: |
+          PATH="$PWD/.venv/bin:$PATH" uv run --script src/slurmise/tutorial/tutorial.py --yes --option mock
+
       - name: Run linter
         run: uv run poe fmt-check
 

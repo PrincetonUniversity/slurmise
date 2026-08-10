@@ -1,98 +1,138 @@
-# 02 — Jobs in a loop
+# Enough runs in a loop to actually fit a model
 
-Generate enough records to train a model for two different jobs, then use
-`slurmise predict` to see how well each one is predicted.
+## 01 — about this tutorial
 
-## Files
+In `01_single_job/` one recording wasn't enough to fit a model. Here we record
+39 runs of the same job in a single allocation, train on them, and finally get a
+prediction that comes from the data instead of from the toml's defaults.
 
-- `run_perfectScaler_loop.sbatch` — loops over 13 (intensity, duration) pairs and runs 3
-  replicates of the perfectScaler job at each one (39 runs total)
-- `run_complexMemScaler_loop.sbatch` — same but runs the complexMemScaler
-- `slurmise.toml` — declares both jobs.
+There are two ways of working through this lesson:
 
-Take a looks at `../bin/complexMemScaler`, it's the same as `../bin/perfectScaler` except
-it adds some randomness around how much memory is utilized.
+1. Run `../tutorial.py 02_jobs_in_loop` for an interactive walkthrough
+2. `cd` into this folder and type the `$` commands below yourself
 
-## Submit both jobs
+The `#>` lines in the code blocks describe the expected output of the command
+above them. They're shell comments — `tutorial.py` validates against them, and
+you can ignore them if you're running manually.
 
-```bash
-sbatch run_perfectScaler_loop.sbatch
-sbatch run_complexMemScaler_loop.sbatch
-```
+**This lesson takes about 10 minutes**, nearly all of it the job sleeping.
 
-You can submit both jobs and have them running at the same time.
+**In a hurry, or no cluster to hand?** Where a block below submits a job it
+offers two ways to do it — `cluster` really submits, `mock` runs a script that
+states what the job would have used instead. Pick either; the rest of the lesson
+holds the same way. Everything after the recording — the database, the fit, the
+predictions — is the real thing regardless.
 
-Total wall time should be around 9 minutes for each job (13 pairs x 3 replicates).
+`tutorial.py` asks which you want. Working by hand, just type the one you
+prefer. `../tutorial.py --option mock 02_jobs_in_loop` answers for you.
 
-## Why `--step-id`?
-
-If you look in the `.sbatch` files you'll see a `step` variable which gets
-incremented after each `srun` command and gets passed to `slurmise record`.
-
-The reason for this is that the sbatch makes 39 `srun` calls inside one
-allocation, so all of them share the same `$SLURM_JOB_ID`. Without `--step-id`,
-slurmise can't tell the recordings apart and would overwrite them.
-
-## Inspect
+## 02 — the loop, and why `--step-id`
 
 ```bash
-slurmise --toml slurmise.toml print
+$ cat run_perfectScaler_loop.sbatch
+#> expect /--step-id/
 ```
 
-You should see 39 records each for `perfectScaler` and `complexMemScaler`.
+It walks 13 `(intensity, duration)` pairs and runs 3 replicates of each — 39
+`srun` calls, each followed by a `slurmise record`, all inside a single
+allocation.
 
-## Train
+That last part is why `--step-id` is there. All 39 `srun` calls share one
+`$SLURM_JOB_ID`, because they are steps of the same job. Without something to
+tell them apart, slurmise would file all 39 recordings under the same key and
+each would overwrite the last. The `step` counter supplies that:
 
-Fit a model for every job in the database:
+    slurmise --toml slurmise.toml record \
+        --step-id "$step" \
+        "perfectScaler --intensity $intensity --duration $duration"
+
+`../04_array_jobs/` does the same work a different way, and needs no `--step-id`
+at all — worth comparing once you get there.
+
+The toml is `01_single_job/`'s with defaults filled in for both resources:
 
 ```bash
-slurmise --toml slurmise.toml update-all
+$ cat slurmise.toml
+#> expect /default_mem/
 ```
 
-We didn't do this step for the `01_single_job/` example
-since it would have failed with a message saying something like
-"not enough training data".
-
-## Predict
-
-Now predict for an (intensity, duration) pair that wasn't in the training set for the perfectScaler:
+## 03 — submit it
 
 ```bash
-slurmise --toml slurmise.toml predict "perfectScaler --intensity 2750 --duration 7"
+#> option cluster
+$ sbatch --wait run_perfectScaler_loop.sbatch
+#> expect ok
+#> option mock
+$ bash mock_perfectScaler_loop.sh
+#> expect ok
 ```
 
-Your exact results may vary, but you'll likely get a pretty good estimate:
+`--wait` doesn't return until the job finishes, which here means all 39 steps —
+the durations in the list add up to about 110 seconds per replicate.
 
-```
-Predicted runtime: 30
-Predicted memory: 2761.7625320476973
-[33mWarnings:[0m
-  Runtime prediction for job perfectScaler is not within 20% of actual value.
-  Returing default runtime value.
-```
-
-NOTE!! The runtime prediction is currently around 30% mpe. Maybe because the runtimes are so short?
-
-Let's see how well the prediction does on the complexMemScaler:
+## 04 — inspect
 
 ```bash
-slurmise --toml slurmise.toml predict "complexMemScaler --intensity 2750 --duration 7"
+$ slurmise --toml slurmise.toml print
+#> expect /perfectScaler/
 ```
 
-```
-Predicted runtime: 30
-Predicted memory: 2761.7625320476973
-[33mWarnings:[0m
-  Runtime prediction for job complexMemScaler is not within 20% of actual value.
-  Returing default runtime value.
+39 records, each with the `intensity` and `duration` it was given plus the
+memory and runtime it really used. Note the record ids: all 39 share one job id
+and differ only in the step after the dot, which is `--step-id` doing its work.
+
+## 05 — train
+
+```bash
+$ slurmise --toml slurmise.toml update-all
+#> expect ok
 ```
 
-NOTE!! Not sure why the exact same memory prediction is returned
+`update-all` fits a model for every job in the database — here, just the one.
+We skipped this in `01_single_job/` because it had nothing to fit: slurmise
+holds back 20% of the runs to test the model against and wants at least 10 runs
+left to train on, so it takes about 13 completed runs before a prediction stops
+being the toml's defaults. One run was never going to do it; 39 comfortably
+does.
 
-Expect:
-- `perfectScaler` memory prediction is essentially exact — the data is
-  noiseless.
-- `complexMemScaler` memory prediction is in the same ballpark but has more
-  uncertainty because of the +/-20% noise that was injected at run time.
-- Runtime predictions for both jobs should track the requested `--duration`
-  closely, since the scripts simply `sleep` for that many seconds.
+The fitted model lands in this directory as `fits.json` and a couple of `.pkl`
+files:
+
+```bash
+$ grep -o '"job_name": "[^"]*"' fits.json
+#> expect /perfectScaler/
+```
+
+## 06 — predict
+
+Ask for an `(intensity, duration)` pair that was never run — 2750 sits between
+the 2500 and 3000 in the list, and no run used a duration of 7:
+
+```bash
+$ slurmise --toml slurmise.toml predict \
+    "perfectScaler --intensity 2750 --duration 7"
+#> expect /Predicted memory: [1-4]\d\d\d/
+```
+
+Memory comes back in the low thousands and runtime around 8 seconds — both from
+the model now, not from `default_mem = 5000` and `default_time = 30` in the
+toml. Compare that with `01_single_job/`, where the same command returned the
+toml's numbers unchanged whatever you asked for.
+
+`perfectScaler` is the easy case: it uses exactly the memory you ask it for, so
+there is a clean line to fit. `../03_noisy_job/` runs the same loop with a job
+that isn't so obliging.
+
+## Starting over
+
+The lesson only holds from a clean slate: with records left over from a previous
+pass, the fit would be using more data than the 39 runs you just made. So throw
+away the database and the fitted models before starting. `tutorial.py` runs
+exactly this block for you, every time, before the lesson starts:
+
+```bash
+#> reset
+$ rm -f slurmise.h5 fits.json *.pkl
+$ rm -f out_slurm_logs/*.out
+$ mkdir -p out_slurm_logs
+```

@@ -1,3 +1,5 @@
+# Proposal: slurmise wraps your job, like `time`
+
 ## 01 - overview
 
 Currently, slurmise asks the user to `record` after an `srun` step has
@@ -14,8 +16,7 @@ slurmise as a wrapper like unix `time`:
     ./slrmise --toml slurmise.toml run -- \
         ../bin/perfectScaler --intensity 5000 --duration 10
 
-This requires a lot of changes, largest being that slurmise is now
-running `sbatch` for us.
+This requires slurmise to now run `sbatch` for us.
 
 Instead of actually changing the `slurmise` source code, there is
 a `./slrmise` python script in this folder which imports `slurmise`
@@ -25,15 +26,12 @@ but wraps a new `CLI` around it.
 
 There are two ways of working through this tutorial:
 
-1. Run `./tutorial.py` for an interactive walkthrough
+1. Run `../tutorial.py 05_slurmise_run` for an interactive walkthrough
 2. Manually type/copy the `$` commands below yourself
 
-If you choose to manually enter the commands
-you may want to specify a dedicated output folder for the
-slurm logs so they don't clutter this directory:
-
-    mkdir -p out_slurm_logs
-    export SBATCH_OUTPUT=out_slurm_logs/slurm-%j.out
+Either way the job logs go to `out_slurm_logs/` rather than cluttering this
+directory — `./slrmise` passes `--output` when it submits, so there is nothing
+for you to set.
 
 ## 02 - about the code blocks
 
@@ -50,21 +48,23 @@ because of the added `#>` and `export` lines.
    These `#>` are for the `tutorial.py` to use for validation, you can ignore
    them if you're running manually.
 
-2. The `export` lines avoid actually submitting sbatch jobs. This is the default
-   behavior because waiting for these small tutorial jobs to queue might take a while.
+2. Blocks that submit a job offer two ways to do it, marked `#> option cluster`
+   and `#> option mock`. Pick whichever you want; the lesson holds either way.
 
-   As a concrete example, the following block tells `./slrmise` to pretend the run
-   command produced a job that used 3315 MB of memory and took 7 seconds,
-   instead of actually `sbatch` submitting it:
+   The `mock` one carries an `export` line telling `./slrmise` to pretend the
+   run produced a job that used 3315 MB and took 7 seconds, instead of `sbatch`
+   submitting it:
 
         export SLRMISE_USED_MEM=3315 SLRMISE_USED_TIME=7
         $ ./slrmise --toml slurmise.toml run -- ...
 
-   `slrmise` submits whenever these `SLRMISE_USED_MEM` or `SLRMISE_USED_TIME`
-   variables are unset, so to really use the scheduler, just skip the `export` line
-   and `unset` any you already set.
+   `slrmise` submits whenever `SLRMISE_USED_MEM` and `SLRMISE_USED_TIME` are
+   unset, which is all the `cluster` option does differently — it just leaves
+   the `export` out. Waiting on a real queue for jobs this small is why `mock`
+   is worth having.
 
-   Or run `./tutorial.py --slurm` and it submits real jobs instead of mocking.
+   `../tutorial.py 05_slurmise_run --option mock` answers every one of these
+   without touching the scheduler.
 
 #TODO have a separate section for each of the files of interest
 ## 02 — files of interest, and `predict`
@@ -163,6 +163,11 @@ row exists but its actual memory/time are unknown (`-`) until the job finishes
 and a later sync pulls them from `sacct`.
 
 ```bash
+#> option cluster
+$ ./slrmise --toml slurmise.toml run -- \
+    ../bin/perfectScaler --intensity 2000 --duration 5
+#> expect /Submitted job/
+#> option mock
 export SLRMISE_USED_MEM=2015 SLRMISE_USED_TIME=7
 $ ./slrmise --toml slurmise.toml run -- \
     ../bin/perfectScaler --intensity 2000 --duration 5
@@ -178,7 +183,7 @@ $ ./slrmise --toml slurmise.toml display --no-sync
 
 Once the job finishes, `display` (which syncs first) fills it in. There's no
 `squeue` polling here — `display` is the check, so you just re-run it until the
-row fills in. That's what the `retry=` below tells `./tutorial.py` to do, and it
+row fills in. That's what the `retry=` below tells `tutorial.py` to do, and it
 watches this job's own row rather than anything else you happen to have queued:
 
 ```bash
@@ -198,10 +203,18 @@ about 8515M — far more than it is given. The job can't fit and is recorded
 from model training.
 
 ```bash
+#> option cluster
+$ ./slrmise --toml slurmise.toml run -- \
+    ../bin/perfectScaler --intensity 8500 --duration 5
+#> expect /Submitted job/
+#> option mock
 export SLRMISE_USED_MEM=8515 SLRMISE_USED_TIME=7
 $ ./slrmise --toml slurmise.toml run -- \
     ../bin/perfectScaler --intensity 8500 --duration 5
 #> expect /Submitted job/
+```
+
+```bash
 $ ./slrmise --toml slurmise.toml display
 #> expect /OUT_OF_MEMORY.*\b8500\b/ retry=16 delay=10
 ```
@@ -217,16 +230,24 @@ is pure exact-history logic.
 time limit gets the time doubled (2 → 4 min) on the next run, from the same
 exact-param history. Only the resource differs.
 
-Run this block again each time it's still `OUT_OF_MEMORY` — the `repeat-until`
-below is `./tutorial.py` doing exactly that for you until it completes:
+Run it again — one escalation may not be enough, so repeat until the row reads
+`COMPLETED`:
 
 ```bash
+#> option cluster
+$ ./slrmise --toml slurmise.toml run -- \
+    ../bin/perfectScaler --intensity 8500 --duration 5
+#> expect /Submitted job/
+#> option mock
 export SLRMISE_USED_MEM=8515 SLRMISE_USED_TIME=7
 $ ./slrmise --toml slurmise.toml run -- \
     ../bin/perfectScaler --intensity 8500 --duration 5
+#> expect /Submitted job/
+```
+
+```bash
 $ ./slrmise --toml slurmise.toml display
-#> expect /COMPLETED.*\b8500\b/ retry=16 delay=10
-#> repeat-until /COMPLETED.*\b8500\b/ max=3
+#> expect /COMPLETED.*\b8500\b/ retry=24 delay=10
 ```
 
 ## 06 — right-size reuse: reclaim the headroom
@@ -237,10 +258,18 @@ it actually used × the margin (~3150M), ratcheting the allocation down.
 (Contrast lesson 05, which ratcheted up to fit.)
 
 ```bash
+#> option cluster
+$ ./slrmise --toml slurmise.toml run -- \
+    ../bin/perfectScaler --intensity 2000 --duration 5
+#> expect /Submitted job/
+#> option mock
 export SLRMISE_USED_MEM=2015 SLRMISE_USED_TIME=7
 $ ./slrmise --toml slurmise.toml run -- \
     ../bin/perfectScaler --intensity 2000 --duration 5
 #> expect /Submitted job/
+```
+
+```bash
 $ ./slrmise --toml slurmise.toml display
 #> expect /(COMPLETED.*\b2000\b[\s\S]*){2}/ retry=16 delay=10
 ```
@@ -257,6 +286,13 @@ points. It holds back 20% of the runs to test against, so that means about 13
 COMPLETED runs, not 10. Submit a spread of varied jobs to cross that threshold:
 
 ```bash
+#> option cluster
+$ for i in 400 600 800 1000 1200 1400 1600 1800 2000 2200 2400 2500 2600; do \
+      ./slrmise --toml slurmise.toml run -- \
+          ../bin/perfectScaler --intensity $i --duration 6; \
+  done
+#> expect /Submitted job/
+#> option mock
 $ for i in 400 600 800 1000 1200 1400 1600 1800 2000 2200 2400 2500 2600; do \
       export SLRMISE_USED_MEM=$((i + 15)) SLRMISE_USED_TIME=8; \
       ./slrmise --toml slurmise.toml run -- \
@@ -291,7 +327,7 @@ teaches.
 
 The lessons only hold from a clean slate — lesson 04 is only `OUT_OF_MEMORY` if
 there's no earlier success at that intensity for self-heal to have learned from.
-So throw away the database and the fitted models before starting. `./tutorial.py`
+So throw away the database and the fitted models before starting. `tutorial.py`
 runs exactly this block for you, every time, before lesson 02:
 
 ```bash
@@ -304,6 +340,5 @@ $ unset SLRMISE_USED_MEM SLRMISE_USED_TIME
 That last line matters if you worked through the lessons by hand and then want a
 pass that really submits: the `export`s are still set in your shell, and they
 would keep `run` from submitting anything — a stale environment is the one piece
-of leftover state that deleting the database doesn't clear. `./tutorial.py`
-doesn't need it (each command gets a fresh shell, and `--slurm` drops these
-variables outright), but your own shell does.
+of leftover state that deleting the database doesn't clear. `tutorial.py`
+doesn't need it (each command gets a fresh shell), but your own shell does.

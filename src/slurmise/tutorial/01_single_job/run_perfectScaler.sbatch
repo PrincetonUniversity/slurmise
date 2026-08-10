@@ -11,6 +11,3 @@ srun ../bin/perfectScaler --intensity 5000 --duration 10
 
 slurmise --toml slurmise.toml record \
     "perfectScaler --intensity 5000 --duration 10"
-
-# Show what was recorded (visible in this job's slurm .out)
-slurmise --toml slurmise.toml print
