@@ -18,19 +18,8 @@ def test_missing_toml():
     assert "See readme for more information" in result.output
 
 
-def test_record(simple_toml, monkeypatch):
-    mock_metadata = {
-        "slurm_id": "1234",
-        "job_name": "nupack",
-        "state": "COMPLETED",
-        "partition": "",
-        "elapsed_seconds": 97201,
-        "CPUs": 1,
-        "memory_per_cpu": 0,
-        "memory_per_node": 0,
-        "max_rss": 232,
-    }
-    monkeypatch.setattr("slurmise.slurm.parse_slurm_job_metadata", lambda *args, **kwargs: mock_metadata)
+def test_record(simple_toml, sacct_mock):
+    sacct_mock(task_count=1, mem_count=232 * 2**20)  # parses to max_rss=232, elapsed=97201
 
     runner = CliRunner()
     result = runner.invoke(
@@ -68,22 +57,9 @@ def test_record(simple_toml, monkeypatch):
         assert query_result == excepted_results
 
 
-def test_raw_record(simple_toml, monkeypatch):
+def test_raw_record(simple_toml, sacct_mock):
     """Test the raw_record command."""
-
-    mock_metadata = {
-        "slurm_id": "1234",
-        "step_id": "0",
-        "job_name": "nupack",
-        "state": "COMPLETED",
-        "partition": "",
-        "elapsed_seconds": 97201,
-        "CPUs": 1,
-        "memory_per_cpu": 0,
-        "memory_per_node": 0,
-        "max_rss": 232,
-    }
-    monkeypatch.setattr("slurmise.slurm.parse_slurm_job_metadata", lambda *args, **kwargs: mock_metadata)
+    sacct_mock(task_count=1, mem_count=232 * 2**20)
 
     runner = CliRunner()
     result = runner.invoke(
@@ -147,15 +123,12 @@ def test_raw_record(simple_toml, monkeypatch):
     assert split_std[3].split("-")[-1] == " 1234"
 
 
-def _make_print_db(path):
-    with job_database.JobDatabase.get_database(str(path)) as db:
-        db.record(JobData(job_name="test_job", slurm_id="1", runtime=5, memory=100))
-
-
 def test_print_explicit_h5_path(tmp_path):
     """print accepts a bare .h5 path with no toml configuration."""
     h5 = tmp_path / "mydb.h5"
-    _make_print_db(h5)
+
+    with job_database.JobDatabase.get_database(h5) as db:
+        db.record(JobData(job_name="test_job", slurm_id="1", runtime=5, memory=100))
 
     runner = CliRunner()
     result = runner.invoke(main, ["print", str(h5)])
@@ -173,6 +146,51 @@ def test_print_missing_default(tmp_path, monkeypatch):
 
     assert result.exit_code == 1
     assert "No database found" in result.output
+
+
+def test_record_step_id_without_slurm_id(simple_toml, monkeypatch, no_slurm_env, sacct_mock):
+    """Regression test for issue 79: `record --step-id N` without `--slurm-id` inside
+    a SLURM job must resolve the job id from the environment."""
+    sacct_calls = sacct_mock(step_name="0", task_count=1, mem_count=232 * 2**20)
+    monkeypatch.setenv("SLURM_JOB_ID", "4321")
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "--toml",
+            simple_toml.toml,
+            "record",
+            "--step-id",
+            "0",
+            "nupack monomer -T 2 -C simple",
+        ],
+    )
+    assert result.exit_code == 0
+    assert sacct_calls == ["4321"]
+
+    with job_database.JobDatabase.get_database(simple_toml.db) as db:
+        results = db.query(JobData(job_name="nupack", categories={"complexity": "simple"}))
+        assert [job.slurm_id for job in results] == ["4321.0"]
+
+
+def test_record_step_id_outside_slurm_job(simple_toml, no_slurm_env):
+    """Without --slurm-id and outside a SLURM job, record fails with a clear error."""
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "--toml",
+            simple_toml.toml,
+            "record",
+            "--step-id",
+            "0",
+            "nupack monomer -T 2 -C simple",
+        ],
+    )
+    assert result.exit_code != 0
+    assert isinstance(result.exception, ValueError)
+    assert "SLURM_JOB_ID" in str(result.exception)
 
 
 def test_update_predict(nupack_toml):

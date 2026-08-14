@@ -13,6 +13,76 @@ class TomlReturn(NamedTuple):
     db: str
 
 
+def generate_job_metadata(**kwargs):
+    """Build a sacct-style JSON dict like `sacct -j <id> --json` returns."""
+    job_id = kwargs.get("job_id", 58976578)
+    step_name = kwargs.get("step_name", "extern")
+    return {
+        "jobs": [
+            {
+                "job_id": job_id,
+                "task_id": "extern",
+                "name": kwargs.get("job_name", "finetune_vicuna_7b"),
+                "state": {"current": ["RUNNING"]},
+                "partition": "mypartition",
+                "required": {
+                    "CPUs": 96,
+                    "memory_per_cpu": {"set": False, "infinite": False, "number": 0},
+                    "memory_per_node": {"set": True, "infinite": False, "number": 729088},
+                },
+                "steps": [
+                    {
+                        "time": {"elapsed": kwargs.get("elapsed", 97201)},
+                        "tasks": {"count": kwargs.get("task_count", 3)},
+                        "step": {"id": f"{job_id}.{step_name}", "name": step_name},
+                        "tres": {
+                            "requested": {
+                                "max": [
+                                    {
+                                        "type": "mem",
+                                        "name": "",
+                                        "id": 2,
+                                        "count": kwargs.get("mem_count", 24786677760),
+                                        "task": 0,
+                                    }
+                                ]
+                            }
+                        },
+                    }
+                ],
+            }
+        ]
+    }
+
+
+@pytest.fixture
+def sacct_mock(monkeypatch):
+    """Patch slurmise.slurm.get_slurm_job_sacct with generated sacct JSON.
+
+    Returns a factory: calling it with generate_job_metadata kwargs installs the
+    patch and returns the list of slurm_ids get_slurm_job_sacct is called with.
+    """
+
+    def _patch(**kwargs):
+        calls = []
+
+        def mock_get_slurm_job_sacct(slurm_id):
+            calls.append(slurm_id)
+            return generate_job_metadata(**kwargs)
+
+        monkeypatch.setattr("slurmise.slurm.get_slurm_job_sacct", mock_get_slurm_job_sacct)
+        return calls
+
+    return _patch
+
+
+@pytest.fixture
+def no_slurm_env(monkeypatch):
+    """Remove all SLURM job id variables from the environment."""
+    monkeypatch.delenv("SLURM_JOB_ID", raising=False)
+    monkeypatch.delenv("SLURM_JOBID", raising=False)
+
+
 @pytest.fixture
 def simple_toml(tmp_path):
     d = tmp_path
