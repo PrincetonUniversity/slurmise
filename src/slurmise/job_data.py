@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from dataclasses import astuple, dataclass, field
 
 import h5py
@@ -90,13 +89,6 @@ class JobData:
             memory=memory,
             runtime=runtime,
         )
-
-    def to_json(self):
-        result = {
-            "categories": self.categories,
-            "numerics": self.numerics,
-        }
-        return json.dumps(result)
 
     def __eq__(self, other):
         return dc_eq(self, other)
