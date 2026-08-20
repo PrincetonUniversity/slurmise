@@ -172,8 +172,5 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
-# Generated slurmise tutorial files
+# An extracted release tutorial tarball, if one is unpacked inside the repo
 slurmise-tutorial/
-
-# Local run dirs for the SLURM tutorial integration test
-tutorial-run.*/

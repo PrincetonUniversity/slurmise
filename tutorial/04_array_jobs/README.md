@@ -26,7 +26,7 @@ holds the same way. Everything after the recording — the database, the fit, th
 predictions — is the real thing regardless.
 
 `tutorial.py` asks which you want. Working by hand, just type the one you
-prefer. `../tutorial.py --option mock 04_array_jobs` answers for you.
+prefer. `../tutorial.py --mock 04_array_jobs` answers for you.
 
 ## 02 — arrays, and why no `--step-id`
 

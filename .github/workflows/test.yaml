@@ -34,10 +34,22 @@ jobs:
         # what the job would have used instead of running it. Proves the lessons'
         # logic and their `#>` expectations on every push; the real srun/sacct
         # path is covered by the tutorial-slurm workflow, which needs a cluster.
-        # The lessons call a bare `slurmise`, and tutorial.py deliberately keeps
-        # uv's ephemeral env off their PATH, so put the project venv there.
+        # `uv run` puts the project venv on PATH, which is where the bare
+        # `slurmise` the lessons call resolves from.
         run: |
-          PATH="$PWD/.venv/bin:$PATH" uv run --script src/slurmise/tutorial/tutorial.py --yes --option mock
+          uv run tutorial/tutorial.py --yes --mock
+
+      - name: Clean up after the walk
+        # The walk leaves a database, fits and job logs in every lesson. They
+        # are all gitignored, so `--ignored` is what proves `clean` found them
+        # -- and that the tree still matches what the release tarball ships.
+        run: |
+          uv run tutorial/tutorial.py clean
+          test -z "$(git status --porcelain --ignored tutorial)" || {
+            git status --porcelain --ignored tutorial
+            echo "::error::tutorial/ still has artifacts after \`tutorial.py clean\`"
+            exit 1
+          }
 
       - name: Run linter
         run: uv run poe fmt-check

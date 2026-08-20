@@ -11,10 +11,11 @@
 # You might need to export your SBATCH_ACCOUNT
 set -euo pipefail
 
-# It runs `slurmise-generate-tutorial` and then walks the generated tutorial with
-# its own `tutorial.py`, which submits the shipped `.sbatch` files and checks
-# each lesson's `#>` expectations -- so a broken lesson fails here, not just a
-# broken job.
+# It walks `tutorial/` in place with its own `tutorial.py`, which submits the
+# lessons' `.sbatch` files and checks each lesson's `#>` expectations -- so a
+# broken lesson fails here, not just a broken job. The walk leaves each lesson's
+# database and job logs behind; they are gitignored, and `tutorial.py clean`
+# removes them.
 #
 # Environment knobs:
 #   LESSONS         space-separated lesson directories to walk (default: all of
@@ -27,24 +28,19 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 # Use the project's uv environment. Export its bin dir onto PATH so the bare
-# `slurmise` / `slurmise-generate-tutorial` calls inside the shipped .sbatch
-# files resolve once sbatch propagates the environment (default --export=ALL).
+# `slurmise` calls inside the lessons' .sbatch files resolve once sbatch
+# propagates the environment (default --export=ALL).
 VENV_BIN="$(cd "$ROOT" && uv run python -c 'import os, sys; print(os.path.dirname(sys.executable))')"
 export PATH="$VENV_BIN:$PATH"
 
-# Overridable so CI can point it at a known path to upload as an artifact.
-# The default temp dir is created next to the repo (a shared filesystem) rather
-# than in /tmp: /tmp is node-local on many clusters, so a /tmp workdir is
-# invisible to the compute node and `srun ../bin/...` fails to find the binary.
-WORK="${WORK:-$(mktemp -d "$ROOT/tutorial-run.XXXXXX")}"
-mkdir -p "$WORK"
-TUTORIAL="$WORK/tutorial"
-echo "Work dir:   $WORK"
+# Walk the tutorial where it lives. It has to sit on a shared filesystem: /tmp
+# is node-local on many clusters, so a /tmp copy would be invisible to the
+# compute node and `srun ../bin/...` would fail to find the binary. The repo
+# already satisfies that, which is why nothing is copied.
+TUTORIAL="$ROOT/tutorial"
+echo "tutorial:   $TUTORIAL"
 echo "venv bin:   $VENV_BIN"
 echo "lessons:    ${LESSONS:-all}"
-
-# Generate the tutorial files
-slurmise-generate-tutorial --dest "$TUTORIAL"
 
 # -----------------------------------------------------------------------------
 # Optional accounting probe: confirm sacct reports nonzero MaxRSS for a short
@@ -89,7 +85,7 @@ fi
 #
 # `--yes` runs unattended and answers every `#> option` block with its first
 # alternative, which the lessons write as the real one -- so this submits for
-# real. `--option mock` would be the no-cluster path, which is not what this
-# workflow is for.
+# real. `--mock` would be the no-cluster path, which is not what this workflow
+# is for.
 # -----------------------------------------------------------------------------
 ( cd "$TUTORIAL" && ./tutorial.py --yes ${LESSONS:-} )

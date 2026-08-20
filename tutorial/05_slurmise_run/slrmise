@@ -1,11 +1,4 @@
-#!/usr/bin/env -S uv run --script
-# /// script
-# requires-python = ">=3.11"
-# dependencies = ["slurmise", "rich"]
-#
-# [tool.uv.sources]
-# slurmise = { path = "../../../..", editable = true }
-# ///
+#!/usr/bin/env python3
 """Prototype of a slurmise that owns the run: predict a command's resources,
 submit it, and record what it actually used in a lazy, eventually-consistent
 way.
@@ -23,12 +16,6 @@ from math import ceil
 
 import click
 
-# NOTE: rich is only used in print_db for pretty printing. Easily removed
-from rich import box
-from rich.console import Console
-from rich.table import Table
-from rich.text import Text
-
 from slurmise import slurm
 from slurmise.api import Slurmise
 from slurmise.config import SlurmiseConfiguration
@@ -42,6 +29,7 @@ TERMINAL_STATES = {"COMPLETED", "FAILED", "TIMEOUT", "OUT_OF_MEMORY", "CANCELLED
 # sacct helpers
 # ---------------------------------------------------------------------------
 # These would be moved to slurm.py in src/slurmise
+
 
 def fetch_sacct(job_id: str) -> dict | None:
     """Return the sacct JSON for a job, or None if it isn't available yet.
@@ -217,9 +205,11 @@ def sync_pending(db_filename) -> None:
             if sacct_json is not None:
                 settle_row(db, jd, job_state(sacct_json), lambda j=sacct_json: job_level_metrics(j))
 
+
 # ---------------------------------------------------------------------------
 # prediction
 # ---------------------------------------------------------------------------
+
 
 def fit_models(slurmise: Slurmise) -> None:
     """Train per-command models from settled COMPLETED runs."""
@@ -276,6 +266,7 @@ def with_margin(mem_mb: int, runtime_s: int, margin: float) -> tuple[int, int]:
     """Raw prediction -> what to ask sbatch for. sbatch --time wants minutes."""
     return max(1, ceil(mem_mb * margin)), max(1, ceil(runtime_s * margin / 60))
 
+
 # NOTE: This is a lot of new behavior for slurmise and is still preliminary
 def adjust_from_exact_history(
     slurmise: Slurmise, command: list, mem_mb: int, minutes: int, margin: float
@@ -303,7 +294,7 @@ def adjust_from_exact_history(
     worst_oom_mem = worst_timeout_sec = 0  # allocations (allocated_*) of failing runs
     with JobDatabase.get_database(slurmise.configuration.db_filename) as db:
         for jd in db.query(query_jd):  # same job_name + categories
-            if not jd.numerics == query_jd.numerics: # check if a prior job with these exact features already run
+            if not jd.numerics == query_jd.numerics:  # check if a prior job with these exact features already run
                 continue
             attrs = db.db[JobDatabase.get_table_name(jd)].attrs
             match attrs.get("state"):
@@ -345,11 +336,11 @@ def _fmt(value) -> str:
     return "-" if value is None else str(value)
 
 
-# `state` must stay last: print_db styles it separately and renders the rest
-# with FIXED_COLUMNS[:-1].
+# `state` must stay second to last, with `features` after it: the tutorial's
+# `#>` checks match patterns like /COMPLETED.*\b2000\b/, where the 2000 comes
+# out of the features cell -- so both have to land on the same printed line.
 FIXED_COLUMNS = ("slurm_id", "job_name", "runtime", "memory", "allocated_time", "allocated_mem", "method", "state")
-HEADERS = ("job id", "job", "used\ntime", "used\nmem", "alloc\ntime", "alloc\nmem", "how", "state")
-
+HEADERS = ("job_id", "job", "used_time", "used_mem", "alloc_time", "alloc_mem", "how", "state")
 
 
 def _feature(value) -> str:
@@ -400,43 +391,27 @@ def print_db(db_filename) -> None:
     prediction with the margin applied, then any exact-param self-heal. That is
     what the next escalation has to beat, so it is what gets recorded.
     """
-    state_style = {
-        "COMPLETED": "green",
-        "OUT_OF_MEMORY": "red",
-        "TIMEOUT": "red",
-        "FAILED": "red",
-        "CANCELLED": "yellow",
-    }
+    rows = [
+        [*(_fmt(row[name]) for name in FIXED_COLUMNS), _features(row["features"])] for row in collect_rows(db_filename)
+    ]
+    headers = [*HEADERS, "features"]
 
-    rows = collect_rows(db_filename)
-    # collapse_padding keeps the table narrow enough to sit inside the tutorial's
-    # output frame without rich having to wrap any cell.
-    table = Table(box=box.SIMPLE_HEAD, pad_edge=False, header_style="bold", collapse_padding=True)
-    for head in HEADERS:
-        # `job` is the one column allowed to give up space on a narrow terminal.
-        # Everything else is pinned: the numbers and the state have to stay
-        # whole, and on one line, or the tutorial's `#>` checks can't read them.
-        table.add_column(head, no_wrap=(head != "job"), overflow="ellipsis")
-    table.add_column("features", no_wrap=True, style="cyan")
+    # Plain text, sized to the widest cell and never truncated. A clipped value
+    # is both unreadable and silently unmatchable by anything grepping this
+    # output, which the tutorial's `#>` checks do. If the terminal is too
+    # narrow, let the terminal wrap it.
+    widths = [max(len(head), *(len(row[col]) for row in rows), 0) for col, head in enumerate(headers)]
 
+    def line(cells):
+        # Every cell but the last is padded to its column; `features` runs to
+        # the end of the line, so it needs no width of its own.
+        padded = "  ".join(cell.ljust(width) for cell, width in zip(cells[:-1], widths))
+        return f"{padded}  {cells[-1]}".rstrip()
+
+    click.echo(line(headers))
+    click.echo(line(["-" * width for width in widths]))
     for row in rows:
-        state = row["state"]
-        table.add_row(
-            *(_fmt(row[name]) for name in FIXED_COLUMNS[:-1]),
-            Text(_fmt(state), style=state_style.get(state, "dim")),
-            _features(row["features"]),
-        )
-
-    # Never let rich shrink a column: it clips with an ellipsis, and a clipped
-    # value is both unreadable and silently unmatchable by anything grepping
-    # this output (the tutorial's `#>` checks do exactly that). If the terminal
-    # is too narrow, print the full table and let the terminal wrap it.
-    # measure() is clamped by the console it is asked on, so ask a wide one.
-    natural = Console(width=10_000).measure(table).maximum
-    console = Console()
-    if natural > console.width:
-        console = Console(width=natural)
-    console.print(table)
+        click.echo(line(row))
 
 
 # ---------------------------------------------------------------------------
@@ -526,8 +501,9 @@ def run(ctx, margin, dry_run):
 
     if mock_usage:
         # Usage was declared don't use sbatch so invent a job_id
-        existing = [int(r["slurm_id"]) for r in collect_rows(slurmise.configuration.db_filename)
-                    if str(r["slurm_id"]).isdigit()]
+        existing = [
+            int(r["slurm_id"]) for r in collect_rows(slurmise.configuration.db_filename) if str(r["slurm_id"]).isdigit()
+        ]
         job_id = str(max(existing, default=90_000_000) + 1)
     else:
         result = subprocess.run(sbatch_cmd, capture_output=True, text=True, check=False)

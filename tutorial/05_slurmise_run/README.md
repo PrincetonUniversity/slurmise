@@ -63,7 +63,7 @@ because of the added `#>` and `export` lines.
    the `export` out. Waiting on a real queue for jobs this small is why `mock`
    is worth having.
 
-   `../tutorial.py 05_slurmise_run --option mock` answers every one of these
+   `../tutorial.py 05_slurmise_run --mock` answers every one of these
    without touching the scheduler.
 
 #TODO have a separate section for each of the files of interest

@@ -96,7 +96,7 @@ jobs:
         run: |
           set -euo pipefail
           jid="$(sbatch --parsable --mem=500M --time=00:03:00 \
-            --wrap "$PWD/src/slurmise/tutorial/bin/perfectScaler --intensity 2000 --duration 3")"
+            --wrap "$PWD/tutorial/bin/perfectScaler --intensity 2000 --duration 3")"
           echo "probe job $jid: 500M allocation, wants ~2000M"
           for _ in $(seq 60); do
             squeue -j "$jid" -h 2>/dev/null | grep -q . || break
@@ -112,12 +112,12 @@ jobs:
           echo "--mem is enforced; the --slurm tour can submit real jobs."
 
       - name: Run ./slrmise tour mocking the sbatch calls
-        working-directory: src/slurmise/tutorial
-        run: uv run --script ./tutorial.py --yes --option mock 05_slurmise_run
+        working-directory: tutorial
+        run: uv run ./tutorial.py --yes --mock 05_slurmise_run
 
-      - name: Run slurmise_run tour (--slurm, real jobs)
-        working-directory: src/slurmise/tutorial
-        run: uv run --script ./tutorial.py --yes --option cluster 05_slurmise_run
+      - name: Run slurmise_run tour (no --mock, real jobs)
+        working-directory: tutorial
+        run: uv run ./tutorial.py --yes 05_slurmise_run
 
       - name: Run tutorial integration
         env:
@@ -131,16 +131,15 @@ jobs:
           # The two loops below are ~5.5 min of sleeping each, so this is
           # already most of the budget.
           LESSONS: "01_single_job 02_jobs_in_loop 03_noisy_job"
-          WORK: ${{ github.workspace }}/tutorial-run
         run: ./tests/integration/run_tutorial_slurm.sh
 
-      # Upload the generated tutorial tree (per-example slurmise.h5, fits, and
-      # SLURM job logs) for manual inspection. `always()` so it is captured even
-      # when an earlier step fails.
+      # Upload the walked tutorial tree (per-lesson slurmise.h5, fits, and SLURM
+      # job logs) for manual inspection. `always()` so it is captured even when
+      # an earlier step fails.
       - name: Upload tutorial run
         if: ${{ always() }}
         uses: actions/upload-artifact@v7
         with:
           name: tutorial-run
-          path: ${{ github.workspace }}/tutorial-run
+          path: tutorial
           if-no-files-found: warn

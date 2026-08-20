@@ -40,38 +40,44 @@ A few things that shape what you will see in the tutorial:
 Get the tutorial files
 -----------------------
 
-After installing slurmise (see :doc:`install`), generate the tutorial sub-directory
-in the current directory with:
+The tutorial is attached to each slurmise release as a tarball. Unpack it
+anywhere:
 
 .. code-block:: bash
 
-   slurmise-generate-tutorial
+   wget -qO- https://github.com/PrincetonUniversity/slurmise/releases/latest/download/slurmise-tutorial.tar.gz | tar -xz
+   cd slurmise-tutorial
 
-This writes a ``slurmise-tutorial/`` directory. Use ``--dest`` to choose a
-different location.
+That gives you a ``slurmise-tutorial/`` directory. It expects a ``slurmise`` on
+your ``PATH``, so install slurmise too (see :doc:`install`).
 
-If you installed slurmise with a runner that isolates the environment, invoke
-the script through it, for example:
-
-.. code-block:: bash
-
-   uvx --from slurmise slurmise-generate-tutorial
-   # or
-   pipx run --spec slurmise slurmise-generate-tutorial
+``latest`` skips prereleases. To take the tutorial as it stands in development,
+clone the repository instead and work in its ``tutorial/`` directory.
 
 Work through it
 ---------------
 
-Inside the generated directory you will find a top-level ``README`` and three
-self-contained examples. Do them in order — each builds on the last:
+Inside you will find a top-level ``README`` and five self-contained lessons.
+Do them in order — each builds on the last:
 
 1. ``01_single_job/`` — record a single job and see ``predict`` return the toml
    defaults, because one record is not enough to fit a model.
-2. ``02_jobs_in_loop/`` — generate enough records in a loop to train models for
-   two jobs, then predict and compare a noiseless job against a noisy one.
-3. ``03_array_jobs/`` — run jobs in parallel with a SLURM array, and see how a
+2. ``02_jobs_in_loop/`` — generate enough records in a loop to actually fit a
+   model, then predict from it.
+3. ``03_noisy_job/`` — the same again for a job whose memory does not sit still,
+   and what that does to the prediction.
+4. ``04_array_jobs/`` — run jobs in parallel with a SLURM array, and see how a
    categorical job is modeled per category combination.
+5. ``05_slurmise_run/`` — a prototype of slurmise wrapping your job the way
+   ``time`` does: predict, submit and record in one step.
 
-``cd`` into each directory and follow its ``README.md``. The examples use short
-sleep durations so every job finishes quickly; this makes runtime predictions
-uninteresting, so the examples focus on predicting **memory**.
+Either run ``./tutorial.py``, which walks a lesson with you — showing each
+command before it runs it and checking the result — or ``cd`` into a lesson and
+type the commands from its ``README.md`` yourself. Every lesson offers a
+no-cluster path, so you can take the whole tutorial without submitting anything.
+
+The lessons use short sleep durations so every job finishes quickly; this makes
+runtime predictions uninteresting, so they focus on predicting **memory**.
+
+Walking the lessons leaves a database, fits and job logs behind in each one.
+``./tutorial.py clean`` removes them and puts the tree back as it shipped.

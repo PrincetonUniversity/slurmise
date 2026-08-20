@@ -26,3 +26,33 @@ jobs:
 
       - name: Publish package distributions to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+
+  # The getting-started tutorial ships as a release asset rather than inside the
+  # wheel, so a learner can `wget ... | tar -xz` it without installing anything
+  # first. Its own job, because `deploy` is a python-version matrix and would
+  # otherwise upload the same asset twice.
+  tutorial-tarball:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build the tutorial tarball
+        # `--prefix` is prepended literally, not as a path component, so
+        # `slurmise-` + `tutorial/...` unpacks as `slurmise-tutorial/`.
+        # git archive takes only tracked files and carries the exec bit from the
+        # index, so there is no exclude list and no chmod pass to keep in sync:
+        # whatever is committed under tutorial/ is what a learner gets. Archive
+        # HEAD, not the tag name -- checkout already has the tag checked out,
+        # and HEAD survives a shallow fetch.
+        run: git archive --format=tar.gz --prefix=slurmise- -o slurmise-tutorial.tar.gz HEAD tutorial
+
+      - name: Attach it to the release
+        # A stable asset name is what makes
+        # /releases/latest/download/slurmise-tutorial.tar.gz resolve.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.event.release.tag_name }}" slurmise-tutorial.tar.gz --clobber

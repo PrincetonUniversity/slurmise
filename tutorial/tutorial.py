@@ -1,8 +1,4 @@
-#!/usr/bin/env -S uv run --script
-# /// script
-# requires-python = ">=3.11"
-# dependencies = ["rich"]
-# ///
+#!/usr/bin/env python3
 """Walks you through a lesson's README.md, running its commands as you go.
 
 A lesson is any subdirectory holding a `README.md`. That file is the tutorial
@@ -14,7 +10,8 @@ lesson's own directory, so its `slurmise.toml` and `../bin/...` resolve.
     ./tutorial.py                  # pick a lesson from the menu, then walk it
     ./tutorial.py 02_jobs_in_loop  # skip the menu
     ./tutorial.py --yes            # every lesson, in order, unattended (CI)
-    ./tutorial.py --option mock    # answer every either/or block with "mock"
+    ./tutorial.py --mock           # take the no-cluster path throughout
+    ./tutorial.py clean            # delete what walking the lessons produced
 
 Every lesson starts from a clean database -- its `#> reset` block runs first,
 always -- so lessons can be taken in any order, or one on its own. Ctrl-C stops;
@@ -45,60 +42,172 @@ end of the fence:
     $ bash mock_thing.sh
     #> expect ok
 
-You pick one; `--option <name>` picks for you, and `--yes` alone takes the
-first. The names mean nothing here -- they are the lesson's words, printed back
-to whoever is choosing. Whether the options really are interchangeable, so the
-rest of the lesson holds either way, is the lesson author's problem.
+You pick one; `--yes` alone takes the first, and `--mock` takes the one named
+`mock`. That name is the one exception to these being the lesson's own words,
+meaningless here: `--mock` is how a reader with no cluster -- and CI, which has
+none either -- asks for the faked path across every lesson at once. A block
+offering a choice with no `mock` in it stops the tour under `--mock`, rather
+than quietly submitting to a scheduler that isn't there. Whether the options
+really are interchangeable, so the rest of the lesson holds either way, is the
+lesson author's problem.
 
-The shebang runs this under `uv`, which supplies `rich`. It does NOT need
+Nothing outside the standard library is needed to run this. It does NOT need
 `slurmise` importable -- but the commands it runs do, under whatever `python3`
-is on your PATH.
+is on your PATH, which is also the one running this script.
 """
 
 from __future__ import annotations
 
 import argparse
-import os
 import pathlib
 import re
+import shutil
 import subprocess
 import sys
+import threading
 import time
 from dataclasses import dataclass, field
-
-from rich.console import Console
-from rich.markdown import Markdown
-from rich.padding import Padding
-from rich.panel import Panel
-from rich.rule import Rule
-from rich.syntax import Syntax
-from rich.text import Text
-from rich.theme import Theme
-
-# Rich renders `inline code` as bold cyan *on black*. On any terminal whose
-# background isn't black that reads as a dark blob, and the background bleeds
-# across line wraps. Same colour, no background.
-PROSE_THEME = Theme({"markdown.code": "cyan", "markdown.code_block": "cyan"})
 
 HERE = pathlib.Path(__file__).resolve().parent
 
 
-def child_env() -> dict[str, str]:
-    """The environment the tutorial's commands run in.
+# ---------------------------------------------------------------------------
+# the terminal
+# ---------------------------------------------------------------------------
 
-    `uv run --script` puts its ephemeral env (which has `rich` but not
-    `slurmise`) first on PATH, so a `#!/usr/bin/env python3` script like
-    `./slrmise` would pick up uv's interpreter instead of the user's. Strip that
-    entry back out: the commands should see the shell the reader started from,
-    exactly as if they had typed them.
+# ANSI when someone is watching, empty strings when this is a pipe or a CI log
+# -- there the escapes are noise nobody renders.
+_TTY = sys.stdout.isatty()
+
+
+def _seq(code: str) -> str:
+    return code if _TTY else ""
+
+
+BOLD = _seq("\033[1m")
+DIM = _seq("\033[2m")
+CYAN = _seq("\033[36m")
+GREEN = _seq("\033[32m")
+RED = _seq("\033[31m")
+YELLOW = _seq("\033[33m")
+OFF = _seq("\033[0m")
+
+ANSI_RE = re.compile(r"\033\[[0-9;]*m")
+
+
+def visible(text: str) -> int:
+    """How wide `text` prints, ignoring the escapes that take no space."""
+    return len(ANSI_RE.sub("", text))
+
+
+def width() -> int:
+    """How wide to draw.
+
+    Off a terminal there is nothing to measure and 80 is the conventional guess,
+    but the tutorial's own output -- `display`'s table especially -- is wider
+    than that, so a piped run is given the room its content needs instead.
     """
-    env = os.environ.copy()
-    if "UV_RUN_RECURSION_DEPTH" in env and sys.prefix != sys.base_prefix:
-        ours = str(pathlib.Path(sys.prefix) / "bin")
-        env["PATH"] = os.pathsep.join(p for p in env.get("PATH", "").split(os.pathsep) if p != ours)
-        if env.get("VIRTUAL_ENV") == sys.prefix:
-            env.pop("VIRTUAL_ENV", None)
-    return env
+    return shutil.get_terminal_size(fallback=(140, 24)).columns if _TTY else 140
+
+
+def rule(label: str, color: str = "") -> None:
+    """A horizontal divider with `label` sitting in it."""
+    room = max(width() - visible(label) - 2, 0)
+    left = room // 2
+    print(f"{color}{'─' * left}{OFF} {label} {color}{'─' * (room - left)}{OFF}")
+
+
+# A framed block: a titled top rule, a `│` gutter, a bottom rule. Split into its
+# three parts because a command's output is framed as it streams, line by line,
+# with no way to know up front how much of it there will be -- or whether there
+# will be any at all.
+#
+# Deliberately open on the right. What goes inside is a command someone is meant
+# to read and retype, or the output they are meant to compare against the
+# README, and a closing border would mean either rewrapping that -- at a column
+# that has nothing to do with the content -- or cutting it. Left open, an
+# over-long line simply wraps past the frame and nothing is ever lost.
+
+
+def box_top(color: str = "", title: str = "") -> None:
+    head = f"─ {title} " if title else "──"
+    print(f"{color}╭{head}{'─' * max(width() - visible(head) - 1, 0)}{OFF}")
+
+
+def box_line(text: str, color: str = "") -> None:
+    print(f"{color}│{OFF} {text}", flush=True)
+
+
+def box_bottom(color: str = "") -> None:
+    print(f"{color}╰{'─' * max(width() - 1, 0)}{OFF}")
+
+
+def box(lines: list[str], color: str = "", title: str = "") -> None:
+    box_top(color, title)
+    for line in lines:
+        box_line(line, color)
+    box_bottom(color)
+
+
+# The single `#> option` name this script knows by heart. Every other name is
+# the lesson's own business -- shown in the menu, never acted on. This one is
+# spelled out here so `--mock` means the same thing in every lesson at once.
+MOCK = "mock"
+
+
+# `code` and **bold** -- all the inline markdown the lessons actually use.
+CODE_RE = re.compile(r"`([^`]+)`")
+BOLD_RE = re.compile(r"\*\*([^*]+)\*\*")
+
+
+def prose(text: str) -> None:
+    """Print a paragraph of the lesson's markdown, indented.
+
+    Lines go out as authored rather than reflowed to the terminal. The READMEs
+    are already wrapped to about 80 columns, and their prose carries
+    four-space-indented code blocks and `|---` tree art that only reflowing
+    could break. So the only thing done here is inline styling.
+    """
+    print()
+    for line in text.splitlines():
+        styled = CODE_RE.sub(rf"{CYAN}\1{OFF}", line)
+        styled = BOLD_RE.sub(rf"{BOLD}\1{OFF}", styled)
+        print(f"  {styled}" if line.strip() else "")
+
+
+def ask(prompt: str) -> str:
+    """Read a line, with the prompt dimmed. Raises EOFError with nobody there."""
+    return input(f"{DIM}{prompt}{OFF}")
+
+
+class Ticker:
+    """`running… 12s`, rewritten in place while a command says nothing.
+
+    A step that waits on the cluster produces no output for minutes, and without
+    this that is indistinguishable from a hang. It stops at the command's first
+    line of output, so anything talkative never shows it at all. Only ever run
+    for someone watching a terminal -- rewriting a line means nothing to a log.
+    """
+
+    def __init__(self):
+        self._done = threading.Event()
+        self._thread = threading.Thread(target=self._tick, daemon=True)
+
+    def _tick(self) -> None:
+        start = time.monotonic()
+        while not self._done.wait(1.0):
+            print(f"\r{DIM}  running… {time.monotonic() - start:.0f}s{OFF}", end="", flush=True)
+
+    def start(self) -> None:
+        self._thread.start()
+
+    def stop(self) -> None:
+        """Stop, and wipe the line so whatever prints next starts clean."""
+        if self._done.is_set():
+            return
+        self._done.set()
+        self._thread.join()
+        print("\r\033[K", end="", flush=True)
 
 
 # An `export` on its own line in a fence, ahead of the command it applies to.
@@ -150,8 +259,8 @@ class Option:
     """One of several interchangeable ways to do the same step.
 
     `name` is whatever the markdown wrote after `#> option`, or None for a fence
-    that offered no choice at all. It is never interpreted -- only shown to
-    whoever is choosing, and matched against `--option`.
+    that offered no choice at all. Only shown to whoever is choosing, except for
+    the one name `--mock` looks for.
     """
 
     name: str | None = None
@@ -169,13 +278,9 @@ class Block:
     def offers_choice(self) -> bool:
         return len(self.options) > 1
 
-    def pick(self, name: str | None) -> Option:
-        """The option called `name`, else the first. Used when nobody is asked."""
-        if name is not None:
-            for option in self.options:
-                if option.name == name:
-                    return option
-        return self.options[0]
+    def named(self, name: str) -> Option | None:
+        """The option called `name`, if this block offers one at all."""
+        return next((option for option in self.options if option.name == name), None)
 
 
 @dataclass
@@ -199,12 +304,7 @@ class Lesson:
 
 
 def find_lessons(root: pathlib.Path) -> list[Lesson]:
-    """Every `<dir>/README.md` under `root`, in directory-name order.
-
-    Which lessons exist depends on where this is run from: a generated tutorial
-    ships only the numbered getting-started lessons, while a clone also has the
-    work-in-progress ones that `generate_tutorial.py` excludes.
-    """
+    """Every `<dir>/README.md` under `root`, in directory-name order."""
     return [_load_lesson(path.parent) for path in sorted(root.glob("*/README.md"))]
 
 
@@ -368,41 +468,21 @@ def parse_walkthrough(path: pathlib.Path) -> list[Section]:
 class Tour:
     def __init__(
         self,
-        console: Console,
         lesson: Lesson,
         assume_yes: bool,
-        option: str | None = None,
+        mock: bool = False,
     ):
-        self.console = console
         self.lesson = lesson
         self.cwd = lesson.path  # commands run here, not next to this script
         self.assume_yes = assume_yes
-        self.option = option  # answer every `#> option` block with this name
-        self.env = child_env()
-        # Commands run on a pipe, where rich would assume 80 columns and squeeze
-        # `display`'s table until it clips cells with an ellipsis -- unreadable,
-        # and it would break the `#>` expectations that match on those values.
-        # Give them room: the table sizes itself to its content, and on a narrow
-        # terminal we'd rather the frame split a full row than lose characters.
-        # Never below the width `display`'s table needs. Squeezing it makes rich
-        # clip cells with an ellipsis, and a clipped value both reads badly and
-        # silently defeats any `#>` expectation that matches on it. If the frame
-        # is narrower than that, we would rather it split a full row than lose
-        # characters.
-        self.env["COLUMNS"] = str(max(console.width - 4, 120))
-        if console.is_terminal:  # keep their colour across the pipe we capture on
-            self.env["FORCE_COLOR"] = "1"
+        self.mock = mock  # answer every `#> option` block with the mock one
 
     # -- presentation --------------------------------------------------
 
     def section_banner(self, section: Section) -> None:
         label = f"{section.id} — {section.title}" if section.id else section.title
-        self.console.print()
-        self.console.print(Rule(f"[bold cyan]{label}[/bold cyan]", style="cyan"))
-
-    def prose(self, text: str) -> None:
-        self.console.print()
-        self.console.print(Padding(Markdown(text), (0, 2)))
+        print()
+        rule(f"{BOLD}{CYAN}{label}{OFF}", CYAN)
 
     def present_command(self, cmd: str) -> None:
         """Show the command, then wait for Enter (Ctrl-C stops the tour).
@@ -410,20 +490,12 @@ class Tour:
         A command written across several `\\`-continued lines in the markdown is
         shown the same way here, so the box matches what you'd read and type.
         """
-        self.console.print()
-        self.console.print(
-            Panel(
-                Syntax(cmd, "bash", background_color="default", word_wrap=True),
-                title="[dim]$[/dim]",
-                title_align="left",
-                border_style="green",
-                padding=(0, 1),
-            )
-        )
+        print()
+        box(cmd.splitlines(), GREEN, f"{DIM}${OFF}")
         if self.assume_yes:
             return
         try:
-            self.console.input("[dim]Press Enter to run it ▸ [/dim]")
+            ask("Press Enter to run it ▸ ")
         except EOFError:  # non-tty without --yes: behave like --yes
             self.assume_yes = True
 
@@ -434,22 +506,30 @@ class Tour:
         lesson author is the one promising they leave the same state, so nothing
         here should quietly carry an earlier answer into a later block.
         """
-        if self.option is not None or self.assume_yes:
-            chosen = block.pick(self.option)
-            self.console.print(f"\n[dim]option:[/dim] {chosen.name}")
+        if self.mock:
+            chosen = block.named(MOCK)
+            if chosen is None:
+                offered = ", ".join(option.name or "?" for option in block.options)
+                raise TourFailure(f"--mock, but this block offers only: {offered}")
+            print(f"\n{DIM}option:{OFF} {chosen.name}")
             return chosen
 
-        self.console.print()
-        width = max(len(option.name or "") for option in block.options)
+        if self.assume_yes:
+            chosen = block.options[0]
+            print(f"\n{DIM}option:{OFF} {chosen.name}")
+            return chosen
+
+        print()
+        label_width = max(len(option.name or "") for option in block.options)
         for number, option in enumerate(block.options, start=1):
             first = option.steps[0].command.splitlines()[0] if option.steps else ""
-            more = " …" if len(option.steps) > 1 or "\n" in option.steps[0].command else ""
-            name = (option.name or "").ljust(width)
-            self.console.print(f"  [bold]{number}[/bold]) [cyan]{name}[/cyan]  [dim]{first}{more}[/dim]")
+            more = " …" if option.steps and (len(option.steps) > 1 or "\n" in option.steps[0].command) else ""
+            name = (option.name or "").ljust(label_width)
+            print(f"  {BOLD}{number}{OFF}) {CYAN}{name}{OFF}  {DIM}{first}{more}{OFF}")
 
         while True:
             try:
-                answer = self.console.input("[dim]Choose ▸ [/dim]").strip()
+                answer = ask("Choose ▸ ").strip()
             except EOFError:  # non-tty without --yes: behave like --yes
                 self.assume_yes = True
                 return block.options[0]
@@ -458,48 +538,25 @@ class Tour:
             by_name = [o for o in block.options if o.name == answer]
             if by_name:
                 return by_name[0]
-            self.console.print(f"[yellow]Not one of the choices:[/yellow] {answer}")
+            print(f"{YELLOW}Not one of the choices:{OFF} {answer}")
 
     def failure(self, cmd: str, expect: Expect, reason: str, output: str) -> None:
-        tail = "\n".join(output.splitlines()[-15:]) or "(no output)"
-        self.console.print()
-        self.console.print(
-            Panel(
-                Text.assemble(
-                    ("command  ", "bold"),
-                    (cmd, "cyan"),
-                    "\n",
-                    ("expected ", "bold"),
-                    expect.describe(),
-                    "\n",
-                    ("but      ", "bold"),
-                    (reason, "yellow"),
-                    "\n\n",
-                    ("last lines of output\n", "bold dim"),
-                    (tail, "dim"),
-                ),
-                title="[bold red]expectation not met[/bold red]",
-                border_style="red",
-            )
+        commands = cmd.splitlines() or [cmd]
+        tail = output.splitlines()[-15:] or ["(no output)"]
+        print()
+        box(
+            [
+                f"{BOLD}command {OFF} {CYAN}{commands[0]}{OFF}",
+                *(f"         {CYAN}{line}{OFF}" for line in commands[1:]),
+                f"{BOLD}expected{OFF} {expect.describe()}",
+                f"{BOLD}but     {OFF} {YELLOW}{reason}{OFF}",
+                "",
+                f"{BOLD}{DIM}last lines of output{OFF}",
+                *(f"{DIM}{line}{OFF}" for line in tail),
+            ],
+            RED,
+            f"{BOLD}{RED}expectation not met{OFF}",
         )
-
-    def frame_line(self, line: str) -> None:
-        """Print one output line inside the `│` frame.
-
-        Hard-split rather than word-wrapped, and split by us rather than by the
-        terminal: a line left to soft-wrap would put its tail outside the frame.
-        Splitting on width also keeps `display`'s columns in order.
-
-        `from_ansi` keeps whatever colour the command emitted (the tour asks for
-        it with FORCE_COLOR, since commands run on a pipe) -- slicing a Text
-        carries the styles with it, where slicing the raw string would cut an
-        escape sequence in half.
-        """
-        width = max(20, self.console.width - 4)  # 2 indent + "│ "
-        text = Text.from_ansi(line)
-        for start in range(0, max(len(text), 1), width):
-            self.console.print("  [dim]│[/dim] ", end="")
-            self.console.print(text[start : start + width], no_wrap=True, overflow="ignore")
 
     # -- execution -----------------------------------------------------
 
@@ -508,44 +565,52 @@ class Tour:
 
         Streaming matters: a command that waits on the cluster produces nothing
         for minutes, and capture_output() would make that look like a hang. A
-        spinner covers the silence and disappears as soon as it says anything.
+        ticker covers the silence and disappears as soon as it says anything.
+
+        Output is framed as it arrives, the same way the command above it was, so
+        the pair reads as one exchange. Only the frame is added: the text inside
+        is the command's own, unwrapped and untruncated, and it is what the `#>`
+        expectations match against.
 
         What runs is exactly what the reader was shown -- there is no rewriting
         between the box and bash. A lesson that wants a command run differently
-        says so with `#> option`.
+        says so with `#> option`. It runs in the environment the reader started
+        from, untouched, since this script needs nothing added to it.
         """
         proc = subprocess.Popen(
             cmd,
             shell=True,
             cwd=self.cwd,
             executable="/bin/bash",
-            env=self.env,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
             bufsize=1,
         )
         lines: list[str] = []
-        status = None if self.assume_yes else self.console.status("[dim]running…[/dim]")
-        if status:
-            status.start()
+        ticker = Ticker() if _TTY and not self.assume_yes else None
+        if ticker:
+            ticker.start()
         opened = False  # the output frame is drawn lazily -- many commands are silent
         try:
             assert proc.stdout is not None
             for line in proc.stdout:
-                if status:
-                    status.stop()
-                    status = None
+                if ticker:
+                    ticker.stop()
+                    ticker = None
                 if not opened:
-                    self.console.print("  [dim]╭─[/dim]")
+                    box_top(DIM, f"{DIM}output{OFF}")
                     opened = True
                 lines.append(line)
-                self.frame_line(line.rstrip("\n"))
+                # Colour the command emitted is passed through to a terminal and
+                # stripped from a pipe -- what every colour-aware tool does, and
+                # what keeps a CI log free of escapes nothing there will render.
+                box_line((line if _TTY else ANSI_RE.sub("", line)).rstrip("\n"), DIM)
         finally:
-            if status:
-                status.stop()
+            if ticker:
+                ticker.stop()
             if opened:
-                self.console.print("  [dim]╰─[/dim]")
+                box_bottom(DIM)
         return proc.wait(), "".join(lines)
 
     def run_step(self, step: Step, show: bool = True) -> str:
@@ -557,9 +622,7 @@ class Tour:
             self.present_command(step.command)
         for attempt in range(step.expect.retry + 1):
             if attempt:
-                self.console.print(
-                    f"[dim]not there yet — retry {attempt}/{step.expect.retry} in {step.expect.delay:g}s[/dim]"
-                )
+                print(f"{DIM}not there yet — retry {attempt}/{step.expect.retry} in {step.expect.delay:g}s{OFF}")
                 time.sleep(step.expect.delay)
             code, output = self.run_command(step.command)
             reason = step.expect.check(code, output)
@@ -582,7 +645,7 @@ class Tour:
         self.section_banner(section)
         for item in section.body:
             if isinstance(item, str):
-                self.prose(item)
+                prose(item)
             else:
                 self.run_block(item)
 
@@ -608,25 +671,25 @@ def run_reset(tour: Tour) -> None:
             if isinstance(block, Block) and block.is_reset:
                 for step in block.options[0].steps:
                     tour.run_step(step, show=False)
-    tour.console.print("[dim]Cleared previous runs — starting from an empty database.[/dim]")
+    print(f"{DIM}Cleared previous runs — starting from an empty database.{OFF}")
 
 
-def choose_lessons(console: Console, lessons: list[Lesson], assume_yes: bool) -> list[Lesson]:
+def choose_lessons(lessons: list[Lesson], assume_yes: bool) -> list[Lesson]:
     """Ask which lesson to walk. Everything, in order, if there's no one to ask."""
     if assume_yes or not sys.stdin.isatty():
         return lessons
 
-    console.print()
-    console.print("[bold cyan]Lessons in this tutorial[/bold cyan]")
-    width = max(len(lesson.name) for lesson in lessons)
+    print()
+    print(f"{BOLD}{CYAN}Lessons in this tutorial{OFF}")
+    name_width = max(len(lesson.name) for lesson in lessons)
     for number, lesson in enumerate(lessons, start=1):
-        console.print(f"  [bold]{number}[/bold]) {lesson.name:<{width}}  [dim]{lesson.title}[/dim]")
-    console.print("  [bold]a[/bold]) all of them, in order")
-    console.print()
+        print(f"  {BOLD}{number}{OFF}) {lesson.name:<{name_width}}  {DIM}{lesson.title}{OFF}")
+    print(f"  {BOLD}a{OFF}) all of them, in order")
+    print()
 
     while True:
         try:
-            answer = console.input("[dim]Choose ▸ [/dim]").strip().lower()
+            answer = ask("Choose ▸ ").strip().lower()
         except (EOFError, KeyboardInterrupt):
             return []
         if answer in ("a", "all"):
@@ -636,26 +699,59 @@ def choose_lessons(console: Console, lessons: list[Lesson], assume_yes: bool) ->
         by_name = [lesson for lesson in lessons if lesson.name == answer]
         if by_name:
             return by_name
-        console.print(f"[yellow]Not one of the choices:[/yellow] {answer}")
+        print(f"{YELLOW}Not one of the choices:{OFF} {answer}")
 
 
-def run_lesson(console: Console, lesson: Lesson, args: argparse.Namespace) -> int:
+def run_lesson(lesson: Lesson, args: argparse.Namespace) -> int:
     """Walk one lesson end to end. Returns a process exit code."""
-    console.print()
-    console.print(Rule(f"[bold]{lesson.name}[/bold] — {lesson.title}", style="white"))
+    print()
+    rule(f"{BOLD}{lesson.name}{OFF} — {lesson.title}")
 
-    tour = Tour(console, lesson, assume_yes=args.yes, option=args.option)
+    tour = Tour(lesson, assume_yes=args.yes, mock=args.mock)
     run_reset(tour)
 
     for section in (s for s in lesson.sections if s.id):
         try:
             tour.run_section(section)
         except KeyboardInterrupt:
-            console.print(f"\n[dim]Stopped. ./tutorial.py {lesson.name} starts again from the top.[/dim]")
+            print(f"\n{DIM}Stopped. ./tutorial.py {lesson.name} starts again from the top.{OFF}")
             return 130
         except TourFailure as exc:
-            console.print(f"\n[bold red]{lesson.name} section {section.id} failed:[/bold red] {exc}")
+            print(f"\n{BOLD}{RED}{lesson.name} section {section.id} failed:{OFF} {exc}")
             return 1
+    return 0
+
+
+# What walking a lesson leaves behind: its database, its fits, and whatever
+# SLURM wrote next to it. All of it is gitignored, so `clean` is what gets the
+# tree back to the state the release tarball ships in.
+ARTIFACTS = (
+    "*.h5",
+    "*.pkl",
+    "slurm*.out",
+    "fits.json",
+    "local.sql",
+    "__pycache__",
+    "slurm_outs",
+    "out_slurm_logs",
+)
+
+
+def clean(lessons: list[Lesson]) -> int:
+    """Delete the run artifacts under each of `lessons`."""
+    removed = 0
+    for lesson in lessons:
+        for pattern in ARTIFACTS:
+            for path in sorted(lesson.path.rglob(pattern)):
+                if not path.exists():
+                    continue  # an earlier pattern already took the directory holding it
+                if path.is_dir():
+                    shutil.rmtree(path)
+                else:
+                    path.unlink()
+                print(f"{DIM}removed{OFF} {path.relative_to(HERE)}")
+                removed += 1
+    print(f"cleaned {removed} path(s) under {len(lessons)} lesson(s)")
     return 0
 
 
@@ -665,53 +761,59 @@ def main() -> int:
         "lessons",
         nargs="*",
         metavar="LESSON",
-        help="Lesson directories to walk. Default: ask, or all of them under --yes.",
+        help="Lesson directories to walk, or `clean` to delete what walking them produced. "
+        "Default: ask, or all of them under --yes.",
     )
     parser.add_argument("--yes", action="store_true", help="Run everything without pausing (CI).")
     parser.add_argument(
-        "--option",
-        metavar="NAME",
-        help="Answer every `#> option` block with this name, instead of asking.",
+        "--mock",
+        action="store_true",
+        help="Take the no-cluster path at every `#> option` block, instead of asking.",
     )
     args = parser.parse_args()
-
-    # With no terminal to fit (CI, or piped to a file) rich assumes 80 columns,
-    # which is narrower than the tutorial's own output. Pick a width that fits it.
-    console = Console(
-        highlight=False,
-        theme=PROSE_THEME,
-        width=None if sys.stdout.isatty() else 140,
-    )
 
     try:
         lessons = find_lessons(HERE)
     except ValueError as exc:
-        console.print(f"[bold red]{exc}[/bold red]")
+        print(f"{BOLD}{RED}{exc}{OFF}")
         return 2
     if not lessons:
-        console.print(f"[bold red]No lessons found:[/bold red] no */README.md under {HERE}")
+        print(f"{BOLD}{RED}No lessons found:{OFF} no */README.md under {HERE}")
         return 2
 
-    if args.lessons:
+    # `clean` as the first word is the one thing that isn't a lesson name. No
+    # lesson directory can collide with it: a lesson is `<dir>/README.md`, and
+    # `clean/` would be a lesson called "clean", which the tutorial has no
+    # reason to grow.
+    wanted, cleaning = args.lessons, False
+    if wanted and wanted[0].rstrip("/") == "clean":
+        wanted, cleaning = wanted[1:], True
+
+    if wanted:
         by_name = {lesson.name: lesson for lesson in lessons}
-        unknown = [name for name in args.lessons if name.rstrip("/") not in by_name]
+        unknown = [name for name in wanted if name.rstrip("/") not in by_name]
         if unknown:
-            console.print(f"[bold red]No such lesson:[/bold red] {', '.join(unknown)}")
-            console.print(f"[dim]Available: {', '.join(by_name)}[/dim]")
+            print(f"{BOLD}{RED}No such lesson:{OFF} {', '.join(unknown)}")
+            print(f"{DIM}Available: {', '.join(by_name)}{OFF}")
             return 2
-        chosen = [by_name[name.rstrip("/")] for name in args.lessons]
+        chosen = [by_name[name.rstrip("/")] for name in wanted]
+    elif cleaning:
+        chosen = lessons  # `clean` with no lesson named cleans all of them
     else:
-        chosen = choose_lessons(console, lessons, assume_yes=args.yes)
+        chosen = choose_lessons(lessons, assume_yes=args.yes)
         if not chosen:  # Ctrl-C at the menu
             return 0
 
+    if cleaning:
+        return clean(chosen)
+
     for lesson in chosen:
-        code = run_lesson(console, lesson, args)
+        code = run_lesson(lesson, args)
         if code:
             return 0 if code == 130 else code
 
-    console.print()
-    console.print(Rule("[bold green]tour complete[/bold green]", style="green"))
+    print()
+    rule(f"{BOLD}{GREEN}tour complete{OFF}", GREEN)
     return 0
 
 

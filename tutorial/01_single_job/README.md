@@ -1,47 +1,38 @@
-# Record one job, and predict before there's a model
+# slurmise record a job
 
 ## 01 — about this tutorial
 
-Record a single job with slurmise, then ask it to predict — and see why one
-recording isn't enough.
+Now we'll see how to record a single job with slurmise.
 
 There are two ways of working through this lesson:
 
 1. Run `../tutorial.py 01_single_job` for an interactive walkthrough
 2. `cd` into this folder and type the `$` commands below yourself
 
-Either way the commands run from inside `01_single_job/`: the example uses
-relative paths to the shared `../bin/` scripts.
+The `#> expect` lines in the code blocks describe the expected output of the command
+above them. For example this block runs `echo` and checks that the string
+"World!" appears somewhere in the output:
 
-The `#>` lines in the code blocks describe the expected output of the command
-above them. For example this block runs `sbatch` and checks that the string
-"Submitted batch job" appears in the output:
+    $ echo "Hello World!"
+    #> expect /World!/
 
-    $ sbatch --wait run_perfectScaler.sbatch
-    #> expect /Submitted batch job/
+You can ignore these "#> expect" lines
 
-These `#>` lines are for `tutorial.py` to validate against — they're shell
-comments, so you can ignore them if you're running manually.
+**Don't want to wait for the cluster, or no cluster available?**
+Instead of `run_perfectScaler.sbatch`, use `mock_perfectScaler.sh`
+which doesn't actually submit SLURM jobs.
 
-The `sbatch` below really goes to the queue. The job runs for about 10 seconds,
-plus however long it waits to start.
+You'll see code blocks below with "option cluster" which uses the real sbatch
+and "option mock" which uses the script.
 
-**In a hurry, or no cluster to hand?** Where a block below submits a job it
-offers two ways to do it — `cluster` really submits, `mock` runs a script that
-states what the job would have used instead. Pick either; the rest of the lesson
-holds the same way. Everything after the recording — the database, the fit, the
-predictions — is the real thing regardless.
-
-`tutorial.py` asks which you want. Working by hand, just type the one you
-prefer. `../tutorial.py --option mock 01_single_job` answers for you.
-
-## 02 — the files
+## 02 — important files
 
 `../bin/perfectScaler` is the command we're recording. It's a small python
 script that simulates using a certain amount of time and memory, controlled by
-the `--duration` and `--intensity` arguments respectively. It's a helpful toy
-because we know exactly what each invocation will cost — which is why it's
-named `perfectScaler`.
+the `--duration` and `--intensity` command line arguments respectively.
+
+This unintersting process is good for a tutorial since
+we know ahead of time how much time and memory the job needs.
 
 `slurmise.toml` is the config. `job_spec` tells slurmise how to parse the
 command into features, and `default_time` / `default_mem` are the guesses
@@ -142,9 +133,9 @@ falls back to the defaults. So `234` is `default_time` straight out of
 `slurmise.toml` — no model was consulted at all. `default_mem` isn't specified
 there, so the memory figure is slurmise's own built-in default of 1 GB.
 
-Those built-ins (60 minutes and 1 GB) are a backstop, not a recommendation. Set
-both defaults in your toml so the cold-start guess is at least in the right
-range for your job.
+The built-in defaults of 60 minutes and 1 GB are arbitrary. It is good
+practice to set both defaults in your toml so the default guess is at least
+in the right range for your job.
 
 That sets up the next tutorial, `../02_jobs_in_loop/`: generate enough records
 to actually train a model, so `predict` starts answering from your data instead
