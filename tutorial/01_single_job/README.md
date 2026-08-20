@@ -2,28 +2,11 @@
 
 ## 01 — about this tutorial
 
-Now we'll see how to record a single job with slurmise.
+Now we'll see how to record a single job with slurmise. This is the first
+lesson, so it starts from nothing: one job, one recording, and a `predict` that
+can't yet answer from your data.
 
-There are two ways of working through this lesson:
-
-1. Run `../tutorial.py 01_single_job` for an interactive walkthrough
-2. `cd` into this folder and type the `$` commands below yourself
-
-The `#> expect` lines in the code blocks describe the expected output of the command
-above them. For example this block runs `echo` and checks that the string
-"World!" appears somewhere in the output:
-
-    $ echo "Hello World!"
-    #> expect /World!/
-
-You can ignore these "#> expect" lines
-
-**Don't want to wait for the cluster, or no cluster available?**
-Instead of `run_perfectScaler.sbatch`, use `mock_perfectScaler.sh`
-which doesn't actually submit SLURM jobs.
-
-You'll see code blocks below with "option cluster" which uses the real sbatch
-and "option mock" which uses the script.
+`00_introduction/` covers how the lessons work and what the `#>` lines mean.
 
 ## 02 — important files
 
@@ -120,42 +103,17 @@ $ slurmise --toml slurmise.toml predict \
 #> expect /Not enough fitting data points/
 ```
 
-The prediction does not use the value we just recorded:
+Unfortunately, you should see a warning about not enough data points.
 
-    Predicted runtime: 234
-    Predicted memory: 1000
+This is because slurmise needs many records per job before it will fit a model,
+and with one it falls back to the defaults. So `234` is `default_time` straight
+out of `slurmise.toml` — no model was consulted at all. `default_mem` isn't
+specified there, so the memory figure is slurmise's own built-in default of 1
+GB.
 
-    Warnings:
-      Not enough fitting data points in the fits. Returning default values.
+The slurmise job-agnostic built-in defaults of 60 minutes and 1 GB are
+arbitrary. It is good practice to set both defaults in your toml so the default
+guess is at least in the right range for your job.
 
-slurmise needs many records per job before it will fit a model, and with one it
-falls back to the defaults. So `234` is `default_time` straight out of
-`slurmise.toml` — no model was consulted at all. `default_mem` isn't specified
-there, so the memory figure is slurmise's own built-in default of 1 GB.
-
-The built-in defaults of 60 minutes and 1 GB are arbitrary. It is good
-practice to set both defaults in your toml so the default guess is at least
-in the right range for your job.
-
-That sets up the next tutorial, `../02_jobs_in_loop/`: generate enough records
-to actually train a model, so `predict` starts answering from your data instead
-of your defaults.
-
-# TODO: This should automatically happen, the user shouldn't be responsible!
-## Starting over
-
-Section 05 only holds from a clean slate — with records left over from a previous
-pass, `predict` may have enough data to fit a model and the "not enough fitting
-data points" warning won't appear. So throw away the database before starting.
-`tutorial.py` runs exactly this block for you, every time, before the lesson
-starts:
-
-```bash
-#> reset
-$ rm -f slurmise.h5 fits.json *.pkl
-$ rm -f out_slurm_logs/*.out
-$ mkdir -p out_slurm_logs
-```
-
-The logs go too, so a second pass doesn't leave you sifting through the last
-one's.
+Now you're read for the next tutorial, `../02_jobs_in_loop/`: where we
+actually generate enough records to train a model and get good predictions.

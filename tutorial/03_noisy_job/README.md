@@ -7,25 +7,9 @@ memory you ask it for. Real jobs aren't that obliging. This lesson runs the same
 39-run loop against `complexMemScaler`, whose memory moves from run to run, and
 looks at what slurmise does when the fit isn't good enough to trust.
 
-There are two ways of working through this lesson:
-
-1. Run `../tutorial.py 03_noisy_job` for an interactive walkthrough
-2. `cd` into this folder and type the `$` commands below yourself
-
-The `#>` lines in the code blocks describe the expected output of the command
-above them. They're shell comments — `tutorial.py` validates against them, and
-you can ignore them if you're running manually.
-
 **This lesson takes about 10 minutes**, nearly all of it the job sleeping.
 
-**In a hurry, or no cluster to hand?** Where a block below submits a job it
-offers two ways to do it — `cluster` really submits, `mock` runs a script that
-states what the job would have used instead. Pick either; the rest of the lesson
-holds the same way. Everything after the recording — the database, the fit, the
-predictions — is the real thing regardless.
-
-`tutorial.py` asks which you want. Working by hand, just type the one you
-prefer. `../tutorial.py --mock 03_noisy_job` answers for you.
+`00_introduction/` covers how the lessons work and what the `#>` lines mean.
 
 ## 02 — the noisy job
 

@@ -665,13 +665,20 @@ def run_reset(tour: Tour) -> None:
     Unconditional, and per lesson rather than once up front: a lesson only holds
     from a clean slate, and running it here is what keeps every lesson
     independent of the ones before it.
+
+    A lesson that runs no commands has nothing to clear and says nothing -- an
+    introduction is not starting you from an empty database, and should not
+    claim to.
     """
+    cleared = False
     for section in tour.lesson.sections:
         for block in section.body:
             if isinstance(block, Block) and block.is_reset:
                 for step in block.options[0].steps:
                     tour.run_step(step, show=False)
-    print(f"{DIM}Cleared previous runs — starting from an empty database.{OFF}")
+                cleared = True
+    if cleared:
+        print(f"{DIM}Cleared previous runs — starting from an empty database.{OFF}")
 
 
 def choose_lessons(lessons: list[Lesson], assume_yes: bool) -> list[Lesson]:

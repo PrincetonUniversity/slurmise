@@ -6,27 +6,11 @@
 allocation. Here we collect them in parallel with a SLURM array, and then look
 at what changes when a job's feature isn't a number.
 
-There are two ways of working through this lesson:
-
-1. Run `../tutorial.py 04_array_jobs` for an interactive walkthrough
-2. `cd` into this folder and type the `$` commands below yourself
-
-The `#>` lines in the code blocks describe the expected output of the command
-above them. They're shell comments — `tutorial.py` validates against them, and
-you can ignore them if you're running manually.
-
 **How long this takes depends on your cluster.** The work is only a few seconds
 per task, but there are 112 tasks across three submissions, and each `sbatch
 --wait` below waits for every task in its array.
 
-**In a hurry, or no cluster to hand?** Where a block below submits a job it
-offers two ways to do it — `cluster` really submits, `mock` runs a script that
-states what the job would have used instead. Pick either; the rest of the lesson
-holds the same way. Everything after the recording — the database, the fit, the
-predictions — is the real thing regardless.
-
-`tutorial.py` asks which you want. Working by hand, just type the one you
-prefer. `../tutorial.py --mock 04_array_jobs` answers for you.
+`00_introduction/` covers how the lessons work and what the `#>` lines mean.
 
 ## 02 — arrays, and why no `--step-id`
 
@@ -110,7 +94,7 @@ $ slurmise --toml slurmise.toml predict \
 Higher, when you get a model answer at all: `../bin/complexMemScaler` adds a
 flat 1000 MB on top of the intensity you ask for, and jitters it by ±20% on the
 way. That noise sometimes pushes the fit's error past 20%, and slurmise then
-returns `default_mem` with a warning instead — `02_jobs_in_loop/` section 07
+returns `default_mem` with a warning instead — `03_noisy_job/` section 05
 covers why. The `grep` above is worth keeping in the habit either way: it's how
 you confirm the model answering your question belongs to the job you asked
 about.

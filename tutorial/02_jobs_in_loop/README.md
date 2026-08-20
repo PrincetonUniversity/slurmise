@@ -6,25 +6,7 @@ In `01_single_job/` one recording wasn't enough to fit a model. Here we record
 39 runs of the same job in a single allocation, train on them, and finally get a
 prediction that comes from the data instead of from the toml's defaults.
 
-There are two ways of working through this lesson:
-
-1. Run `../tutorial.py 02_jobs_in_loop` for an interactive walkthrough
-2. `cd` into this folder and type the `$` commands below yourself
-
-The `#>` lines in the code blocks describe the expected output of the command
-above them. They're shell comments — `tutorial.py` validates against them, and
-you can ignore them if you're running manually.
-
-**This lesson takes about 10 minutes**, nearly all of it the job sleeping.
-
-**In a hurry, or no cluster to hand?** Where a block below submits a job it
-offers two ways to do it — `cluster` really submits, `mock` runs a script that
-states what the job would have used instead. Pick either; the rest of the lesson
-holds the same way. Everything after the recording — the database, the fit, the
-predictions — is the real thing regardless.
-
-`tutorial.py` asks which you want. Working by hand, just type the one you
-prefer. `../tutorial.py --mock 02_jobs_in_loop` answers for you.
+`00_introduction/` covers how the lessons work and what the `#>` lines mean.
 
 ## 02 — the loop, and why `--step-id`
 

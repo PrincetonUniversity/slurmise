@@ -24,47 +24,26 @@ but wraps a new `CLI` around it.
 
 ## 01 - about this tutorial
 
-There are two ways of working through this tutorial:
+`00_introduction/` covers how the lessons work and what the `#>` lines mean.
 
-1. Run `../tutorial.py 05_slurmise_run` for an interactive walkthrough
-2. Manually type/copy the `$` commands below yourself
-
-Either way the job logs go to `out_slurm_logs/` rather than cluttering this
-directory — `./slrmise` passes `--output` when it submits, so there is nothing
-for you to set.
+The job logs here go to `out_slurm_logs/` rather than cluttering this directory
+— `./slrmise` passes `--output` when it submits, so there is nothing for you to
+set.
 
 ## 02 - about the code blocks
 
-You might notice that the code blocks are slightly weird
-because of the added `#>` and `export` lines.
-
-1. The `#>` line describes expected output of the command.  For example the
-   following block prints the help message for `./slrmise` on the `$` line
-   and checks that the string "Commands:" is part of the output on the `#>` line:
-
-       $ ./slrmise --help
-       #> expect /Commands:/
-
-   These `#>` are for the `tutorial.py` to use for validation, you can ignore
-   them if you're running manually.
-
-2. Blocks that submit a job offer two ways to do it, marked `#> option cluster`
-   and `#> option mock`. Pick whichever you want; the lesson holds either way.
-
-   The `mock` one carries an `export` line telling `./slrmise` to pretend the
-   run produced a job that used 3315 MB and took 7 seconds, instead of `sbatch`
-   submitting it:
+This lesson's `mock` option works differently from the other lessons', because
+there is no `mock_*.sh` script here — `./slrmise` does the submitting itself.
+Instead, `mock` carries an `export` line telling `./slrmise` to pretend the run
+produced a job that used 3315 MB and took 7 seconds:
 
         export SLRMISE_USED_MEM=3315 SLRMISE_USED_TIME=7
         $ ./slrmise --toml slurmise.toml run -- ...
 
-   `slrmise` submits whenever `SLRMISE_USED_MEM` and `SLRMISE_USED_TIME` are
-   unset, which is all the `cluster` option does differently — it just leaves
-   the `export` out. Waiting on a real queue for jobs this small is why `mock`
-   is worth having.
-
-   `../tutorial.py 05_slurmise_run --mock` answers every one of these
-   without touching the scheduler.
+`slrmise` submits whenever `SLRMISE_USED_MEM` and `SLRMISE_USED_TIME` are
+unset, which is all the `cluster` option does differently — it just leaves the
+`export` out. Waiting on a real queue for jobs this small is why `mock` is
+worth having.
 
 #TODO have a separate section for each of the files of interest
 ## 02 — files of interest, and `predict`
