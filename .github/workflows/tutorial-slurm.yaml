@@ -42,6 +42,27 @@ jobs:
       - name: Install slurmise
         run: uv sync --python 3.12
 
+      # This duplicates test.yaml's mock walk on purpose -- do not delete it as
+      # redundant. It earns the ~2 minutes twice over:
+      #
+      #   * It fails fast. The mock path touches no scheduler at all (the walk
+      #     invokes no slurm binary -- checked by running it with them all
+      #     shimmed out), so it runs before the cluster is built. A malformed
+      #     lesson or a broken `#>` expectation stops here rather than after the
+      #     SLURM build and two 5.5-minute loops.
+      #   * It puts both modes side by side. Read together with the real walk at
+      #     the end of this file, the two steps are the whole story of how the
+      #     tutorial can be run: `--mock` against nothing, `--yes` against a
+      #     scheduler.
+      #
+      # `clean` afterwards so the real walk below starts from the same state as
+      # a fresh checkout.
+      - name: Walk the tutorial with no scheduler
+        working-directory: tutorial
+        run: |
+          uv run ./tutorial.py --yes --mock
+          uv run ./tutorial.py clean
+
       # Single-node cluster with slurmdbd accounting
       - name: Set up SLURM
         uses: koesterlab/setup-slurm-action@v1
@@ -111,27 +132,42 @@ jobs:
           fi
           echo "--mem is enforced; the --slurm tour can submit real jobs."
 
-      - name: Run ./slrmise tour mocking the sbatch calls
-        working-directory: tutorial
-        run: uv run ./tutorial.py --yes --mock 05_slurmise_run
+      # The lessons predict from what `sacct` reports a job used, so a cluster
+      # that runs jobs fine but records MaxRSS=0 makes every lesson fail further
+      # down with nothing pointing back here. Probe it directly, and dump the
+      # accounting config when it comes back zero.
+      - name: Probe that accounting captures memory
+        run: |
+          set -euo pipefail
+          jid="$(sbatch --parsable --wait \
+            --job-name=probe --mem=2G --time=00:03:00 --acctg-freq=task=1 \
+            --wrap "srun --acctg-freq=task=1 '$PWD/tutorial/bin/perfectScaler' --intensity 400 --duration 15")"
+          echo "probe job id: $jid"
+          max_rss="$(sacct -j "$jid" --json | python3 -c '
+          import json, sys
+          data = json.load(sys.stdin)
+          best = 0
+          for job in data.get("jobs", []):
+              for step in job.get("steps", []):
+                  for item in step.get("tres", {}).get("requested", {}).get("max", []):
+                      if item.get("type") == "mem":
+                          best = max(best, item.get("count", 0))
+          print(best)
+          ')"
+          echo "probe MaxRSS (bytes): $max_rss"
+          if [ "$max_rss" -le 0 ]; then
+            echo "::error::sacct reported MaxRSS=0. Accounting is not capturing memory -- check slurmdbd is running and JobAcctGatherType is jobacct_gather/linux (or /cgroup), not /none."
+            scontrol show config | grep -i jobacctgather || true
+            sacct -j "$jid" --format=JobID,JobName,State,MaxRSS,Elapsed || true
+            exit 1
+          fi
 
-      - name: Run slurmise_run tour (no --mock, real jobs)
+      # Budget, against timeout-minutes: 30 -- the two loops in 02 and 03 are
+      # ~5.5 min of sleeping each and dominate. If that stops fitting, make a
+      # lesson mock-only the way 04 is rather than naming lessons again here.
+      - name: Walk the tutorial against real SLURM
         working-directory: tutorial
-        run: uv run ./tutorial.py --yes 05_slurmise_run
-
-      - name: Run tutorial integration
-        env:
-          RUN_ACCT_PROBE: "1"
-          # 04_array_jobs is left out on purpose: its three arrays are 112 tasks
-          # of ~10s, which serialize on this single-node cluster and would blow
-          # the 30 minute budget on their own. Its logic is covered by the
-          # --mock run in test.yaml; its real srun/sacct path is not covered
-          # here. Raise timeout-minutes and add it if that becomes worth it.
-          #
-          # The two loops below are ~5.5 min of sleeping each, so this is
-          # already most of the budget.
-          LESSONS: "01_single_job 02_jobs_in_loop 03_noisy_job"
-        run: ./tests/integration/run_tutorial_slurm.sh
+        run: uv run ./tutorial.py --yes
 
       # Upload the walked tutorial tree (per-lesson slurmise.h5, fits, and SLURM
       # job logs) for manual inspection. `always()` so it is captured even when

@@ -60,7 +60,7 @@ The purpose of `#>expect` are for `tutorial.py` to validate against, and they
 are why the tutorial can double as an integration test. You can ignore them
 when running manually.
 
-Wherever a lesson submits a job, its block offers two ways to do it:
+Wherever a lesson submits a job, its block usually offers two ways to do it:
 
     #> option cluster
     $ sbatch --wait run_perfectScaler.sbatch
@@ -76,6 +76,11 @@ The benefit of `mock` is that it's much faster than waiting on a SLURM queue,
 and allows you to work through the tutorial without even having `sbatch` available.
 If you were running slurmise for real, you'd never use the mock approach. This is
 just for the tutorial.
+
+`04_array_jobs/` is the one exception to the choice: it always mocks, because
+its arrays come to 112 tasks and waiting on them teaches nothing the records
+don't. It prints the submissions it stands in for, so you can still run them
+yourself.
 
 ## 04 — before you start
 

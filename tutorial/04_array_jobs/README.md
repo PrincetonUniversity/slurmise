@@ -6,9 +6,15 @@
 allocation. Here we collect them in parallel with a SLURM array, and then look
 at what changes when a job's feature isn't a number.
 
-**How long this takes depends on your cluster.** The work is only a few seconds
-per task, but there are 112 tasks across three submissions, and each `sbatch
---wait` below waits for every task in its array.
+**This lesson always uses the mock scripts**, unlike the others, which offer you
+the choice. Its three arrays come to 112 tasks, and each `sbatch --wait` waits
+for every task in its array — on a small or busy cluster that is a long wait for
+a lesson whose subject is what the *records* look like afterwards, not what
+SLURM does to produce them.
+
+The `.sbatch` files are here all the same, and each block below shows the
+submission it stands in for, so you can run the real thing whenever you want.
+Those commands are examples: nothing in this lesson will submit for you.
 
 `00_introduction/` covers how the lessons work and what the `#>` lines mean.
 
@@ -37,17 +43,17 @@ needs 26 and runs as wide as the queue lets it.
 `--wait` on an array waits for the whole array, not just the first task:
 
 ```bash
-#> option cluster
-$ sbatch --wait run_perfectScaler.sbatch
-#> expect ok
-$ sbatch --wait run_complexMemScaler.sbatch
-#> expect ok
-#> option mock
 $ bash mock_perfectScaler.sh
 #> expect ok
 $ bash mock_complexMemScaler.sh
 #> expect ok
 ```
+
+To run them for real instead, submit the `.sbatch` files the mocks stand in for.
+Nothing here will do it for you — copy these if you want them:
+
+    sbatch --wait run_perfectScaler.sbatch
+    sbatch --wait run_complexMemScaler.sbatch
 
 ```bash
 $ slurmise --toml slurmise.toml print
@@ -124,13 +130,13 @@ $ cat run_categoryScaler.sbatch
 ```
 
 ```bash
-#> option cluster
-$ sbatch --wait run_categoryScaler.sbatch
-#> expect ok
-#> option mock
 $ bash mock_categoryScaler.sh
 #> expect ok
 ```
+
+Again, the real submission if you want it:
+
+    sbatch --wait run_categoryScaler.sbatch
 
 ```bash
 $ slurmise --toml slurmise.toml print
