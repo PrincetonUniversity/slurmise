@@ -4,6 +4,9 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
 import os
+import sys
+
+sys.path.insert(0, os.path.dirname(__file__))
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
@@ -27,7 +30,18 @@ extensions = [
     "sphinx.ext.githubpages",
     "sphinx.ext.napoleon",
     "sphinx.ext.imgconverter",
+    # Sphinx reads reStructuredText only; myst_parser registers `.md` as a
+    # second source format, which is what lets the generated tutorial page
+    # (see build_tutorial.py) be Markdown rather than a hand-written copy.
+    "myst_parser",
+    # Local: regenerates generated/tutorial-lessons.md from tutorial/*/README.md
+    # on every build, so the docs copy of the lessons cannot drift from them.
+    "build_tutorial",
 ]
+
+# Anchors for h1-h3, so the lessons' cross-references can link to each other's
+# sections on the generated page.
+myst_heading_anchors = 3
 
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 

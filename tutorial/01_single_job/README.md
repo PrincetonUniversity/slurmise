@@ -117,3 +117,21 @@ guess is at least in the right range for your job.
 
 Now you're read for the next tutorial, `../02_jobs_in_loop/`: where we
 actually generate enough records to train a model and get good predictions.
+
+## Starting over
+
+Section 05 only holds from a clean slate — with records left over from a previous
+pass, `predict` may have enough data to fit a model and the "not enough fitting
+data points" warning won't appear. So throw away the database before starting.
+`tutorial.py` runs exactly this block for you, every time, before the lesson
+starts:
+
+```bash
+#> reset
+$ rm -f slurmise.h5 fits.json *.pkl
+$ rm -f out_slurm_logs/*.out
+$ mkdir -p out_slurm_logs
+```
+
+The logs go too, so a second pass doesn't leave you sifting through the last
+one's.

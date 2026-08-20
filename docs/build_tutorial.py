@@ -1,0 +1,160 @@
+"""Assemble the tutorial lessons into one Markdown page for the docs site.
+
+The lessons live in `tutorial/`, one directory each, and their `README.md` files
+are the tutorial -- prose, commands, and the `#>` expectations that let
+`tutorial.py` verify them. Those files are the source of truth, so this page is
+generated from them at build time rather than kept as a second copy. A
+hand-maintained copy is exactly what drifted before: `docs/tutorial.rst` spent a
+release describing an `03_array_jobs/` directory that no longer existed.
+
+The lesson format is parsed by `tutorial/tutorial.py`, not re-implemented here.
+Stripping `#>` lines with a regex looks tempting and is wrong: a `#> option`
+block holds two interchangeable alternatives, and dropping the directives would
+leave a reader with two unexplained commands in a row. Going through the parser,
+an option is a labelled thing this can render as a labelled thing.
+
+Wired into Sphinx by a `builder-inited` hook in conf.py, so a plain
+`sphinx-build` regenerates the page and no caller has to remember a step.
+"""
+
+from __future__ import annotations
+
+import importlib.util
+import pathlib
+import re
+import sys
+
+HERE = pathlib.Path(__file__).resolve().parent
+REPO = HERE.parent
+TUTORIAL = REPO / "tutorial"
+OUT = HERE / "generated" / "tutorial-lessons.md"
+
+# Notes the authors left themselves in the lesson prose. They belong in the
+# repository, where whoever picks them up will see them; they do not belong on
+# the project's public documentation site. Dropped from this page only -- the
+# lesson files keep them.
+TODO_RE = re.compile(r"^\s*#\s*TODO\b", re.IGNORECASE)
+
+# A lesson referring to another one, e.g. `../02_jobs_in_loop/` or
+# `02_jobs_in_loop/`. On one page those become links to the lesson's section.
+CROSSREF_RE = re.compile(r"`(?:\.\./)?(\d\d_[a-z_]+)/`")
+
+# A stray `# heading` inside prose -- the parser only treats `##` as a section,
+# so these arrive here as text. Left alone they would open a second h1 on a page
+# that must have exactly one.
+STRAY_H1_RE = re.compile(r"^#\s+(?=\S)")
+
+
+def _load_runner():
+    """Import `tutorial/tutorial.py` by path -- it is a script, not a package.
+
+    Safe to import: it is stdlib-only, its module level does nothing but compile
+    regexes and check whether stdout is a terminal, and `main()` is guarded.
+    """
+    name = "slurmise_tutorial_runner"
+    path = TUTORIAL / "tutorial.py"
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    # Registered before it runs: `@dataclass` resolves a class's module through
+    # `sys.modules`, and the lesson model is built from dataclasses, so exec
+    # fails on the first one if the module cannot find itself.
+    sys.modules[name] = module
+    # No `tutorial/__pycache__/`: that tree is shipped to learners as a tarball,
+    # and `tutorial.py clean` is asserted in CI to leave it pristine. A docs
+    # build has no business littering it.
+    written = sys.dont_write_bytecode
+    sys.dont_write_bytecode = True
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        sys.dont_write_bytecode = written
+    return module
+
+
+def anchor(lesson_name: str) -> str:
+    """The explicit MyST target for a lesson, e.g. `lesson-01-single-job`.
+
+    Declared rather than derived: `myst_heading_anchors` would slugify the
+    lesson's title, and guessing at that transformation is how a link rots
+    silently the next time somebody edits a heading.
+    """
+    return "lesson-" + lesson_name.replace("_", "-")
+
+
+def render_prose(text: str, lessons: set[str], title: str = "") -> str:
+    kept = []
+    for line in text.splitlines():
+        if TODO_RE.match(line):
+            continue
+        # The lesson's own `# Title` reaches here as prose -- the parser only
+        # recognises `##` as a section -- and this page has already emitted it
+        # as the lesson's heading.
+        if title and line.startswith("# ") and line[2:].strip() == title:
+            continue
+        line = STRAY_H1_RE.sub("#### ", line)
+        line = CROSSREF_RE.sub(
+            lambda m: f"[{m.group(1)}](#{anchor(m.group(1))})" if m.group(1) in lessons else m.group(0),
+            line,
+        )
+        kept.append(line)
+    return "\n".join(kept).strip("\n")
+
+
+def render_steps(steps) -> str:
+    body = "\n".join(step.command for step in steps)
+    return f"```bash\n{body}\n```"
+
+
+def render_block(block) -> str:
+    """One fenced block, or one per alternative when the lesson offers a choice."""
+    if not block.offers_choice:
+        return render_steps(block.options[0].steps)
+    return "\n\n".join(f"*Option `{option.name}`:*\n\n{render_steps(option.steps)}" for option in block.options)
+
+
+def build() -> pathlib.Path:
+    runner = _load_runner()
+    lessons = runner.find_lessons(TUTORIAL)
+    if not lessons:
+        raise RuntimeError(f"no lessons found under {TUTORIAL}")
+    names = {lesson.name for lesson in lessons}
+
+    out = [
+        "<!-- Generated by docs/build_tutorial.py from tutorial/*/README.md.",
+        "     Edit the lesson files, not this one. -->",
+        "",
+        "# Tutorial lessons",
+        "",
+        "These are the lessons shipped in the tutorial tarball, assembled into one",
+        "page. Each is a directory of its own with the files it needs; see",
+        "{doc}`../tutorial` for how to get them and run them.",
+        "",
+    ]
+
+    for lesson in lessons:
+        out += [f"({anchor(lesson.name)})=", f"## {lesson.title}", ""]
+        for section in lesson.sections:
+            heading = f"{section.id} — {section.title}" if section.id else section.title
+            if section.title:
+                out += [f"### {heading}", ""]
+            for item in section.body:
+                if isinstance(item, str):
+                    rendered = render_prose(item, names, lesson.title)
+                else:
+                    rendered = render_block(item)
+                if rendered:
+                    out += [rendered, ""]
+
+    OUT.parent.mkdir(parents=True, exist_ok=True)
+    OUT.write_text("\n".join(out).rstrip("\n") + "\n")
+    return OUT
+
+
+def setup(app):
+    """Sphinx entry point, connected from conf.py."""
+    app.connect("builder-inited", lambda _app: build())
+    return {"parallel_read_safe": True, "parallel_write_safe": True}
+
+
+if __name__ == "__main__":
+    print(build())

@@ -25,6 +25,7 @@ that is used to predict the requirements of the current job submission.
 
    install
    tutorial
+   generated/tutorial-lessons
 
 .. toctree::
    :maxdepth: 2

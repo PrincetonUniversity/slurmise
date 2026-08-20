@@ -71,7 +71,7 @@ jobs:
           sinfo || true
           scontrol show config | grep -iE 'jobacctgather|accountingstorage' || true
 
-      # Without this SLURM never gives OUT_OF_MEMORY errors
+      # Ensure SLURM gives OUT_OF_MEMORY errors
       - name: Setup memory limits
         continue-on-error: true
         run: |
@@ -91,7 +91,7 @@ jobs:
           scontrol show config | grep -iE '^(SelectType|TaskPlugin|ProctrackType)' || true
           sinfo || true
 
-      # Validate that OUT_OF_MEMORY can happen
+      # Validate that OUT_OF_MEMORY can happen on the cluster
       - name: Probe memory enforcement
         run: |
           set -euo pipefail
