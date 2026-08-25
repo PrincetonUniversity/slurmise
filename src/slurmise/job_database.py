@@ -84,14 +84,23 @@ class JobDatabase:
         table = self.db.require_group(name=table_name)
 
         if job_data.memory is not None:
+            if "memory" in table:
+                msg = f"Job '{job_data.job_name}' slurm-id '{job_data.slurm_id}' already exists ('memory')."
+                raise ValueError(msg)
             val = np.asarray(job_data.memory)
             _ = table.create_dataset(name="memory", shape=val.shape, data=val)
 
         if job_data.runtime is not None:
+            if "runtime" in table:
+                msg = f"Job '{job_data.job_name}' slurm-id '{job_data.slurm_id}' already exists ('runtime')."
+                raise ValueError(msg)
             val = np.asarray(job_data.runtime)
             _ = table.create_dataset(name="runtime", shape=val.shape, data=val)
 
         for var, value in job_data.numerics.items():
+            if var in table:
+                msg = f"Job '{job_data.job_name}' slurm-id '{job_data.slurm_id}' already exists ('{var}')."
+                raise ValueError(msg)
             val = np.asarray(value)
             _ = table.create_dataset(name=var, shape=val.shape, data=val)
 
