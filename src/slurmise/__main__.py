@@ -108,7 +108,7 @@ def raw_record(ctx, job_name, slurm_id, step_id, numerics, categories, cmd):
 
 @main.command()
 @click.pass_context
-def print(ctx):  # noqa: A001
+def print(ctx):
     ctx.obj["slurmise"].print()
 
 
