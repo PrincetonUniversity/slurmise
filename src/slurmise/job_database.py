@@ -4,7 +4,8 @@ import contextlib
 import dataclasses
 import os
 import time
-from typing import Any, Generator
+from collections.abc import Generator
+from typing import Any
 
 import h5py
 import numpy as np
@@ -235,7 +236,7 @@ class JobDatabase:
 
         if len(f) == 0:  # group contains no values
             return True
-        first_element = f[list(f.keys())[0]]
+        first_element = f[next(iter(f.keys()))]
         # group contains a dataset
         return JobDatabase.is_dataset(first_element)
 
@@ -294,7 +295,7 @@ class JobDatabase:
             if JobDatabase.is_slurm_job(entry):
                 jobs[key] = entry
             else:
-                yield from JobDatabase.iterate_jobs(entry, categories + (key,))  # noqa: RUF005
+                yield from JobDatabase.iterate_jobs(entry, categories + (key,))
 
         if jobs:
             yield categories, jobs
@@ -338,13 +339,13 @@ class JobDatabase:
             entry = h5py_obj[key]
             name = entry.name if print_full_name else os.path.basename(entry.name)
             if is_group(entry):
-                print(f"{print_level(level)}{name}")  # noqa: T201
+                print(f"{print_level(level)}{name}")
                 JobDatabase.print_hdf5(entry, level + 1, print_full_name=print_full_name)
             elif is_dataset(entry):
                 shape = entry.shape
                 dtype = entry.dtype
-                print(f"{print_level(level)}{name}: {shape} {dtype} {entry[()]}")  # noqa: T201
+                print(f"{print_level(level)}{name}: {shape} {dtype} {entry[()]}")
         if level == -1 and print_attrs:
-            print("attrs: ")  # noqa: T201
+            print("attrs: ")
             for key, value in h5py_obj.attrs.items():
-                print(f" {key}: {value}")  # noqa: T201
+                print(f" {key}: {value}")

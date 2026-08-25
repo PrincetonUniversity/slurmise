@@ -24,7 +24,7 @@ class FileBasename(FileParser):
     def __init__(self):
         super().__init__(name="file_basename", return_type=CATEGORY)
 
-    def parse_file(self, path: Path, gzip_file: bool = False):  # noqa: ARG002
+    def parse_file(self, path: Path, gzip_file: bool = False):
         return path.name
 
 
@@ -33,8 +33,8 @@ class FileMD5(FileParser):
     def __init__(self):
         super().__init__(name="file_md5", return_type=CATEGORY)
 
-    def parse_file(self, path: Path, gzip_file: bool = False):  # noqa: ARG002
-        md5_hash = hashlib.md5()  # noqa: S324
+    def parse_file(self, path: Path, gzip_file: bool = False):
+        md5_hash = hashlib.md5()
         md5_hash.update(path.read_bytes())
         return md5_hash.hexdigest()
 
@@ -44,7 +44,7 @@ class FileSizeParser(FileParser):
     def __init__(self):
         super().__init__(name="file_size", return_type=NUMERIC)
 
-    def parse_file(self, path: Path, gzip_file: bool = False):  # noqa: ARG002
+    def parse_file(self, path: Path, gzip_file: bool = False):
         return path.stat().st_size  # in bytes
 
 
@@ -57,7 +57,7 @@ class FileLinesParser(FileParser):
         if gzip_file:
             with gzip.open(path, "rb") as infile:
                 # gzip files have no raw read, use slower loop
-                for lines, _ in enumerate(infile):  # noqa: B007
+                for lines, _ in enumerate(infile):
                     pass
                 return lines + 1
         else:
@@ -91,7 +91,7 @@ class AwkParser(FileParser):
             result = subprocess.check_output(self.args, stdin=zcat.stdout, text=True)
             zcat.wait()
         else:
-            result = subprocess.check_output(self.args + [path], text=True)  # noqa: RUF005
+            result = subprocess.check_output(self.args + [path], text=True)
 
         if self.return_type == NUMERIC:
             return [float(token) for token in result.split()]
