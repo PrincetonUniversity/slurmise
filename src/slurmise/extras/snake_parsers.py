@@ -1,12 +1,12 @@
 from __future__ import annotations
 
+import inspect
 import json
 import shutil
 from abc import ABC
 from contextlib import contextmanager
-import inspect
-from pathlib import Path
 from dataclasses import dataclass, replace
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
 
 import numpy as np
@@ -156,7 +156,7 @@ class SnakemakeAdapter(ABC):
         result = {}
         for variable_name, source in sources.items():
             if not isinstance(source, tuple):
-                source, key = source, None
+                key = None
             else:
                 source, key = source
 

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from packaging import version
 from typing import TYPE_CHECKING
 
 import snakemake
+from packaging import version
 from snakemake.logging import logger
 
 from slurmise.api import Slurmise
