@@ -328,7 +328,7 @@ class JobSpec:
                 max_len = max(spec_len, cmd_len)
                 aligned_spec.append(spec_with_matches[spec_start:spec_end] + " " * (max_len - spec_len))
                 aligned_cmd.append(cmd[cmd_start:cmd_end] + " " * (max_len - cmd_len))
-                indicator_line.append("╳" * max_len)  # noqa: RUF001
+                indicator_line.append("╳" * max_len)
             elif tag == "delete":
                 # Deletion from spec_with_matches
                 spec_len = spec_end - spec_start
@@ -340,7 +340,7 @@ class JobSpec:
                 cmd_len = cmd_end - cmd_start
                 aligned_spec.append(" " * cmd_len)
                 aligned_cmd.append(cmd[cmd_start:cmd_end])
-                indicator_line.append("∨" * cmd_len)  # noqa: RUF001
+                indicator_line.append("∨" * cmd_len)
 
         result = []
 

@@ -296,7 +296,7 @@ def test_iterate_jobs(empty_h5py_file):
                         assert expected_job.slurm_id in retrieved_job_dict
                         matched_retrieved_slurm_ids.add(expected_job.slurm_id)
 
-            assert matched_retrieved_slurm_ids == set(job.slurm_id for job in expected_jobs)
+            assert matched_retrieved_slurm_ids == {job.slurm_id for job in expected_jobs}
 
 
 def test_iterate_database(small_db):
@@ -415,7 +415,7 @@ def test_delete_all_children(small_db):
 
 
 def test_update_missing_mem_elapsed(empty_h5py_file, monkeypatch):
-    def mock_parse_slurm_job_metadata(slurm_id, step_id):  # noqa: ARG001
+    def mock_parse_slurm_job_metadata(slurm_id, step_id):
         return {
             "max_rss": 101,
             "elapsed_seconds": 100,

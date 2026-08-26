@@ -408,10 +408,8 @@ class ThreadScaler:
     thread_range: tuple[int, int] = (1, 20)
 
     def __post_init__(self):
-        if self.runtime_overhead < 1:
-            self.runtime_overhead = 1
-        if self.memory_overhead < 1:
-            self.memory_overhead = 1
+        self.runtime_overhead = max(self.runtime_overhead, 1)
+        self.memory_overhead = max(self.memory_overhead, 1)
 
     def update_job_data(self, job_data: JobData, current_threads: int) -> tuple[JobData, int]:
         """Update the provided job data to reflect scaling threads.

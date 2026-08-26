@@ -127,7 +127,8 @@ def test_snakemake_shell_no_slurmise(snake_rule, tmp_path):
             "--snakefile",
             snakefile,
             f"{snake_rule}.txt",
-        ]
+        ],
+        check=False,
     )
     assert result.returncode == 0
     outfile = snakefile.parent / f"{snake_rule}.txt"
@@ -180,6 +181,7 @@ slurmise.patch(workflow=workflow)
         ],
         capture_output=True,
         text=True,
+        check=False,
     )
     assert result.returncode == 1
     print(result)
@@ -227,7 +229,8 @@ slurmise.patch(workflow=workflow)
             "--snakefile",
             snakefile,
             "bench_1.txt",
-        ]
+        ],
+        check=False,
     )
     assert result.returncode == 0
 
@@ -260,7 +263,8 @@ slurmise.patch(workflow=workflow)
             "--snakefile",
             snakefile,
             f"{snake_rule}.txt",
-        ]
+        ],
+        check=False,
     )
     assert result.returncode == 0
     outfile = snakefile.parent / f"{snake_rule}.txt"
@@ -307,7 +311,8 @@ slurmise.patch(workflow=workflow)
             "--snakefile",
             snakefile,
             f"{snake_rule}.txt",
-        ]
+        ],
+        check=False,
     )
     assert result.returncode == 0
     outfile = snakefile.parent / f"{snake_rule}.txt"
@@ -328,7 +333,7 @@ slurmise.patch(workflow=workflow)
     with JobDatabase.get_database(slurmise.configuration.db_filename) as database:
         db = list(database.iterate_database())
         assert len(db) == 1  # one type of job
-        query_jd, jobs = db[0]
+        _query_jd, jobs = db[0]
         assert len(jobs) == 1
         job = jobs[0]
 
@@ -385,7 +390,8 @@ slurmise.patch(workflow=workflow)
             snakefile,
             "param_1.txt",
             "param_asdf.txt",
-        ]
+        ],
+        check=False,
     )
     assert result.returncode == 0
 
@@ -482,7 +488,8 @@ slurmise.patch(workflow=workflow)
             "thread_1.txt",
             "thread_2.txt",
             "thread_3.txt",
-        ]
+        ],
+        check=False,
     )
     assert result.returncode == 0
 
@@ -518,7 +525,7 @@ slurmise.patch(workflow=workflow)
     with JobDatabase.get_database(slurmise.configuration.db_filename) as database:
         db = list(database.iterate_database())
         assert len(db) == 1  # one type of job
-        query_jd, jobs = db[0]
+        _query_jd, jobs = db[0]
         assert len(jobs) == 3
 
         for job in jobs:
