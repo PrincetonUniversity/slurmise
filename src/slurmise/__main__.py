@@ -118,7 +118,11 @@ def print(ctx, h5_path):
     The database is resolved in this order: the H5_PATH argument if given,
     otherwise the database configured by --toml
     """
-    if h5_path is None and "slurmise" not in ctx.obj:
+    if h5_path is not None:
+        Slurmise.print_database(h5_path)
+        return
+
+    if "slurmise" not in ctx.obj:
         click.echo(
             "No database found. "
             + click.style("slurmise print", bold=True)
@@ -129,12 +133,7 @@ def print(ctx, h5_path):
         click.echo(" - slurmise print slurmise.h5", err=True)
         sys.exit(1)
 
-    if "slurmise" in ctx.obj:
-        # Derive the database path from the provided toml configuration.
-        ctx.obj["slurmise"].print()
-        return
-
-    Slurmise.print_database(h5_path)
+    ctx.obj["slurmise"].print()
 
 
 @main.command()

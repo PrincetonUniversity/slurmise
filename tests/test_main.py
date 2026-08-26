@@ -322,6 +322,20 @@ def test_print_explicit_h5_path(tmp_path):
     assert "test_job" in result.stdout
 
 
+def test_print_h5_path_overrides_toml(tmp_path, simple_toml):
+    """An explicit h5 path takes precedence over the --toml database."""
+    h5 = tmp_path / "explicit.h5"
+
+    with job_database.JobDatabase.get_database(h5) as db:
+        db.record(JobData(job_name="explicit_job", slurm_id="1", runtime=5, memory=100))
+
+    runner = CliRunner()
+    result = runner.invoke(main, ["--toml", simple_toml.toml, "print", str(h5)])
+
+    assert result.exit_code == 0
+    assert "explicit_job" in result.stdout
+
+
 def test_print_missing_default(tmp_path, monkeypatch):
     """print errors clearly when no database can be resolved."""
     monkeypatch.chdir(tmp_path)
