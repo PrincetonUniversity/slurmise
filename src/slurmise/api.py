@@ -54,7 +54,16 @@ class Slurmise:
             database.record(job_data)
 
     def print(self):
-        with job_database.JobDatabase.get_database(self.configuration.db_filename) as database:
+        self.print_database(self.configuration.db_filename)
+
+    @classmethod
+    def print_database(cls, h5_path):
+        """Print the contents of a slurmise HDF5 database.
+
+        This does not require a toml configuration; only the path to the
+        ``.h5`` database is needed.
+        """
+        with job_database.JobDatabase.get_database(h5_path) as database:
             database.print()
 
     def predict(self, cmd, job_name):

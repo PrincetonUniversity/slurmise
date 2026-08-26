@@ -308,6 +308,45 @@ def test_raw_record(simple_toml, sacct_mock):
     assert split_std[3].split("-")[-1] == " 1234"
 
 
+def test_print_explicit_h5_path(tmp_path):
+    """print accepts a bare .h5 path with no toml configuration."""
+    h5 = tmp_path / "mydb.h5"
+
+    with job_database.JobDatabase.get_database(h5) as db:
+        db.record(JobData(job_name="test_job", slurm_id="1", runtime=5, memory=100))
+
+    runner = CliRunner()
+    result = runner.invoke(main, ["print", str(h5)])
+
+    assert result.exit_code == 0
+    assert "test_job" in result.stdout
+
+
+def test_print_h5_path_overrides_toml(tmp_path, simple_toml):
+    """An explicit h5 path takes precedence over the --toml database."""
+    h5 = tmp_path / "explicit.h5"
+
+    with job_database.JobDatabase.get_database(h5) as db:
+        db.record(JobData(job_name="explicit_job", slurm_id="1", runtime=5, memory=100))
+
+    runner = CliRunner()
+    result = runner.invoke(main, ["--toml", simple_toml.toml, "print", str(h5)])
+
+    assert result.exit_code == 0
+    assert "explicit_job" in result.stdout
+
+
+def test_print_missing_default(tmp_path, monkeypatch):
+    """print errors clearly when no database can be resolved."""
+    monkeypatch.chdir(tmp_path)
+
+    runner = CliRunner()
+    result = runner.invoke(main, ["print"])
+
+    assert result.exit_code == 1
+    assert "No database found" in result.output
+
+
 def test_record_step_id_without_slurm_id(simple_toml, monkeypatch, no_slurm_env, sacct_mock):
     """Regression test for issue 79: `record --step-id N` without `--slurm-id` inside
     a SLURM job must resolve the job id from the environment."""

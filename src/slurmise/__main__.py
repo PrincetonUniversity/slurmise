@@ -48,11 +48,14 @@ def _report_prediction(query_jd: job_data.JobData, query_warns: list[str]) -> No
 )
 @click.pass_context
 def main(ctx, toml):
+    ctx.ensure_object(dict)
+    # `print` can operate on a bare .h5 path and does not require a toml config.
     if toml is None:
+        if ctx.invoked_subcommand == "print":
+            return
         click.echo("Slurmise requires a toml file", err=True)
         click.echo("See readme for more information", err=True)
         sys.exit(1)
-    ctx.ensure_object(dict)
     ctx.obj["slurmise"] = Slurmise(toml)
 
 
@@ -107,9 +110,31 @@ def raw_record(ctx, job_name, slurm_id, step_id, numerics, categories, cmd):
 
 
 @main.command()
+@click.argument("h5_path", type=click.Path(exists=True), required=False)
 @click.pass_context
-def print(ctx):
-    ctx.obj["slurmise"].print()
+def print(ctx, h5_path):
+    """Print the contents of a slurmise database.
+
+    The database is resolved in this order: the H5_PATH argument if given,
+    otherwise the database configured by --toml
+    """
+    if h5_path is not None:
+        Slurmise.print_database(h5_path)
+        return
+
+    if "slurmise" in ctx.obj:
+        ctx.obj["slurmise"].print()
+        return
+
+    click.echo(
+        "No database found. "
+        + click.style("slurmise print", bold=True)
+        + " requires either a toml file or an h5 file path:",
+        err=True,
+    )
+    click.echo(" - slurmise --toml slurmise.toml print", err=True)
+    click.echo(" - slurmise print slurmise.h5", err=True)
+    sys.exit(1)
 
 
 @main.command()
