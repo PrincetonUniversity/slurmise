@@ -122,18 +122,19 @@ def print(ctx, h5_path):
         Slurmise.print_database(h5_path)
         return
 
-    if "slurmise" not in ctx.obj:
-        click.echo(
-            "No database found. "
-            + click.style("slurmise print", bold=True)
-            + " requires either a toml file or an h5 file path:",
-            err=True,
-        )
-        click.echo(" - slurmise --toml slurmise.toml print", err=True)
-        click.echo(" - slurmise print slurmise.h5", err=True)
-        sys.exit(1)
+    if "slurmise" in ctx.obj:
+        ctx.obj["slurmise"].print()
+        return
 
-    ctx.obj["slurmise"].print()
+    click.echo(
+        "No database found. "
+        + click.style("slurmise print", bold=True)
+        + " requires either a toml file or an h5 file path:",
+        err=True,
+    )
+    click.echo(" - slurmise --toml slurmise.toml print", err=True)
+    click.echo(" - slurmise print slurmise.h5", err=True)
+    sys.exit(1)
 
 
 @main.command()
