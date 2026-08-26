@@ -112,7 +112,7 @@ def raw_record(ctx, job_name, slurm_id, step_id, numerics, categories, cmd):
 @main.command()
 @click.argument("h5_path", type=click.Path(exists=True), required=False)
 @click.pass_context
-def print(ctx, h5_path):  # noqa: A001
+def print(ctx, h5_path):
     """Print the contents of a slurmise database.
 
     The database is resolved in this order: the H5_PATH argument if given,

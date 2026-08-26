@@ -123,7 +123,7 @@ def test_get_slurm_job_sacct_outside_slurm_job(monkeypatch, no_slurm_env):
     """Post-mortem recording with an explicit id works outside of a SLURM job."""
     monkeypatch.setattr(
         "slurmise.slurm.subprocess.check_output",
-        lambda cmd: b'{"jobs": []}',  # noqa: ARG005
+        lambda cmd: b'{"jobs": []}',
     )
 
     assert slurm.get_slurm_job_sacct("1234") == {"jobs": []}
