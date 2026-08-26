@@ -171,8 +171,8 @@ class JobSpec:
         if set(self.sources.keys()) != set(self.token_kinds.keys()):
             msg = (
                 "Variables do not match source specification\n"
-                f"Sources  : {list(self.token_kinds.keys())}\n"
-                f"Variables: {list(self.sources.keys())}"
+                f"Variables: {list(self.token_kinds.keys())}\n"
+                f"Sources  : {list(self.sources.keys())}"
             )
             raise ValueError(msg)
 

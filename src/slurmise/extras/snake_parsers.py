@@ -89,7 +89,7 @@ class SnakemakeAdapter(ABC):
 
                 slurmise.raw_record(job_data, processed_data=True)
             if not extras.get("keep_benchmarks", False):
-                shutil.rmtree(benchmark_dir)
+                shutil.rmtree(benchmark_dir, ignore_errors=True)
 
         workflow.onsuccess(onsuccess_slurmise_update)
 
@@ -324,6 +324,8 @@ class SnakemakeV7(SnakemakeAdapter):
             jsonl_content = {
                 "s": to_na(tsv_data.get("s", "-")),
                 "max_rss": to_na(tsv_data.get("max_rss", "-")),
+                "_stem": stem,
+                "_mtime": companion_file.stat().st_mtime,
             }
             jsonl_file = companion_file.with_name(stem + ".jsonl")
             jsonl_file.write_text(json.dumps(jsonl_content))
@@ -392,9 +394,10 @@ def _correct_threads(slurmise_data, benchmark_data):
         result[key] = {}
         for name, value in values.items():
             if name.startswith("SLURMISETHREAD"):
+                if actual_threads is None:
+                    continue
                 name = name.removeprefix("SLURMISETHREAD_")
-                if actual_threads is not None:
-                    value = actual_threads
+                value = actual_threads
             result[key][name] = value
 
     return result
