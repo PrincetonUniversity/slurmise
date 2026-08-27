@@ -5,7 +5,6 @@ import hashlib
 import json
 import pathlib
 from dataclasses import asdict, dataclass, field
-from typing import Optional
 
 import joblib
 import numpy as np
@@ -28,7 +27,7 @@ class ResourceFit:
     last_fit_dsize: int = 0
     fit_timestamp: datetime.datetime = field(default_factory=datetime.datetime.now)
     model_metrics: dict = field(default_factory=dict)
-    path: Optional[pathlib.Path] = None
+    path: pathlib.Path | None = None
 
     def __post_init__(self):
         if isinstance(self.path, str):
@@ -53,7 +52,7 @@ class ResourceFit:
         hash_info_tuple = tuple(hash_info.items())
 
         # Get and MD5 hash of information
-        return hashlib.md5(str(hash_info_tuple).encode("utf-8")).hexdigest()  # noqa: S324
+        return hashlib.md5(str(hash_info_tuple).encode("utf-8")).hexdigest()
 
     @classmethod
     def _make_model_path(cls, query) -> pathlib.Path:
@@ -166,16 +165,16 @@ class ResourceFit:
 
         return preprocessor
 
-    def fit(self, jobs: list[JobData], random_state: np.random.RandomState | None, **kwargs):  # noqa: ARG002
-        X, categories, numerics = jobs_to_pandas(jobs)  # noqa: N806
+    def fit(self, jobs: list[JobData], random_state: np.random.RandomState | None, **kwargs):
+        X, categories, numerics = jobs_to_pandas(jobs)
 
-        Y = X[["runtime", "memory"]]  # noqa: N806
+        Y = X[["runtime", "memory"]]
 
         # Drop the runtime and memory columns
-        X = X.drop(columns=["runtime", "memory"])  # noqa: N806
+        X = X.drop(columns=["runtime", "memory"])
 
         # Split test and train data
-        X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.2, random_state=random_state)  # noqa: N806
+        X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.2, random_state=random_state)
 
         self.last_fit_dsize = len(X_train)
 
@@ -186,8 +185,8 @@ class ResourceFit:
         self.memory_model.fit(X_train, y_train["memory"])
 
         # Evaluate the model on test
-        Y_pred_runtime = self.runtime_model.predict(X_test)  # noqa: N806
-        Y_pred_memory = self.memory_model.predict(X_test)  # noqa: N806
+        Y_pred_runtime = self.runtime_model.predict(X_test)
+        Y_pred_memory = self.memory_model.predict(X_test)
 
         self.model_metrics = {
             "runtime": {
@@ -210,7 +209,7 @@ class ResourceFit:
                 ["Not enough fitting data points in the fits. Returning default values."],
             )
 
-        X, _, _ = jobs_to_pandas([job])  # noqa: N806
+        X, _, _ = jobs_to_pandas([job])
         warnmsg = []
         if self.model_metrics["runtime"]["mpe"] > 20:
             warnmsg += [
