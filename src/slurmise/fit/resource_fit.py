@@ -146,11 +146,7 @@ class ResourceFit:
 
     @classmethod
     def mean_percent_error(cls, y_true, y_pred) -> float:
-        """Mean percent error, skipping records whose true value is zero.
-
-        Jobs that never ran are recorded with a zero runtime or memory, and dividing by
-        those makes the error infinite for any database containing one.
-        """
+        """Mean percent error, skipping records whose true value is zero."""
         y_true, y_pred = np.asarray(y_true, dtype=float), np.asarray(y_pred, dtype=float)
         nonzero = y_true != 0
         return float(np.mean(np.abs((y_true[nonzero] - y_pred[nonzero]) / y_true[nonzero])) * 100)
