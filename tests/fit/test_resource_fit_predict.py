@@ -11,7 +11,7 @@ from slurmise.job_data import JobData
 @pytest.fixture
 def monkey_patch_basepath(tmp_path, monkeypatch):
     """
-    Monkey patch the BASEMODEL_PATH to the tmp_path, don't want to write to the actual
+    Monkey patch the BASEMODELPATH to the tmp_path, don't want to write to the actual
     path during testing (probably is user's home directory or something)
     """
     monkeypatch.setattr("slurmise.fit.resource_fit.BASEMODELPATH", tmp_path)
