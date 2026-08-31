@@ -149,6 +149,8 @@ class ResourceFit:
         """Mean percent error, skipping records whose true value is zero."""
         y_true, y_pred = np.asarray(y_true, dtype=float), np.asarray(y_pred, dtype=float)
         nonzero = y_true != 0
+        if not np.any(nonzero):
+            return float("inf")
         return float(np.mean(np.abs((y_true[nonzero] - y_pred[nonzero]) / y_true[nonzero])) * 100)
 
     def _get_preprocessor(self, categories, numerics):
