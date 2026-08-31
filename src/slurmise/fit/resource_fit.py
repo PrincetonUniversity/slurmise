@@ -20,6 +20,11 @@ from slurmise.utils import jobs_to_pandas
 
 BASEMODELPATH = pathlib.Path.home() / ".slurmise/models/"
 
+# Above this mean percent error a model's prediction is reported with a warning.
+MPE_THRESHOLD = 10
+# Predictions at or beyond this multiple of the default are rejected outright.
+MAX_PREDICTION_FACTOR = 100
+
 
 @dataclass(kw_only=True)
 class ResourceFit:
@@ -140,8 +145,13 @@ class ResourceFit:
         return cls(**info)
 
     @classmethod
-    def mean_percent_error(cls, y_true, y_pred) -> ColumnTransformer:
-        return np.mean(np.abs((y_true - y_pred) / y_true)) * 100
+    def mean_percent_error(cls, y_true, y_pred) -> float:
+        """Mean percent error, skipping records whose true value is zero."""
+        y_true, y_pred = np.asarray(y_true, dtype=float), np.asarray(y_pred, dtype=float)
+        nonzero = y_true != 0
+        if not np.any(nonzero):
+            return float("inf")
+        return float(np.mean(np.abs((y_true[nonzero] - y_pred[nonzero]) / y_true[nonzero])) * 100)
 
     def _get_preprocessor(self, categories, numerics):
         category_transformer = Pipeline(
@@ -200,9 +210,36 @@ class ResourceFit:
         }
         # TODO: Warning if model metrics are larger than a threshold.
 
-    def predict(self, job: JobData) -> tuple[JobData, list[str]]:
-        # TODO: check if it can be abstracted.
+    def _resolve(self, model, X, default, resource: str, job_name: str, mpe: float) -> tuple[float, list[str]]:
+        """Choose between a model's prediction and the caller's default for one resource."""
+        predicted = model.predict(X)[0]
 
+        if predicted <= 0:
+            return default, [
+                f"Predicted {resource} for job {job_name} is zero or negative: {predicted}",
+                f"Returning default {resource} value.",
+            ]
+
+        if predicted >= MAX_PREDICTION_FACTOR * default:
+            return default, [
+                (
+                    f"Predicted {resource} for job {job_name} is more than "
+                    f"{MAX_PREDICTION_FACTOR} times larger than default."
+                ),
+                f"Returning default {resource} value.",
+            ]
+
+        if mpe > MPE_THRESHOLD:
+            return predicted, [
+                (
+                    f"{resource.capitalize()} prediction for job {job_name} is not within "
+                    f"{MPE_THRESHOLD}% of actual value."
+                ),
+            ]
+
+        return predicted, []
+
+    def predict(self, job: JobData) -> tuple[JobData, list[str]]:
         if self.last_fit_dsize < 10:
             return (
                 job,
@@ -211,34 +248,15 @@ class ResourceFit:
 
         X, _, _ = jobs_to_pandas([job])
         warnmsg = []
-        if self.model_metrics["runtime"]["mpe"] > 20:
-            warnmsg += [
-                f"Runtime prediction for job {job.job_name} is not within 20% of actual value.",
-                "Returing default runtime value.",
-            ]
-        else:
-            predicted_runtime = self.runtime_model.predict(X)[0]
-            if predicted_runtime > 0 and predicted_runtime < 100 * job.runtime:
-                job.runtime = predicted_runtime
-            else:
-                warnmsg += [
-                    f"Predicted runtime for job {job.job_name} is either negative or more than 100 times larger than default.",
-                    "Returing default runtime value.",
-                ]
 
-        if self.model_metrics["memory"]["mpe"] > 20:
-            warnmsg += [
-                f"Memory prediction for job {job.job_name} is not within 20% of actual value.",
-                "Returing default memory value.",
-            ]
-        else:
-            predicted_memory = self.memory_model.predict(X)[0]
-            if predicted_memory > 0 and predicted_memory < 100 * job.memory:
-                job.memory = predicted_memory
-            else:
-                warnmsg += [
-                    f"Predicted memory for job {job.job_name} is either negative or more than 100 times larger than default.",
-                    "Returing default memory value.",
-                ]
+        job.runtime, runtime_warnings = self._resolve(
+            self.runtime_model, X, job.runtime, "runtime", job.job_name, self.model_metrics["runtime"]["mpe"]
+        )
+        warnmsg += runtime_warnings
+
+        job.memory, memory_warnings = self._resolve(
+            self.memory_model, X, job.memory, "memory", job.job_name, self.model_metrics["memory"]["mpe"]
+        )
+        warnmsg += memory_warnings
 
         return job, warnmsg
