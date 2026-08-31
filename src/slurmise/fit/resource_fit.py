@@ -216,7 +216,7 @@ class ResourceFit:
 
         if predicted <= 0:
             return default, [
-                f"Predicted {resource} for job {job_name} is negative.",
+                f"Predicted {resource} for job {job_name} is zero or negative: {predicted}",
                 f"Returning default {resource} value.",
             ]
 
