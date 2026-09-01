@@ -123,7 +123,18 @@ def raw_record(ctx, job_name, slurm_id, step_id, numerics, categories, cmd, memo
     jd.memory = memory
     jd.runtime = runtime
 
-    ctx.obj["slurmise"].raw_record(jd)
+    if memory is not None and runtime is not None:
+        # Use provided memory/runtime, do not consult sacct
+        processed_data = True
+    elif (memory is None) != (runtime is None):
+        # Only memory or time is provided and the other is None. Raise an error
+        msg = "--memory and --runtime must be given together."
+        raise click.UsageError(msg)
+    else:
+        # Consult sacct
+        processed_data = False
+
+    ctx.obj["slurmise"].raw_record(jd, processed_data=processed_data)
 
 
 @main.command()

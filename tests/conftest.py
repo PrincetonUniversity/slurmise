@@ -77,6 +77,20 @@ def sacct_mock(monkeypatch):
 
 
 @pytest.fixture
+def no_sacct(monkeypatch):
+    """Make any sacct query fail loudly.
+
+    For tests whose contract is that SLURM is never consulted.
+    """
+
+    def _forbidden(slurm_id):
+        msg = f"sacct was queried for job {slurm_id}, but this path must not consult SLURM."
+        raise AssertionError(msg)
+
+    monkeypatch.setattr("slurmise.slurm.get_slurm_job_sacct", _forbidden)
+
+
+@pytest.fixture
 def no_slurm_env(monkeypatch):
     """Remove all SLURM job id variables from the environment."""
     monkeypatch.delenv("SLURM_JOB_ID", raising=False)

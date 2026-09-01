@@ -308,12 +308,8 @@ def test_raw_record(simple_toml, sacct_mock):
     assert split_std[3].split("-")[-1] == " 1234"
 
 
-def test_raw_record_with_usage_skips_sacct(simple_toml):
-    """--memory and --runtime are taken at face value, with no sacct call.
-
-    Deliberately no `sacct_mock` fixture: if this ever starts asking SLURM for
-    the numbers it should fail, rather than quietly use whatever is there.
-    """
+def test_raw_record_with_usage_skips_sacct(simple_toml, no_sacct):
+    """--memory and --runtime are taken at face value, with no sacct call."""
     runner = CliRunner()
     result = runner.invoke(
         main,
@@ -352,10 +348,13 @@ def test_raw_record_with_usage_skips_sacct(simple_toml):
         ]
 
 
-def test_raw_record_partial_usage_still_uses_sacct(simple_toml, sacct_mock):
-    """One of the two isn't enough -- sacct supplies both, as it always did."""
-    sacct_mock(task_count=1, mem_count=232 * 2**20)  # parses to max_rss=232, elapsed=97201
-
+@pytest.mark.parametrize(
+    "usage_flags",
+    [["--memory", "512"], ["--runtime", "60"]],
+    ids=["memory-only", "runtime-only"],
+)
+def test_raw_record_partial_usage_is_rejected(simple_toml, usage_flags, no_sacct):
+    """Half the usage is refused rather than silently dropped and sacct is not consulted."""
     runner = CliRunner()
     result = runner.invoke(
         main,
@@ -371,17 +370,14 @@ def test_raw_record_partial_usage_still_uses_sacct(simple_toml, sacct_mock):
             '"threads":2',
             "--categories",
             '"complexity":"simple"',
-            "--memory",
-            "512",
+            *usage_flags,
         ],
     )
-    assert result.exit_code == 0
+    assert result.exit_code == 2
+    assert "must be given together" in result.output
 
     with job_database.JobDatabase.get_database(simple_toml.db) as db:
-        query = JobData(job_name="nupack", categories={"complexity": "simple"})
-        recorded = db.query(query)
-
-    assert [(job.memory, job.runtime) for job in recorded] == [(232, 97201)]
+        assert db.query(JobData(job_name="nupack", categories={"complexity": "simple"})) == []
 
 
 def test_print_explicit_h5_path(tmp_path):
