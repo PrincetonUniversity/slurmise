@@ -6,12 +6,10 @@ on:
     branches:
       - main
 
-  # Build on pushes to main or docs branches
+  # Deploy on pushes to main; other branches build via the trigger above
   push:
     branches:
       - main
-      - 'docs/**'
-      - '**/docs'
 
 # Sets permissions for GitHub Pages deployment
 permissions:
