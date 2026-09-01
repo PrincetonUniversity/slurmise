@@ -41,6 +41,12 @@ class Slurmise:
         )
 
     def raw_record(self, job_data, processed_data=False):
+        # Usage already on the record is taken at face value: there is nothing
+        # for sacct to add, and asking it would overwrite what the caller knows.
+        # That is what lets a database be populated with no scheduler present.
+        if job_data.memory is not None and job_data.runtime is not None:
+            processed_data = True
+
         if not processed_data:
             job_data.slurm_id = slurm.resolve_job_id(job_data.slurm_id)
             slurm_id, step_id = slurm.split_job_id(job_data.slurm_id)

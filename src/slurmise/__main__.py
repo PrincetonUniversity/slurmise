@@ -99,12 +99,29 @@ def parse(ctx, cmd, job_name):
     help="Category run parameters in JSON format without outer {}",
 )
 @click.option("--cmd", type=str, help="Actual command run")
+@click.option(
+    "--memory",
+    type=int,
+    default=None,
+    help="Directly provide max RSS in MB rather than checking with sacct.",
+)
+@click.option(
+    "--runtime",
+    type=int,
+    default=None,
+    help="Directly provide elapsed time in seconds rather than checking with sacct.",
+)
 @click.pass_context
-def raw_record(ctx, job_name, slurm_id, step_id, numerics, categories, cmd):
-    """Record a job"""
+def raw_record(ctx, job_name, slurm_id, step_id, numerics, categories, cmd, memory, runtime):
+    """Record a job.
+
+    Checks sacct for resource usage unless --memory and --runtime are provided.
+    """
     slurm_id = slurm.resolve_job_id(slurm_id, step_id)
 
     jd = _parse_json_options(categories, numerics, job_name, cmd, slurm_id)
+    jd.memory = memory
+    jd.runtime = runtime
 
     ctx.obj["slurmise"].raw_record(jd)
 
