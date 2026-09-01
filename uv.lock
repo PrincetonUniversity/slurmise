@@ -3,10 +3,10 @@ revision = 3
 requires-python = ">=3.11"
 resolution-markers = [
     "python_full_version >= '3.15' and sys_platform == 'win32'",
-    "python_full_version == '3.14.*' and sys_platform == 'win32'",
     "python_full_version >= '3.15' and sys_platform == 'emscripten'",
-    "python_full_version == '3.14.*' and sys_platform == 'emscripten'",
     "python_full_version >= '3.15' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.14.*' and sys_platform == 'win32'",
+    "python_full_version == '3.14.*' and sys_platform == 'emscripten'",
     "python_full_version == '3.14.*' and sys_platform != 'emscripten' and sys_platform != 'win32'",
     "python_full_version >= '3.12' and python_full_version < '3.14' and sys_platform == 'win32'",
     "python_full_version >= '3.12' and python_full_version < '3.14' and sys_platform == 'emscripten'",
@@ -1080,10 +1080,10 @@ version = "2.5.1"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.15' and sys_platform == 'win32'",
-    "python_full_version == '3.14.*' and sys_platform == 'win32'",
     "python_full_version >= '3.15' and sys_platform == 'emscripten'",
-    "python_full_version == '3.14.*' and sys_platform == 'emscripten'",
     "python_full_version >= '3.15' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.14.*' and sys_platform == 'win32'",
+    "python_full_version == '3.14.*' and sys_platform == 'emscripten'",
     "python_full_version == '3.14.*' and sys_platform != 'emscripten' and sys_platform != 'win32'",
     "python_full_version >= '3.12' and python_full_version < '3.14' and sys_platform == 'win32'",
     "python_full_version >= '3.12' and python_full_version < '3.14' and sys_platform == 'emscripten'",
@@ -1991,10 +1991,10 @@ version = "1.18.0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.15' and sys_platform == 'win32'",
-    "python_full_version == '3.14.*' and sys_platform == 'win32'",
     "python_full_version >= '3.15' and sys_platform == 'emscripten'",
-    "python_full_version == '3.14.*' and sys_platform == 'emscripten'",
     "python_full_version >= '3.15' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.14.*' and sys_platform == 'win32'",
+    "python_full_version == '3.14.*' and sys_platform == 'emscripten'",
     "python_full_version == '3.14.*' and sys_platform != 'emscripten' and sys_platform != 'win32'",
     "python_full_version >= '3.12' and python_full_version < '3.14' and sys_platform == 'win32'",
     "python_full_version >= '3.12' and python_full_version < '3.14' and sys_platform == 'emscripten'",
@@ -2154,7 +2154,7 @@ wheels = [
 
 [[package]]
 name = "snakemake"
-version = "9.25.2"
+version = "9.26.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "conda-inject" },
@@ -2189,9 +2189,9 @@ dependencies = [
     { name = "wrapt" },
     { name = "yte" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ac/20/ae6d3794cfc522f5d50c1b6415b5fba5b6277c56f22774f536c1dc1a02e6/snakemake-9.25.2.tar.gz", hash = "sha256:dac732795a43eeb25c2a4f3f1441c66385911703493c6059efd8bc2efac956da", size = 6808194, upload-time = "2026-08-18T11:57:37.505Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/3e/37/f999e99357a9b30c6f36c92027ab3b6f64cade4ec54840197853297d2e04/snakemake-9.26.1.tar.gz", hash = "sha256:091b5d480c0c5eb2ef75b2568e9885091f3e2f11372de358da98ef66ef66e1e0", size = 6814489, upload-time = "2026-08-28T05:44:51.852Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/00/32/ea681b0de70882e7bd4368a7e15557487d869dbd6b1644bf91b2bf76beaa/snakemake-9.25.2-py3-none-any.whl", hash = "sha256:0a0d71f064eb8f99b660bb31c70372de23950449b9f3176c66970bea7fd18625", size = 1163611, upload-time = "2026-08-18T11:57:35.78Z" },
+    { url = "https://files.pythonhosted.org/packages/07/16/85def09087afe9b75b789d4dd75e4ed2bbaa0c03b86b96a96bb004074b92/snakemake-9.26.1-py3-none-any.whl", hash = "sha256:076384fd68f2cf8f5816aa53210566e8fb15fbb618e2f9449845db0556cc93b5", size = 1164575, upload-time = "2026-08-28T05:44:49.693Z" },
 ]
 
 [[package]]
@@ -2322,10 +2322,10 @@ version = "9.1.0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.15' and sys_platform == 'win32'",
-    "python_full_version == '3.14.*' and sys_platform == 'win32'",
     "python_full_version >= '3.15' and sys_platform == 'emscripten'",
-    "python_full_version == '3.14.*' and sys_platform == 'emscripten'",
     "python_full_version >= '3.15' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.14.*' and sys_platform == 'win32'",
+    "python_full_version == '3.14.*' and sys_platform == 'emscripten'",
     "python_full_version == '3.14.*' and sys_platform != 'emscripten' and sys_platform != 'win32'",
     "python_full_version >= '3.12' and python_full_version < '3.14' and sys_platform == 'win32'",
     "python_full_version >= '3.12' and python_full_version < '3.14' and sys_platform == 'emscripten'",
