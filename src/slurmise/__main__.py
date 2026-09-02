@@ -100,41 +100,31 @@ def parse(ctx, cmd, job_name):
 )
 @click.option("--cmd", type=str, help="Actual command run")
 @click.option(
-    "--memory",
+    "--used-mbs",
     type=int,
     default=None,
-    help="Directly provide max RSS in MB rather than checking with sacct.",
+    help="Provide max RSS in MB rather than checking with sacct.",
 )
 @click.option(
-    "--runtime",
+    "--used-seconds",
     type=int,
     default=None,
-    help="Directly provide elapsed time in seconds rather than checking with sacct.",
+    help="Provide elapsed time in seconds rather than checking with sacct.",
 )
 @click.pass_context
-def raw_record(ctx, job_name, slurm_id, step_id, numerics, categories, cmd, memory, runtime):
-    """Record a job.
+def raw_record(ctx, job_name, slurm_id, step_id, numerics, categories, cmd, used_mbs, used_seconds):
+    """Record a finished slurm job directly, without a TOML job specification.
 
-    Checks sacct for resource usage unless --memory and --runtime are provided.
+    Optionally provide the memory in MB and time in seconds the job used. Give
+    both or neither; sacct is consulted only when neither is provided.
     """
     slurm_id = slurm.resolve_job_id(slurm_id, step_id)
 
     jd = _parse_json_options(categories, numerics, job_name, cmd, slurm_id)
-    jd.memory = memory
-    jd.runtime = runtime
+    jd.memory = used_mbs
+    jd.runtime = used_seconds
 
-    if memory is not None and runtime is not None:
-        # Use provided memory/runtime, do not consult sacct
-        processed_data = True
-    elif (memory is None) != (runtime is None):
-        # Only memory or time is provided and the other is None. Raise an error
-        msg = "--memory and --runtime must be given together."
-        raise click.UsageError(msg)
-    else:
-        # Consult sacct
-        processed_data = False
-
-    ctx.obj["slurmise"].raw_record(jd, processed_data=processed_data)
+    ctx.obj["slurmise"].raw_record(jd)
 
 
 @main.command()

@@ -41,14 +41,23 @@ class Slurmise:
         )
 
     def raw_record(self, job_data, processed_data=False):
-        if not processed_data:
-            job_data.slurm_id = slurm.resolve_job_id(job_data.slurm_id)
-            slurm_id, step_id = slurm.split_job_id(job_data.slurm_id)
+        # NOTE: processed_data argument is ignored: whether sacct is needed is now inferred
+        # from job_data memory and runtime.
+        # `processed_data` is kept because extras/snake_patching.py references it
+        job_data.slurm_id = slurm.resolve_job_id(job_data.slurm_id)
+        slurm_id, step_id = slurm.split_job_id(job_data.slurm_id)
 
+        if job_data.memory is None and job_data.runtime is None:
             metadata_json = slurm.parse_slurm_job_metadata(slurm_id=slurm_id, step_id=step_id)
-
             job_data.memory = metadata_json["max_rss"]
             job_data.runtime = metadata_json["elapsed_seconds"]
+
+        if (job_data.memory is None) != (job_data.runtime is None):
+            msg = (
+                "BOTH used memory and runtime are required when recording a job's usage without consulting sacct. "
+                f"Memory is: {job_data.memory}, runtime is: {job_data.runtime}"
+            )
+            raise ValueError(msg)
 
         with job_database.JobDatabase.get_database(self.configuration.db_filename) as database:
             database.record(job_data)

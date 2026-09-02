@@ -325,9 +325,9 @@ def test_raw_record_with_usage_skips_sacct(simple_toml, no_sacct):
             '"threads":2',
             "--categories",
             '"complexity":"simple"',
-            "--memory",
+            "--used-mbs",
             "512",
-            "--runtime",
+            "--used-seconds",
             "60",
         ],
     )
@@ -350,8 +350,8 @@ def test_raw_record_with_usage_skips_sacct(simple_toml, no_sacct):
 
 @pytest.mark.parametrize(
     "usage_flags",
-    [["--memory", "512"], ["--runtime", "60"]],
-    ids=["memory-only", "runtime-only"],
+    [["--used-mbs", "512"], ["--used-seconds", "60"]],
+    ids=["mbs-only", "seconds-only"],
 )
 def test_raw_record_partial_usage_is_rejected(simple_toml, usage_flags, no_sacct):
     """Half the usage is refused rather than silently dropped and sacct is not consulted."""
@@ -373,8 +373,9 @@ def test_raw_record_partial_usage_is_rejected(simple_toml, usage_flags, no_sacct
             *usage_flags,
         ],
     )
-    assert result.exit_code == 2
-    assert "must be given together" in result.output
+    assert result.exit_code != 0
+    assert isinstance(result.exception, ValueError)
+    assert "BOTH used memory and runtime are required" in str(result.exception)
 
     with job_database.JobDatabase.get_database(simple_toml.db) as db:
         assert db.query(JobData(job_name="nupack", categories={"complexity": "simple"})) == []
