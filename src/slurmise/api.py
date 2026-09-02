@@ -118,3 +118,10 @@ class Slurmise:
             slurm_id,
             step_id,
         )
+
+    def patch(self, **kwargs):
+        raise RuntimeError("No bindings registered.  You must import the extra first.")
+
+    @classmethod
+    def register_patch(cls, fn):
+        cls.patch = fn

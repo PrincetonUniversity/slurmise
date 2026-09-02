@@ -33,6 +33,7 @@ jobs:
         run: uv run poe fmt-check
 
       - name: Upload coverage report
+        if: matrix.python-version == '3.12'
         run: uv run coveralls
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

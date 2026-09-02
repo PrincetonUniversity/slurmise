@@ -22,8 +22,7 @@ def make_snakefile(base_path, append="", slurmise_toml=None):
         append = (
             f"""
 from slurmise.api import Slurmise
-from slurmise.extras.snake_patching import patch_snakemake_workflow
-import slurmise.extras.snake_parsers as sp
+import slurmise.extras.snake_patching
 
 slurmise = Slurmise("{slurmise_toml}")
         """
@@ -99,13 +98,20 @@ base_dir="{base_path}/slurmise"
 [slurmise.job.{rule}_rule]
 default_mem = 1000
 default_time = 30
-variables.threads = "numeric"
+variables.threads = {{type = "numeric", source = "threads"}}
 """
     toml_text += append
 
     toml.write_text(toml_text)
 
     return toml
+
+
+def test_patch_fails_without_registration(tmp_path):
+    toml = make_slurmise_toml(tmp_path)
+    slurmise = Slurmise(toml)
+    with pytest.raises(RuntimeError, match="No bindings registered.  You must import the extra first."):
+        slurmise.patch(workflow=None)
 
 
 @pytest.mark.skipif(not has_snakemake(), reason="Requires snakemake")
@@ -140,7 +146,10 @@ def test_snakemake_slurmise_error_benchmark(tmp_path):
 [slurmise.job.bench_rule]
 default_mem = 1000
 default_time = 30
-variables.param = "category"
+variables.param = {type = "category", source = "params", key = "param"}
+
+[slurmise.extras.snakemake]
+keep_benchmarks = true
     """,
     )
     snakefile = make_snakefile(
@@ -157,18 +166,7 @@ rule bench_rule:
         "echo memory {resources.mem_mb} >> {output}\\n"
         "echo threads {threads} >> {output}\\n"
 
-patch_snakemake_workflow(
-        slurmise,
-        workflow,
-        {
-            "bench_rule": {
-                "param": sp.wildcards("param"),
-                "SLURMISE_runtime_scale": 1,
-                "SLURMISE_memory_scale": 1,
-            },
-        },
-        keep_benchmarks=True,
-        )
+slurmise.patch(workflow=workflow)
 """,
     )
 
@@ -186,6 +184,7 @@ patch_snakemake_workflow(
         check=False,
     )
     assert result.returncode == 1
+    print(result)
 
     assert ("Slurmise needs to set benchmark locations, remove benchmark for rule bench_rule.") in result.stderr
 
@@ -198,7 +197,10 @@ def test_snakemake_slurmise_no_error_benchmark(tmp_path):
 [slurmise.job.bench_rule]
 default_mem = 1000
 default_time = 30
-variables.param = "category"
+variables.param = {type = "category", source = "wildcards", key = "param"}
+
+[slurmise.extras.snakemake]
+record_benchmarks = false
     """,
     )
     snakefile = make_snakefile(
@@ -215,18 +217,7 @@ rule bench_rule:
         "echo memory {resources.mem_mb} >> {output}\\n"
         "echo threads {threads} >> {output}\\n"
 
-patch_snakemake_workflow(
-        slurmise,
-        workflow,
-        {
-            "bench_rule": {
-                "param": sp.wildcards("param"),
-                "SLURMISE_runtime_scale": 1,
-                "SLURMISE_memory_scale": 1,
-            },
-        },
-        record_benchmarks=False,
-        )
+slurmise.patch(workflow=workflow)
 """,
     )
 
@@ -249,23 +240,18 @@ patch_snakemake_workflow(
 @pytest.mark.skipif(not has_snakemake(), reason="Requires snakemake")
 @pytest.mark.parametrize("snake_rule", SNAKE_RULES)
 def test_snakemake_slurmise_updates_defaults_no_record(snake_rule, tmp_path):
-    toml = make_slurmise_toml(tmp_path)
+    toml = make_slurmise_toml(
+        tmp_path,
+        append="""
+[slurmise.extras.snakemake]
+record_benchmarks = false
+    """,
+    )
     snakefile = make_snakefile(
         tmp_path,
         slurmise_toml=toml,
-        append=f"""
-patch_snakemake_workflow(
-        slurmise,
-        workflow,
-        {{
-            "{snake_rule}_rule": {{
-                "threads": sp.threads(),
-                "SLURMISE_runtime_scale": 1,
-                "SLURMISE_memory_scale": 1,
-            }},
-        }},
-        record_benchmarks=False,
-        )
+        append="""
+slurmise.patch(workflow=workflow)
 """,
     )
 
@@ -300,25 +286,22 @@ patch_snakemake_workflow(
 @pytest.mark.skipif(not has_snakemake(), reason="Requires snakemake")
 @pytest.mark.parametrize("snake_rule", SNAKE_RULES)
 def test_snakemake_slurmise_updates_defaults_with_record(snake_rule, tmp_path):
-    toml = make_slurmise_toml(tmp_path)
+    toml = make_slurmise_toml(
+        tmp_path,
+        append="""
+[slurmise.extras.snakemake]
+keep_benchmarks = true
+        """,
+    )
     snakefile = make_snakefile(
         tmp_path,
         slurmise_toml=toml,
-        append=f"""
-patch_snakemake_workflow(
-        slurmise,
-        workflow,
-        {{
-            "{snake_rule}_rule": {{
-                "threads": sp.threads(),
-                "SLURMISE_runtime_scale": 1,
-                "SLURMISE_memory_scale": 1,
-            }},
-        }},
-        keep_benchmarks=True,
-        )
+        append="""
+slurmise.patch(workflow=workflow)
 """,
     )
+
+    # copy_files(toml, snakefile)
 
     result = subprocess.run(
         [
@@ -372,7 +355,11 @@ def test_snakemake_slurmise_record_params(tmp_path):
 [slurmise.job.param_rule]
 default_mem = 1000
 default_time = 30
-variables.param = "category"
+variables.param = {type = "category", source = "params", key = "test_param"}
+
+[slurmise.extras.snakemake]
+benchmark_dir = "nondefault/benchmarks"
+keep_benchmarks = true
     """,
     )
     snakefile = make_snakefile(
@@ -390,18 +377,7 @@ rule param_rule:
         "echo threads {threads} >> {output}\\n"
         "echo params {params.test_param} >> {output}"
 
-patch_snakemake_workflow(
-        slurmise,
-        workflow,
-        {
-            "param_rule": {
-                "param": sp.params("test_param"),
-                "SLURMISE_runtime_scale": 1,
-                "SLURMISE_memory_scale": 1,
-            },
-        },
-        keep_benchmarks=True,
-        )
+slurmise.patch(workflow=workflow)
 """,
     )
 
@@ -436,7 +412,7 @@ patch_snakemake_workflow(
     # database exists
     assert (toml.parent / "slurmise/slurmise.h5").exists() is True
     # should be two benchmark files, store based on param
-    benchmark_dir = toml.parent / "slurmise/benchmarks"
+    benchmark_dir = toml.parent / "nondefault/benchmarks"
     assert benchmark_dir.exists() is True
     assert len(list(benchmark_dir.rglob("*.jsonl"))) == 2
 
@@ -478,8 +454,11 @@ def test_snakemake_slurmise_record_threads(tmp_path):
 [slurmise.job.thread_rule]
 default_mem = 1000
 default_time = 30
-variables.thread = "numeric"
-variables.thread_wc = "numeric"
+variables.thread = {type = "numeric", source = "threads"}
+variables.thread_wc = {type = "numeric", source = "wildcards", key = "thrd"}
+
+[slurmise.extras.snakemake]
+keep_benchmarks = true
     """,
     )
     snakefile = make_snakefile(
@@ -495,19 +474,7 @@ rule thread_rule:
         "echo memory {resources.mem_mb} >> {output}\\n"
         "echo threads {threads} >> {output}"
 
-patch_snakemake_workflow(
-        slurmise,
-        workflow,
-        {
-            "thread_rule": {
-                "thread": sp.threads(),
-                "thread_wc": sp.wildcards('thrd'),
-                "SLURMISE_runtime_scale": 1,
-                "SLURMISE_memory_scale": 1,
-            },
-        },
-        keep_benchmarks=True,
-        )
+slurmise.patch(workflow=workflow)
 """,
     )
 
@@ -573,8 +540,3 @@ patch_snakemake_workflow(
 
             # we only ran with 2 cores.  The 3 core job should have recorded 2 threads here
             assert job.numerics["thread"] == min(job.numerics["thread_wc"], 2)
-
-
-# TODO: rules with
-# pipes
-# benchmarks  (should error)

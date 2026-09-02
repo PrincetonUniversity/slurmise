@@ -46,12 +46,27 @@ minimum_time = 70
 
 # for each job you want to track, give a unique job name
 [slurmise.job.job_name]
-# the job spec determines how to parse commands to extract their relevant,
-# dependent variables
-job_spec = "subcommand -T {threads:numeric} -C {complexity:category}"
 # jobs of `job_name` will now return default memory of 3000 and time of 80
 default_mem = 3000
 default_time = 80
+
+# the variables section defines types and how to parse the command
+[slurmise.job.job_name.variables]
+# the job spec determines how to parse commands to extract their relevant,
+# independent variables
+threads = {type = "numeric"}
+complexity = {type = "category"}
+```
+
+The `job_spec` key can be added to define how to parse a command string; its placeholders
+reference variable names defined in the `variables` section:
+```toml
+[slurmise.job.job_name]
+job_spec = "subcommand -T {threads} -C {complexity}"
+
+[slurmise.job.job_name.variables]
+threads = {type = "numeric"}
+complexity = {type = "category"}
 ```
 
 #### Matching job names
@@ -60,7 +75,10 @@ starts with the job name, the job name will be detected and removed from the com
 ```toml
 # slurmise.toml
 [slurmise.job.git]
-job_spec = "checkout {branch:category}"
+job_spec = "checkout {branch}"
+
+[slurmise.job.git.variables]
+branch = {type = "category"}
 ```
 This job specification will match any of the following with the branch set to `my_branch`
 ```bash
@@ -76,11 +94,17 @@ you can set unique prefixes for certain jobs.
 # slurmise.toml
 [slurmise.job.git_checkout]
 job_prefix = "git checkout"
-job_spec = "{branch:category}"
+job_spec = "{branch}"
+
+[slurmise.job.git_checkout.variables]
+branch = {type = "category"}
 
 [slurmise.job.git_merge]
 job_prefix = "git merge"
-job_spec = "{branch:category}"
+job_spec = "{branch}"
+
+[slurmise.job.git_merge.variables]
+branch = {type = "category"}
 ```
 With a job prefix, slurmise will use the prefix instead of job name to infer
 job names.
@@ -94,10 +118,11 @@ When a job name is explicitly given to slurmise, the corresponding command shoul
 not have the prefix or job name included.
 
 #### Job specifications
-When constructing the job specification, tokens that should be recorded use
-curly braces as placeholders:
-```
-{variable_name:variable_type}
+Variables are defined in the `[slurmise.job.job_name.variables]` section.  Each
+variable requires a `type`:
+```toml
+[slurmise.job.job_name.variables]
+variable_name = {type = "variable_type"}
 ```
 The name should be unique within a job and contain no spaces.  The type can be
 one of:
@@ -107,12 +132,18 @@ Examples include the number of threads, epochs, or replicates to perform.
 what algorithm to choose, switches or flags.  Note that a category can be a number,
 but will be stored as a string, e.g. "1.0" is different from "1".  For inference,
 the categories will be matched to particular, independent model.
-- `ignore`: A placeholder for a token that shouldn't be considered.  Ignored tokens
-do not require a variable name.
 - `file`: An input file in plain text.  Can be processed further as described below.
 - `gzip_file`: An input file in gzip format.  During processing, the file will
 be decompressed to read it's contents, note this can incur memory and cpu drain.
 - `file_list`: An input file that contains a list of files to process in turn.
+
+When a `job_spec` is provided, its placeholders reference the variable names:
+```
+{variable_name}
+```
+The special token `{ignore}` can appear in `job_spec` to match a token that is
+not recorded.  Ignored tokens do not require a variable name or entry in the
+`variables` section.
 
 #### File Parsers
 Each file can have one or more parsers associated with its variable name.
@@ -129,15 +160,15 @@ category by default.  The awk command can be supplied as a string or file path,
 which is used with the `-f` flag of awk.  Here are some examples:
 ```toml
 [slurmise.file_parsers.epochs]
-return_type = "numeric"
+type = "numeric"
 awk_script = "/^epochs:/ {print $2}"
 
 [slurmise.file_parsers.network]
-return_type = "category"
+type = "category"
 awk_script = "/^network type:/ {print $3}"
 
 [slurmise.file_parsers.fasta_length]
-return_type = "numeric"
+type = "numeric"
 awk_script = "/path/to/awk/file.awk"
 script_is_file = True
 
@@ -154,20 +185,21 @@ extracts the `network type` but this time returns the result as a category.
 Finally, the `fasta_length` parser takes an awk script file that prints the
 length of each sequence in a fasta file, returning the list of numbers as numerics.
 
-To specify which parser a file uses, add them to the job entry:
+To specify which parser a file uses, add a `file_parsers` key to the variable entry:
 ```toml
 [slurmise.job.sample_files]
-job_spec = "--reference {reference:file} {fasta:file}"
-file_parsers.reference = "file_md5,file_lines"
-file_parsers.fasta = "file_size,fasta_length"
+job_spec = "--reference {reference} {fasta}"
+
+[slurmise.job.sample_files.variables]
+reference = {type = "file", file_parsers = ["file_md5", "file_lines"]}
+fasta = {type = "file", file_parsers = ["file_size", "fasta_length"]}
 ```
-Each file name (`reference` and `fasta`) needs a `file_parsers` entry within the job
-specification.  The name can take a comma separated list of parsers.  Here the
-reference file is parsed with the md5 and number of lines.  The md5 will create a new
-category based on the file contents while the lines will be an independent variable.
-In practice, matching md5 will ensure the same number of lines which doesn't provide
-additional information to the mode.  The fasta file returns the file size in bytes
-and the number of nucleotides in each fasta entry.
+Each file variable needs a `file_parsers` entry.  The value can be a single string
+or a list of parsers.  Here the reference file is parsed with the md5 and number of
+lines.  The md5 will create a new category based on the file contents while the lines
+will be an independent variable.  In practice, matching md5 will ensure the same number
+of lines which doesn't provide additional information to the model.  The fasta file
+returns the file size in bytes and the number of nucleotides in each fasta entry.
 
 
 ## License

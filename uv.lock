@@ -2149,7 +2149,7 @@ dev = [
     { name = "coveralls" },
     { name = "isort" },
     { name = "mypy", specifier = ">=1.0.0" },
-    { name = "poethepoet" },
+    { name = "poethepoet", specifier = ">=0.45" },
     { name = "pre-commit" },
     { name = "pytest" },
     { name = "pytest-cov" },
