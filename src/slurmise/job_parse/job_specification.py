@@ -156,7 +156,7 @@ class JobSpec:
                                 for file in f:
                                     file_value.append(parser.parse_file(Path(file.strip())))
 
-                    if parser.type == NUMERIC:
+                    if parser.return_type == NUMERIC:
                         job.numerics[f"{name}_{parser.name}"] = file_value
                     else:
                         job.categories[f"{name}_{parser.name}"] = file_value
