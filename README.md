@@ -19,6 +19,10 @@ pip install slurmise
 
 ## Usage
 
+### Docs
+
+Visit the [docs](https://princetonuniversity.github.io/slurmise) for more information.
+
 ### Configuration
 
 Slurmise requires a configuration file for every command which tells slurmise
