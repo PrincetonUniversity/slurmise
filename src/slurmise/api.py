@@ -48,7 +48,7 @@ class Slurmise:
             metadata_json = slurm.parse_slurm_job_metadata(slurm_id=slurm_id, step_id=step_id)
 
             job_data.memory = metadata_json["max_rss"]
-            job_data.runtime = metadata_json["elapsed_seconds"]
+            job_data.runtime = metadata_json["elapsed_seconds"] // 60
 
         with job_database.JobDatabase.get_database(self.configuration.db_filename) as database:
             database.record(job_data)

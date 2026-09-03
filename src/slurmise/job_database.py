@@ -192,7 +192,7 @@ class JobDatabase:
                     dataclasses.replace(
                         job,
                         memory=job_info["max_rss"] if job.memory is None else None,
-                        runtime=(job_info["elapsed_seconds"] if job.runtime is None else None),
+                        runtime=(job_info["elapsed_seconds"] // 60 if job.runtime is None else None),
                         numerics={},
                     )
                 )
@@ -200,7 +200,7 @@ class JobDatabase:
                 job = dataclasses.replace(
                     job,
                     memory=job_info["max_rss"] if job.memory is None else job.memory,
-                    runtime=(job_info["elapsed_seconds"] if job.runtime is None else job.runtime),
+                    runtime=(job_info["elapsed_seconds"] // 60 if job.runtime is None else job.runtime),
                 )
 
             updated_jobs.append(job)
