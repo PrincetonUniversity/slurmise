@@ -40,17 +40,9 @@ class Slurmise:
             job_name=job_name,
         )
 
-    def raw_record(self, job_data, processed_data=False):
-        # NOTE: processed_data argument is ignored: whether sacct is needed is now inferred
-        # from job_data memory and runtime.
-        # `processed_data` is kept because extras/snake_patching.py references it
+    def raw_record(self, job_data):
         job_data.slurm_id = slurm.resolve_job_id(job_data.slurm_id)
         slurm_id, step_id = slurm.split_job_id(job_data.slurm_id)
-
-        if job_data.memory is None and job_data.runtime is None:
-            metadata_json = slurm.parse_slurm_job_metadata(slurm_id=slurm_id, step_id=step_id)
-            job_data.memory = metadata_json["max_rss"]
-            job_data.runtime = metadata_json["elapsed_seconds"]
 
         if (job_data.memory is None) != (job_data.runtime is None):
             msg = (
@@ -58,6 +50,11 @@ class Slurmise:
                 f"Memory is: {job_data.memory}, runtime is: {job_data.runtime}"
             )
             raise ValueError(msg)
+
+        if job_data.memory is None and job_data.runtime is None:
+            metadata_json = slurm.parse_slurm_job_metadata(slurm_id=slurm_id, step_id=step_id)
+            job_data.memory = metadata_json["max_rss"]
+            job_data.runtime = metadata_json["elapsed_seconds"]
 
         with job_database.JobDatabase.get_database(self.configuration.db_filename) as database:
             database.record(job_data)

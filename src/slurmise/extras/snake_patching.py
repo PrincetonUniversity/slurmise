@@ -71,7 +71,7 @@ def patch_snakemake_workflow(
                 memory=memory,
             )
 
-            slurmise.raw_record(job_data, processed_data=True)
+            slurmise.raw_record(job_data)
         if not keep_benchmarks:
             shutil.rmtree(benchmark_dir)
 
