@@ -3,6 +3,7 @@ from __future__ import annotations
 import contextlib
 import dataclasses
 import os
+import random
 import time
 from collections.abc import Generator
 from typing import Any
@@ -20,7 +21,7 @@ class JobDatabase:
     It saves the database in HDF5 file.
     """
 
-    def __init__(self, db_file: str, max_retries: int = 5):
+    def __init__(self, db_file: str, max_retries: int = 10):
         """
         The DB file is an HDF5 file.
         Use **get_database** and a context manager to have the file automatically
@@ -34,10 +35,10 @@ class JobDatabase:
                 self._db_file = db_file
                 self.db = h5py.File(db_file, "a")
                 break
-            except BlockingIOError:
+            except (BlockingIOError, FileExistsError):
                 if attempt > max_retries:
                     raise
-                time.sleep(attempt)
+                time.sleep(attempt * 0.1 + random.uniform(0, 0.1))
 
     def _close(self):
         self.db.close()
@@ -48,7 +49,7 @@ class JobDatabase:
 
     @staticmethod
     @contextlib.contextmanager
-    def get_database(db_file: str, max_retries: int = 5) -> JobDatabase:  # type: ignore
+    def get_database(db_file: str, max_retries: int = 10) -> JobDatabase:  # type: ignore
         """
         Use in context manager to automatically open and close db file.
 
