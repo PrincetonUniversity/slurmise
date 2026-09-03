@@ -40,7 +40,7 @@ base_dir = "slurmise_dir"
 
 # default resources to return if a model doesn't exist or isn't trained
 # can be overwritten by subsequent jobs
-# if not set, will use 1000 for default memory and 60 for default runtime
+# if not set, will use 1000 MB for default memory and 60 minutes for default runtime
 default_mem = 2000
 default_time = 70
 

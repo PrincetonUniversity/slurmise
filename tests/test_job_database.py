@@ -418,7 +418,7 @@ def test_update_missing_mem_elapsed(empty_h5py_file, monkeypatch):
     def mock_parse_slurm_job_metadata(slurm_id, step_id):
         return {
             "max_rss": 101,
-            "elapsed_seconds": 100,
+            "elapsed_seconds": 600,
         }
 
     monkeypatch.setattr(
@@ -472,7 +472,7 @@ def test_update_missing_mem_elapsed(empty_h5py_file, monkeypatch):
                 job_name="test_job",
                 slurm_id="1.0",
                 memory=101,
-                runtime=100,
+                runtime=10,
                 categories={"option1": "value1", "option2": "value2"},
                 numerics={"filesizes": np.array([123, 512, 128])},
             ),
@@ -480,7 +480,7 @@ def test_update_missing_mem_elapsed(empty_h5py_file, monkeypatch):
                 job_name="test_job",
                 slurm_id="2.1",
                 memory=128,
-                runtime=100,
+                runtime=10,
                 categories={"option1": "value1", "option2": "value2"},
                 numerics={"filesizes": np.array([123, 512, 128])},
             ),
