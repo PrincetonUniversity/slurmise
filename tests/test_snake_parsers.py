@@ -2,11 +2,12 @@ from dataclasses import dataclass
 
 import pytest
 
-import slurmise.extras.snake_parsers as sp
+from slurmise.extras import snake_parsers
 from slurmise.job_data import JobData
 
 
 def test_input():
+    sp = snake_parsers.SnakemakeV8()
     # no index, return first element
     no_index = sp.input()
     assert no_index(None, None, ["correct", "wrong"]) == "correct"
@@ -21,6 +22,7 @@ def test_input():
 
 
 def test_wildcards():
+    sp = snake_parsers.SnakemakeV8()
     named_index = sp.wildcards("request")
     assert named_index(None, {"request": "CORRECT"}, None) == "CORRECT"
 
@@ -32,6 +34,7 @@ class DummyRule:
 
 
 def test_threads():
+    sp = snake_parsers.SnakemakeV8()
     threads = sp.threads()
 
     # non_callable threads
@@ -48,6 +51,7 @@ def test_threads():
 
 
 def test_params():
+    sp = snake_parsers.SnakemakeV8()
     params = sp.params("target")
 
     # non_callable params
@@ -78,8 +82,44 @@ def test_params():
         params(callable_params, "wc", "inpt")
 
 
+def test_build_variables():
+    sp = snake_parsers.SnakemakeV8()
+    with pytest.raises(ValueError, match="The wildcards source for no_key requires a key entry"):
+        sp.build_variables({"no_key": "wildcards"})
+
+    with pytest.raises(ValueError, match="The params source for no_key requires a key entry"):
+        sp.build_variables({"no_key": "params"})
+
+    parsers = sp.build_variables(
+        {
+            "input_var": "input",
+            "input_var_key": ("input", 1),
+            "wildcards_var": ("wildcards", "test_wc"),
+            "threads_var": "threads",
+            "params_var": ("params", "test_param"),
+        }
+    )
+
+    rule = DummyRule(
+        resources={"_cores": 4},
+        params={"test_param": "tested param"},
+    )
+    wildcards = {"test_wc": "tested wildcards"}
+    inputs = ["input0", "input1"]
+
+    parsed = {var: parser(rule, wildcards, inputs) for var, parser in parsers.items()}
+
+    assert parsed == {
+        "input_var": "input0",
+        "input_var_key": "input1",
+        "wildcards_var": "tested wildcards",
+        "threads_var": 4,
+        "params_var": "tested param",
+    }
+
+
 def test_ThreadScaler_defaults():
-    ts = sp.ThreadScaler(memory_per_thread=10)
+    ts = snake_parsers.ThreadScaler(memory_per_thread=10)
 
     # memory too low, default to 1 thread
     jd = JobData(job_name="test", memory=1, runtime=100)
@@ -111,7 +151,7 @@ def test_ThreadScaler_defaults():
 
 
 def test_ThreadScaler_change_clip():
-    ts = sp.ThreadScaler(memory_per_thread=10, thread_range=(2, 10))
+    ts = snake_parsers.ThreadScaler(memory_per_thread=10, thread_range=(2, 10))
 
     # memory too low, default to 2 threads
     jd = JobData(job_name="test", memory=1, runtime=100)
@@ -144,14 +184,14 @@ def test_ThreadScaler_change_clip():
 
 def test_ThreadScaler_clip_overheads():
     # when the overhead is < 1, set to 1
-    ts = sp.ThreadScaler(memory_per_thread=10, runtime_overhead=0.8, memory_overhead=-2)
+    ts = snake_parsers.ThreadScaler(memory_per_thread=10, runtime_overhead=0.8, memory_overhead=-2)
     assert ts.runtime_overhead == 1
     assert ts.memory_overhead == 1
 
 
 def test_ThreadScaler_linear_overheads():
     # when the overhead is >= 2, it's added as a value * the number of threads
-    ts = sp.ThreadScaler(memory_per_thread=10, runtime_overhead=3, memory_overhead=2)
+    ts = snake_parsers.ThreadScaler(memory_per_thread=10, runtime_overhead=3, memory_overhead=2)
 
     # memory too low, default to 1 thread, no changes
     jd = JobData(job_name="test", memory=1, runtime=100)
@@ -184,7 +224,7 @@ def test_ThreadScaler_linear_overheads():
 
 def test_ThreadScaler_exp_overheads():
     # when the overhead is < 2, it's multiplied as a value ** the number of threads
-    ts = sp.ThreadScaler(memory_per_thread=10, runtime_overhead=1.1, memory_overhead=1.2)
+    ts = snake_parsers.ThreadScaler(memory_per_thread=10, runtime_overhead=1.1, memory_overhead=1.2)
 
     # memory too low, default to 1 thread, no changes
     jd = JobData(job_name="test", memory=1, runtime=100)

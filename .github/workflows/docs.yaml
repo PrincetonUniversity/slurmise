@@ -1,0 +1,73 @@
+name: Build and Deploy Documentation
+
+on:
+  # Build docs on all PRs to main (merge prerequisite)
+  pull_request:
+    branches:
+      - main
+
+  # Deploy on pushes to main; other branches build via the trigger above
+  push:
+    branches:
+      - main
+
+# Sets permissions for GitHub Pages deployment
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Build documentation
+        # When docs are mature, switch to: uv run poe docs
+        run: uv run poe docs-dev
+
+      - name: Check for broken links
+        run: uv run --group docs sphinx-build -b linkcheck docs docs/_build/linkcheck
+        continue-on-error: true  # Don't fail build on broken external links
+
+      # Not main, upload docs for review
+      - name: Upload built docs for review
+        if: github.ref != 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-html
+          path: docs/_build/html
+          retention-days: 14
+
+      # On main, prepare to deploy pages
+      - name: Upload artifact for GitHub Pages
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: docs/_build/html
+
+  deploy:
+    # Only main publishes
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

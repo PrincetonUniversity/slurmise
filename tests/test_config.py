@@ -12,6 +12,56 @@ def write_toml(tmp_path, toml_str):
     return f
 
 
+def test_missing_variables_section(tmpdir):
+    """Test the default can be set at the slurmise level for all jobs without additional defaults."""
+    toml_str = """
+    [slurmise]
+    base_dir = "slurmise_dir"
+
+    [slurmise.job.nupack]
+    job_spec = "monomer -T {threads} -C {complexity}"
+    """
+    toml = write_toml(tmpdir, toml_str)
+
+    with pytest.raises(ValueError, match="Job nupack has no variable types. A `variables` entry is required."):
+        SlurmiseConfiguration(toml)
+
+
+def test_missing_variable_type(tmpdir):
+    """Test the default can be set at the slurmise level for all jobs without additional defaults."""
+    toml_str = """
+    [slurmise]
+    base_dir = "slurmise_dir"
+
+    [slurmise.job.nupack]
+    job_spec = "monomer -T {threads} -C {complexity}"
+    [slurmise.job.nupack.variables]
+    threads = {type = "numeric"}
+    """
+    toml = write_toml(tmpdir, toml_str)
+
+    with pytest.raises(ValueError, match="Unknown variable type for variable complexity"):
+        SlurmiseConfiguration(toml)
+
+
+def test_no_placeholders(tmpdir):
+    """Test the default can be set at the slurmise level for all jobs without additional defaults."""
+    toml_str = """
+    [slurmise]
+    base_dir = "slurmise_dir"
+
+    [slurmise.job.nupack]
+    job_spec = "monomer -T {threads:asdf} -C {complexity:asdf}"
+    [slurmise.job.nupack.variables]
+    threads = {type = "numeric"}
+    complexity = {type = "category"}
+    """
+    toml = write_toml(tmpdir, toml_str)
+
+    with pytest.raises(ValueError, match="Job specification contains no variables"):
+        SlurmiseConfiguration(toml)
+
+
 def test_default_resources_no_setting(tmpdir):
     """Test the default can be set at the slurmise level for all jobs without additional defaults."""
     toml_str = """
@@ -19,7 +69,10 @@ def test_default_resources_no_setting(tmpdir):
     base_dir = "slurmise_dir"
 
     [slurmise.job.nupack]
-    job_spec = "monomer -T {threads:numeric} -C {complexity:category}"
+    job_spec = "monomer -T {threads} -C {complexity}"
+    [slurmise.job.nupack.variables]
+    threads = {type = "numeric"}
+    complexity = {type = "category"}
     """
     toml = write_toml(tmpdir, toml_str)
 
@@ -31,44 +84,16 @@ def test_default_resources_no_setting(tmpdir):
     assert job_data.runtime == 60
 
 
-def test_init_SlurmiseConfiguration_no_spec(tmpdir):
-    toml_str = """
-    [slurmise]
-    base_dir = "slurmise_dir"
-
-    [slurmise.job.nupack]
-    default_mem = 1234
-    """
-    toml = write_toml(tmpdir, toml_str)
-
-    with pytest.raises(
-        ValueError, match="Job nupack has no specification. A `job_spec` or `variables` entry is required."
-    ):
-        SlurmiseConfiguration(toml)
-
-
-def test_init_SlurmiseConfiguration_wrong_spec_type(tmpdir):
-    toml_str = """
-    [slurmise]
-    base_dir = "slurmise_dir"
-
-    [slurmise.job.nupack]
-    job_spec = "monomer -T {threads:numeric} -C {complexity:category}"
-    variables = {threads="numeric", complexity="numeric"}
-    """
-    toml = write_toml(tmpdir, toml_str)
-
-    with pytest.raises(ValueError, match="Unable to validate variables for nupack"):
-        SlurmiseConfiguration(toml)
-
-
 def test_init_SlurmiseConfiguration_missing_file(tmpdir):
     toml_str = """
     [slurmise]
     base_dir = "slurmise_dir"
 
     [slurmise.job.nupack]
-    job_spec = "monomer -T {threads:numeric} -C {complexity:file}"
+    job_spec = "monomer -T {threads} -C {complexity}"
+    [slurmise.job.nupack.variables]
+    threads = {type = "numeric"}
+    complexity = {type = "file"}
     """
     toml = write_toml(tmpdir, toml_str)
     with pytest.raises(ValueError, match="File 'complexity' has no assigned file parser"):
@@ -81,11 +106,13 @@ def test_init_SlurmiseConfiguration_wrong_name(tmpdir):
     base_dir = "slurmise_dir"
 
     [slurmise.job.nupack]
-    job_spec = "monomer -T {threads:numeric} -C {complexity:category}"
-    variables = {threads="numeric", complxity="category"}
+    job_spec = "monomer -T {threads} -C {complexity}"
+    [slurmise.job.nupack.variables]
+    threads = {type = "numeric"}
+    complxity = {type = "category"}
     """
     toml = write_toml(tmpdir, toml_str)
-    with pytest.raises(ValueError, match="Unable to validate variables for nupack"):
+    with pytest.raises(ValueError, match="Unknown variable type for variable complexity"):
         SlurmiseConfiguration(toml)
 
 
@@ -94,8 +121,9 @@ def test_init_SlurmiseConfiguration_unknown_variable_type(tmpdir):
     [slurmise]
     base_dir = "slurmise_dir"
 
-    [slurmise.job.nupack]
-    variables = {threads="numeric", complexity="asdf"}
+    [slurmise.job.nupack.variables]
+    threads = {type = "numeric"}
+    complexity = {type = "asdf"}
     """
     toml = write_toml(tmpdir, toml_str)
     with pytest.raises(ValueError, match="Unknown variable type asdf for variable complexity"):
@@ -113,31 +141,42 @@ def basic_toml(tmpdir):
     default_time = 70
 
     [slurmise.job.nupack]
-    job_spec = "monomer -T {threads:numeric} -C {complexity:category}"
+    job_spec = "monomer -T {threads} -C {complexity}"
     default_mem = 3000
     default_time = 80
+    [slurmise.job.nupack.variables]
+    threads = {type = "numeric"}
+    complexity = {type = "category"}
 
     [slurmise.job.with_ignore]
     job_prefix = "nothing"
-    job_spec = "-T {threads:numeric} -C {complexity:category} -i {ignore}"
+    job_spec = "-T {threads} -C {complexity} -i {ignore}"
+    [slurmise.job.with_ignore.variables]
+    threads = {type = "numeric"}
+    complexity = {type = "category"}
 
     [slurmise.job.dict_spec]
-    variables = { threads = "numeric", runtype = "category", infile = "file"}
-    file_parsers.infile = "file_basename"
+    [slurmise.job.dict_spec.variables]
+    threads = {type = "numeric"}
+    runtype = {type = "category"}
+    infile = {type = "file", file_parsers = "file_basename"}
 
     [slurmise.job.both_specs]
-    job_spec = "-T {threads:numeric} -C {runtype:category} -i {infile:file}"
-    variables = { threads = "numeric", runtype = "category", infile = "file"}
+    job_spec = "-T {threads} -C {runtype} -i {infile}"
     file_parsers.infile = "file_basename"
+    [slurmise.job.both_specs.variables]
+    threads = {type = "numeric"}
+    runtype = {type = "category"}
+    infile = {type = "file", file_parsers = "file_basename"}
 
     # builtins will include file_size and file_lines
     # specify custom options here
     [slurmise.file_parsers.get_epochs]
-    return_type = "numeric"
+    type = "numeric"
     awk_script = "'/^epochs:/ {print $2}'"
 
     [slurmise.file_parsers.fasta_lengths]
-    return_type = "numeric"
+    type = "numeric"
     awk_script = "/a/path/to/file"
     script_is_file = true
 

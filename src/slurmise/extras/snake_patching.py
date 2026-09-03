@@ -1,10 +1,10 @@
-import json
-import shutil
-from pathlib import Path
+from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+import snakemake
+from packaging import version
 from snakemake.logging import logger
-from snakemake.path_modifier import PathModifier
-from snakemake.workflow import Workflow
 
 from slurmise.api import Slurmise
 from slurmise.extras import snake_parsers
@@ -75,102 +75,30 @@ def patch_snakemake_workflow(
         if not keep_benchmarks:
             shutil.rmtree(benchmark_dir)
 
-    workflow.onsuccess(onsuccess_slurmise_update)
-
-    if record_benchmarks:
-        # force extended benchmark recording
-        workflow.output_settings.benchmark_extended = True
-
-    def make_predictor(variables, rule, resource):
-        def slurmise_predict(wildcards, input, attempt=1):
-            vars = {
-                name: func(rule, wildcards, input)
-                for name, func in variables.items()
-                if not name.startswith("SLURMISE")
-            }
-            job_data = slurmise.job_data_from_dict(vars, rule.name)
-            if resource == "logging":
-                # if we are recording threads need to mark in benchmark file
-                for name, func in variables.items():
-                    if name.startswith("SLURMISE"):
-                        continue
-                    if func.__name__ == "get_threads":
-                        # update name to flag as thread
-                        job_data = _mark_threads(job_data, name)
-
-                job_data_variables = {
-                    "categories": job_data.categories,
-                    "numerics": job_data.numerics,
-                }
-                return json.dumps(job_data_variables)
-
-            job_data = slurmise.raw_predict(job_data)[0]
-
-            exp = variables.get("SLURMISE_attempt_exp", SLURMISE_DEFAULTS["attempt_exp"])
-            scale = variables.get(
-                f"SLURMISE_{resource}_scale",
-                SLURMISE_DEFAULTS[f"{resource}_scale"],
-            )
-
-            return scale * getattr(job_data, resource) * attempt**exp
-
-        return slurmise_predict
-
-    for rule_name, variables in rules.items():
-        rule = workflow.get_rule(rule_name)
-
-        thread_scaling = variables.get("SLURMISE_thread_scaling", None)
-        if isinstance(thread_scaling, (int, float)):
-            thread_scaling = snake_parsers.ThreadScaler(memory_per_thread=thread_scaling)
-        variables["SLURMISE_thread_scaling"] = thread_scaling
-
-        if record_benchmarks:
-            # set benchmark to record stats
-            if rule.benchmark is not None:
-                raise ValueError(f"Slurmise needs to set benchmark locations, remove benchmark for rule {rule.name}.")
-
-            old_modifier = rule.benchmark_modifier
-            if old_modifier is None:
-                rule.benchmark_modifier = PathModifier(
-                    prefix=None,
-                    replace_prefix=None,
-                    workflow=workflow,
-                )
-
-            # wc1:val1~wc2:val2.jsonl
-            if len(rule.wildcard_names) == 0:
-                benchmark_name = f"{rule.name}.jsonl"
-            else:
-                benchmark_name = "~".join(f"{wc}:{{{wc}}}" for wc in sorted(rule.wildcard_names)) + ".jsonl"
-
-            rule.benchmark = benchmark_dir / rule.name / benchmark_name
-
-            rule.benchmark_modifier = old_modifier
-            # get the slurmise parsed data for recroding in the benchmark file
-            rule.params.update({"slurmise_data": make_predictor(variables, rule, "logging")})
-
-        rule.resources["mem_mb"] = make_predictor(variables, rule, "memory")
-        rule.resources["runtime"] = make_predictor(variables, rule, "runtime")
+if TYPE_CHECKING:
+    from snakemake.workflow import Workflow
 
 
-def _mark_threads(job_data, variable_name):
-    if variable_name in job_data.categories:
-        job_data.categories[f"SLURMISETHREAD_{variable_name}"] = job_data.categories[variable_name]
-        job_data.categories.pop(variable_name)
-    if variable_name in job_data.numerics:
-        job_data.numerics[f"SLURMISETHREAD_{variable_name}"] = job_data.numerics[variable_name]
-        job_data.numerics.pop(variable_name)
-    return job_data
+def _make_patch(adapter: snake_parsers.SnakemakeAdapter):
+    def patch(self, workflow: Workflow):
+        return adapter.patch_snakemake_workflow(self, workflow)
+
+    return patch
 
 
-def _correct_threads(slurmise_data, benchmark_data):
-    result = {}
-    for key, values in slurmise_data.items():
-        result[key] = {}
-        for name, value in values.items():
-            if name.startswith("SLURMISETHREAD"):
-                name = name.removeprefix("SLURMISETHREAD_")
-                value = benchmark_data["threads"]
-            result[key][name] = value
+patching_fncs = {
+    7: _make_patch(snake_parsers.SnakemakeV7()),
+    8: _make_patch(snake_parsers.SnakemakeV8()),
+    9: _make_patch(snake_parsers.SnakemakeV9()),
+}
 
-    return result
+snakemake_version = version.parse(snakemake.__version__)
+if snakemake_version.major < 7:
+    raise ValueError("Slurmise only supports snakemake>=7.0")
+
+elif snakemake_version.major not in patching_fncs:
+    raise ValueError(f"Slurmise does not support snakemake version {snakemake_version}")
+
+else:
+    logger.info(f"SLURMISE: detected snakemake v{snakemake_version}")
+    Slurmise.register_patch(patching_fncs[snakemake_version.major])
