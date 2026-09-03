@@ -327,7 +327,7 @@ def test_raw_record_with_usage_skips_sacct(simple_toml, no_sacct):
             '"complexity":"simple"',
             "--used-mbs",
             "512",
-            "--used-seconds",
+            "--used-minutes",
             "60",
         ],
     )
@@ -350,8 +350,8 @@ def test_raw_record_with_usage_skips_sacct(simple_toml, no_sacct):
 
 @pytest.mark.parametrize(
     "usage_flags",
-    [["--used-mbs", "512"], ["--used-seconds", "60"]],
-    ids=["mbs-only", "seconds-only"],
+    [["--used-mbs", "512"], ["--used-minutes", "60"]],
+    ids=["mbs-only", "minutes-only"],
 )
 def test_raw_record_partial_usage_is_rejected(simple_toml, usage_flags, no_sacct):
     """Half the usage is refused rather than silently dropped and sacct is not consulted."""
