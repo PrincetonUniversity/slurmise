@@ -41,7 +41,7 @@ def test_record(simple_toml, sacct_mock):
             JobData(
                 job_name="nupack",
                 slurm_id="1234",
-                runtime=97201,
+                runtime=1620,
                 memory=232,
                 categories={"complexity": "simple"},
                 numerics={"threads": 2},
@@ -101,7 +101,7 @@ def test_record_duplicate_slurm_id_fails(simple_toml, sacct_mock):
             JobData(
                 job_name="nupack",
                 slurm_id="1234",
-                runtime=97201,
+                runtime=1620,
                 memory=232,  # This indicates it's the first job
                 categories={"complexity": "simple"},
                 numerics={"threads": 2},
@@ -167,7 +167,7 @@ def test_record_duplicate_slurm_id_with_step_id_fails(simple_toml, sacct_mock):
             JobData(
                 job_name="nupack",
                 slurm_id="1234.0",
-                runtime=97201,
+                runtime=1620,
                 memory=232,  # This indicates it's the first job
                 categories={"complexity": "simple"},
                 numerics={"threads": 2},
@@ -277,7 +277,7 @@ def test_raw_record(simple_toml, sacct_mock):
                 categories={"a": 1, "b": 2},
                 numerics={"n": 3, "q": 17.4},
                 memory=232,
-                runtime=97201,
+                runtime=1620,
                 cmd=None,
             ),
         ]

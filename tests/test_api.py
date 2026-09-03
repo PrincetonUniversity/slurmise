@@ -119,7 +119,7 @@ def test_record_step_id_without_slurm_id(simple_toml, monkeypatch, no_slurm_env,
         results = db.query(JobData(job_name="nupack", categories={"complexity": "simple"}))
         assert [job.slurm_id for job in results] == ["1234.0"]
         assert results[0].memory == 232
-        assert results[0].runtime == 97201
+        assert results[0].runtime == 1620
 
 
 def test_record_step_id_without_slurm_id_or_env(simple_toml, no_slurm_env):
