@@ -308,6 +308,79 @@ def test_raw_record(simple_toml, sacct_mock):
     assert split_std[3].split("-")[-1] == " 1234"
 
 
+def test_raw_record_with_usage_skips_sacct(simple_toml, no_sacct):
+    """--memory and --runtime are taken at face value, with no sacct call."""
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "--toml",
+            simple_toml.toml,
+            "raw-record",
+            "--job-name",
+            "nupack",
+            "--slurm-id",
+            "1234",
+            "--numerics",
+            '"threads":2',
+            "--categories",
+            '"complexity":"simple"',
+            "--used-mbs",
+            "512",
+            "--used-minutes",
+            "60",
+        ],
+    )
+    assert result.exit_code == 0
+
+    with job_database.JobDatabase.get_database(simple_toml.db) as db:
+        query = JobData(job_name="nupack", categories={"complexity": "simple"})
+        assert db.query(query) == [
+            JobData(
+                job_name="nupack",
+                slurm_id="1234",
+                runtime=60,
+                memory=512,
+                categories={"complexity": "simple"},
+                numerics={"threads": 2},
+                cmd=None,
+            ),
+        ]
+
+
+@pytest.mark.parametrize(
+    "usage_flags",
+    [["--used-mbs", "512"], ["--used-minutes", "60"]],
+    ids=["mbs-only", "minutes-only"],
+)
+def test_raw_record_partial_usage_is_rejected(simple_toml, usage_flags, no_sacct):
+    """Half the usage is refused rather than silently dropped and sacct is not consulted."""
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "--toml",
+            simple_toml.toml,
+            "raw-record",
+            "--job-name",
+            "nupack",
+            "--slurm-id",
+            "1234",
+            "--numerics",
+            '"threads":2',
+            "--categories",
+            '"complexity":"simple"',
+            *usage_flags,
+        ],
+    )
+    assert result.exit_code != 0
+    assert isinstance(result.exception, ValueError)
+    assert "BOTH used memory and runtime are required" in str(result.exception)
+
+    with job_database.JobDatabase.get_database(simple_toml.db) as db:
+        assert db.query(JobData(job_name="nupack", categories={"complexity": "simple"})) == []
+
+
 def test_print_explicit_h5_path(tmp_path):
     """print accepts a bare .h5 path with no toml configuration."""
     h5 = tmp_path / "mydb.h5"

@@ -87,7 +87,7 @@ class SnakemakeAdapter(ABC):
                     memory=memory,
                 )
 
-                slurmise.raw_record(job_data, processed_data=True)
+                slurmise.raw_record(job_data)
             if not extras.get("keep_benchmarks", False):
                 shutil.rmtree(benchmark_dir, ignore_errors=True)
 
