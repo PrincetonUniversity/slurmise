@@ -243,18 +243,24 @@ class JobDatabase:
     def print(self):
         JobDatabase.print_hdf5(self.db)
 
-    def iterate_database(self, update_missing: bool = False) -> Generator[tuple[JobData, list[JobData]]]:
+    def iterate_database(
+        self, update_missing: bool = False, job_name: str | None = None
+    ) -> Generator[tuple[JobData, list[JobData]]]:
         """
-        Yield key (query job) value (list of jobs) pairs of entire database.
+        Yield key (query job) value (list of jobs) pairs of the entire database,
+        or of a single job_name when given.
         """
-        for job_name in self.db.keys():
-            entry = self.db[job_name]
+        job_names = [job_name] if job_name is not None else list(self.db.keys())
+        for name in job_names:
+            if name not in self.db:
+                continue
+            entry = self.db[name]
             for categories, jobs in JobDatabase.iterate_jobs(entry):
                 categories = dict(cat.split("=") for cat in categories)
-                query = JobData(job_name=job_name, categories=categories)
+                query = JobData(job_name=name, categories=categories)
                 jobs = [
                     JobData.from_dataset(
-                        job_name=job_name,
+                        job_name=name,
                         slurm_id=slurm_id,
                         categories=categories,
                         dataset=slurm_data,

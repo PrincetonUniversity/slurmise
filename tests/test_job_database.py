@@ -315,6 +315,32 @@ def test_iterate_database(small_db):
         assert len(jobs) > 0
 
 
+def test_iterate_database_by_job_name(small_db):
+    """Restricting the iterator to one job name yields only that job's categories."""
+    small_db.record(
+        JobData(
+            job_name="other_job",
+            slurm_id="10",
+            runtime=9,
+            memory=200,
+        )
+    )
+
+    expected_queries = [
+        JobData(job_name="test_job", categories={"option1": "value1", "option2": "value2"}),
+        JobData(job_name="test_job", categories={"option1": "value2"}),
+        JobData(job_name="test_job"),
+    ]
+
+    queries = [query for query, _ in small_db.iterate_database(job_name="test_job")]
+    assert queries == expected_queries
+
+    other_queries = [query for query, _ in small_db.iterate_database(job_name="other_job")]
+    assert other_queries == [JobData(job_name="other_job")]
+
+    assert list(small_db.iterate_database(job_name="job_not_in_database")) == []
+
+
 def test_delete(small_db):
     """Test deletion of jobs with categories where delete_all_children is False."""
     expected_result = [

@@ -52,7 +52,7 @@ class ResourceFit:
         hash_info = {
             "class": cls.__name__,
             "job_name": query.job_name,
-            **query.categories,
+            **{key: query.categories[key] for key in sorted(query.categories)},
         }
         hash_info_tuple = tuple(hash_info.items())
 
@@ -60,14 +60,15 @@ class ResourceFit:
         return hashlib.md5(str(hash_info_tuple).encode("utf-8")).hexdigest()
 
     @classmethod
-    def _make_model_path(cls, query) -> pathlib.Path:
+    def _make_model_path(cls, query, base_path: pathlib.Path | None = None) -> pathlib.Path:
         """
         This method returns the path to the model's directory.
 
         The model's path is a function of the model's type and the hash of its query.
         """
         hash_val = cls._get_model_info_hash(query)
-        return pathlib.Path(BASEMODELPATH) / cls.__name__ / hash_val
+        base_path = pathlib.Path(BASEMODELPATH if base_path is None else base_path)
+        return base_path / cls.__name__ / hash_val
 
     def save(self, model_params: dict | None = None):
         """This method saves the basic information of the model, such as its query,

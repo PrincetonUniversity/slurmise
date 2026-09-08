@@ -1,5 +1,6 @@
 import multiprocessing
 import time
+from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -7,6 +8,7 @@ import pytest
 from slurmise import job_database
 from slurmise.api import Slurmise
 from slurmise.job_data import JobData
+from tests.conftest import TomlReturn
 
 
 def slurmise_record(toml, process_id, error_queue):
@@ -80,6 +82,97 @@ def test_update_all_models(toml_fixture, request):
         # because there is only one job with "filesizes" numeric feature.
         if str(e).startswith("Cannot have number of splits n_splits="):
             pass
+
+
+# (mode, complexity, record count, runtime/memory slope) per category combination.
+CATEGORIES = (
+    ("fast", "simple", 20, 3),
+    ("slow", "complex", 15, 7),
+)
+
+
+@pytest.fixture
+def two_categories_toml(tmp_path):
+    """A job with two category variables and two category combinations.
+
+    The job spec lists `mode` before `complexity` so the parsed insertion order differs
+    from the sorted order the database stores, which is what makes an order dependent
+    model hash observable. The two combinations hold different numbers of records so
+    that a loaded model's last_fit_dsize identifies which one it was fit on.
+    """
+    base_dir = tmp_path / "slurmise_dir"
+    toml = tmp_path / "slurmise.toml"
+    toml.write_text(
+        f"""
+    [slurmise]
+    base_dir = "{base_dir}"
+    db_filename = "two_categories.h5"
+
+    [slurmise.job.nupack]
+    job_spec = "monomer -c {{cpus}} -M {{mode}} -C {{complexity}}"
+    [slurmise.job.nupack.variables]
+    cpus = {{type = "numeric"}}
+    mode = {{type = "category"}}
+    complexity = {{type = "category"}}
+    """
+    )
+
+    db_path = base_dir / "two_categories.h5"
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    with job_database.JobDatabase.get_database(str(db_path)) as database:
+        for mode, complexity, record_count, slope in CATEGORIES:
+            for i in range(record_count):
+                cpus = i + 1
+                database.record(
+                    JobData(
+                        job_name="nupack",
+                        slurm_id=f"{mode}_{complexity}_{i}",
+                        runtime=slope * cpus + 10,
+                        memory=100 * slope * cpus + 500,
+                        numerics={"cpus": cpus},
+                        categories={"mode": mode, "complexity": complexity},
+                    )
+                )
+
+    return TomlReturn(str(toml), str(db_path))
+
+
+def test_update_all_models_saves_each_category_separately(two_categories_toml):
+    """Each category gets its own model directory instead of clobbering a shared one (#76)."""
+    slurmise = Slurmise(two_categories_toml.toml)
+    slurmise.update_all_models()
+
+    base_path = Path(slurmise.configuration.slurmise_base_dir)
+    assert len(list(base_path.glob("*/*/fits.json"))) == 2
+
+    # A loaded model's fit size identifies the category it was fit on; if the two
+    # fits shared a directory the second would have overwritten the first.
+    model_class = slurmise.configuration.get_model_class("nupack")
+    fit_sizes = {}
+    for mode, complexity, record_count, _ in CATEGORIES:
+        query = JobData(job_name="nupack", categories={"mode": mode, "complexity": complexity})
+        model_path = model_class._make_model_path(query, base_path=base_path)
+        fit_sizes[mode] = (model_class.load(query=query, path=model_path).last_fit_dsize, int(record_count * 0.8))
+
+    assert all(actual == expected for actual, expected in fit_sizes.values()), fit_sizes
+
+
+def test_update_model_without_cmd_then_predict(two_categories_toml):
+    """Fitting every category of a job by name leaves each one predictable.
+
+    This is the round trip that catches an order dependent model hash: update writes
+    using categories rebuilt from the database, predict reads using categories parsed
+    from the command, and the two must resolve to the same directory.
+    """
+    slurmise = Slurmise(two_categories_toml.toml)
+    slurmise.update_model(None, "nupack")
+
+    for mode, complexity, _, slope in CATEGORIES:
+        predicted, warnings = slurmise.predict(f"monomer -c 5 -M {mode} -C {complexity}", "nupack")
+
+        assert "Not enough fitting data points in the fits." not in warnings
+        assert predicted.runtime == pytest.approx(slope * 5 + 10, rel=0.01)
+        assert predicted.memory == pytest.approx(100 * slope * 5 + 500, rel=0.01)
 
 
 def test_raw_record_uses_env_slurm_id(simple_toml, monkeypatch, no_slurm_env, sacct_mock):

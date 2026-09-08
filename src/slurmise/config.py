@@ -65,8 +65,8 @@ class SlurmiseConfiguration:
                     if validation is not None:
                         raise ValueError(f"Unable to validate variables for {job_name}\n" + validation)
 
-                if "job_prefix" in job:
-                    self.job_prefixes[job_name] = job["job_prefix"]
+                # The job name doubles as the command prefix unless one is declared.
+                self.job_prefixes[job_name] = job.get("job_prefix", job_name)
                 if "default_time" in job:
                     self.default_runtime[job_name] = int(job["default_time"])
                 if "default_mem" in job:
@@ -125,15 +125,8 @@ class SlurmiseConfiguration:
                     break
 
             else:  # not a prefix. Runs when it does not hit the break.
-                for name in self.jobs.keys():
-                    if cmd.startswith(name):
-                        job_name = name
-                        cmd = cmd.removeprefix(name).lstrip()
-                        break
-
-                else:
-                    msg = f"Unable to match job name to {cmd!r}"
-                    raise ValueError(msg)
+                msg = f"Unable to match job name to {cmd!r}"
+                raise ValueError(msg)
         else:
             job_prefix = self.job_prefixes.get(job_name, None)
             if job_prefix is not None:
