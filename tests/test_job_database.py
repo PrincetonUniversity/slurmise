@@ -7,7 +7,7 @@ from slurmise.job_data import JobData
 from slurmise.job_database import JobDatabase
 
 
-def _open_db_no_retry(db_file: str, barrier: multiprocessing.Barrier, error_queue: multiprocessing.Queue) -> None:
+def _open_db_no_retry(db_file, barrier, error_queue):
     try:
         barrier.wait()
         with JobDatabase.get_database(db_file, max_retries=0):
@@ -16,10 +16,12 @@ def _open_db_no_retry(db_file: str, barrier: multiprocessing.Barrier, error_queu
         error_queue.put(type(e).__name__)
 
 
-def _run_contention_workers(db_file: str, n: int = 10) -> multiprocessing.Queue:
+def _run_contention_workers(db_file, n=10):
     barrier = multiprocessing.Barrier(n)
-    error_queue: multiprocessing.Queue = multiprocessing.Queue()
-    processes = [multiprocessing.Process(target=_open_db_no_retry, args=(db_file, barrier, error_queue)) for _ in range(n)]
+    error_queue = multiprocessing.Queue()
+    processes = [
+        multiprocessing.Process(target=_open_db_no_retry, args=(db_file, barrier, error_queue)) for _ in range(n)
+    ]
     for p in processes:
         p.start()
     for p in processes:
@@ -27,18 +29,22 @@ def _run_contention_workers(db_file: str, n: int = 10) -> multiprocessing.Queue:
     return error_queue
 
 
-def test_creation_contention_fails_without_retries(tmp_path: pytest.TempPathFactory) -> None:
+def test_creation_contention_fails_without_retries(tmp_path):
     db_file = str(tmp_path / "contention.h5")
     error_queue = _run_contention_workers(db_file)
-    assert not error_queue.empty(), "Expected at least one FileExistsError when creating DB concurrently without retries"
+    assert not error_queue.empty(), (
+        "Expected at least one FileExistsError when creating DB concurrently without retries"
+    )
 
 
-def test_update_contention_fails_without_retries(tmp_path: pytest.TempPathFactory) -> None:
+def test_update_contention_fails_without_retries(tmp_path):
     db_file = str(tmp_path / "contention.h5")
     with JobDatabase.get_database(db_file):
         pass
     error_queue = _run_contention_workers(db_file)
-    assert not error_queue.empty(), "Expected at least one BlockingIOError when opening existing DB concurrently without retries"
+    assert not error_queue.empty(), (
+        "Expected at least one BlockingIOError when opening existing DB concurrently without retries"
+    )
 
 
 @pytest.fixture
