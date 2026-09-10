@@ -1,0 +1,181 @@
+name: Tutorial SLURM integration
+
+on:
+  # TEMPORARY: run on pushes to fix/docs to validate this workflow
+  push:
+    branches: [fix/docs]
+  workflow_dispatch: {}
+  schedule:
+    # 06:00 UTC on the 1st of each month
+    - cron: "0 6 1 * *"
+
+permissions:
+  contents: read
+
+jobs:
+  tutorial-slurm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    # koesterlab/setup-slurm-action wires slurmdbd accounting to MySQL on
+    # 127.0.0.1:8888, which `slurmise record` needs (`sacct -j <id> --json`).
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - "8888:3306"
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Install slurmise
+        run: uv sync --python 3.12
+
+      # This duplicates test.yaml's mock walk on purpose -- do not delete it as
+      # redundant. It earns the ~2 minutes twice over:
+      #
+      #   * It fails fast. The mock path touches no scheduler at all (the walk
+      #     invokes no slurm binary -- checked by running it with them all
+      #     shimmed out), so it runs before the cluster is built. A malformed
+      #     lesson or a broken `#>` expectation stops here rather than after the
+      #     SLURM build and two 5.5-minute loops.
+      #   * It puts both modes side by side. Read together with the real walk at
+      #     the end of this file, the two steps are the whole story of how the
+      #     tutorial can be run: `--mock` against nothing, `--yes` against a
+      #     scheduler.
+      #
+      # `clean` afterwards so the real walk below starts from the same state as
+      # a fresh checkout.
+      - name: Walk the tutorial with no scheduler
+        working-directory: tutorial
+        run: |
+          uv run ./tutorial.py --yes --mock
+          uv run ./tutorial.py clean
+
+      # Single-node cluster with slurmdbd accounting
+      - name: Set up SLURM
+        uses: koesterlab/setup-slurm-action@v1
+        with:
+          memory: 12000
+          # cpus must be <= 2. GHA quir
+          cpus: 2
+
+      # The action does NOT set JobAcctGatherType (defaults to
+      # jobacct_gather/none -> MaxRSS is never collected). Enable per-task
+      # gathering at 1 s so the tutorial's short jobs (2-19 s) are sampled, then
+      # restart the daemons so the change takes effect.
+      - name: Enable memory accounting
+        run: |
+          set -euo pipefail
+          conf="$(scontrol show config | awk '/^SLURM_CONF/{print $3}')"
+          conf="${conf:-/etc/slurm/slurm.conf}"
+          echo "patching $conf"
+          sudo sed -i '/^JobAcctGatherType=/d;/^JobAcctGatherFrequency=/d' "$conf"
+          printf 'JobAcctGatherType=jobacct_gather/linux\nJobAcctGatherFrequency=task=1\n' \
+            | sudo tee -a "$conf"
+          sudo systemctl restart slurmdbd slurmctld slurmd
+          sleep 5
+
+      - name: Show SLURM config (debug)
+        run: |
+          sinfo || true
+          scontrol show config | grep -iE 'jobacctgather|accountingstorage' || true
+
+      # Ensure SLURM gives OUT_OF_MEMORY errors
+      - name: Setup memory limits
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          conf="$(scontrol show config | awk '/^SLURM_CONF/{print $3}')"
+          conf="${conf:-/etc/slurm/slurm.conf}"
+          echo "--- before ---"
+          scontrol show config | grep -iE '^(SelectType|TaskPlugin|ProctrackType)' || true
+          sudo sed -i '/^SelectTypeParameters=/d;/^TaskPlugin=/d;/^ProctrackType=/d' "$conf"
+          printf 'SelectTypeParameters=CR_Core_Memory\nTaskPlugin=task/cgroup\nProctrackType=proctrack/cgroup\n' \
+            | sudo tee -a "$conf"
+          printf 'ConstrainRAMSpace=yes\nConstrainSwapSpace=yes\nAllowedRAMSpace=100\n' \
+            | sudo tee "$(dirname "$conf")/cgroup.conf"
+          sudo systemctl restart slurmdbd slurmctld slurmd || true
+          sleep 8
+          echo "--- after ---"
+          scontrol show config | grep -iE '^(SelectType|TaskPlugin|ProctrackType)' || true
+          sinfo || true
+
+      # Validate that OUT_OF_MEMORY can happen on the cluster
+      - name: Probe memory enforcement
+        run: |
+          set -euo pipefail
+          jid="$(sbatch --parsable --mem=500M --time=00:03:00 \
+            --wrap "$PWD/tutorial/bin/perfectScaler --intensity 2000 --duration 3")"
+          echo "probe job $jid: 500M allocation, wants ~2000M"
+          for _ in $(seq 60); do
+            squeue -j "$jid" -h 2>/dev/null | grep -q . || break
+            sleep 5
+          done
+          sleep 5
+          state="$(sacct -j "$jid" -X -n --format=State%20 | head -1 | tr -d ' ')"
+          sacct -j "$jid" --format=JobID,State%16,ReqMem,MaxRSS,Elapsed || true
+          if [ "$state" != "OUT_OF_MEMORY" ]; then
+            echo "::error::SLURM is not enforcing --mem (probe came back ${state:-<none>}, wanted OUT_OF_MEMORY). Stopping rather than running the --slurm tour, whose failure and self-heal lessons cannot pass without enforcement."
+            exit 1
+          fi
+          echo "--mem is enforced; the --slurm tour can submit real jobs."
+
+      # The lessons predict from what `sacct` reports a job used, so a cluster
+      # that runs jobs fine but records MaxRSS=0 makes every lesson fail further
+      # down with nothing pointing back here. Probe it directly, and dump the
+      # accounting config when it comes back zero.
+      - name: Probe that accounting captures memory
+        run: |
+          set -euo pipefail
+          jid="$(sbatch --parsable --wait \
+            --job-name=probe --mem=2G --time=00:03:00 --acctg-freq=task=1 \
+            --wrap "srun --acctg-freq=task=1 '$PWD/tutorial/bin/perfectScaler' --intensity 400 --duration 15")"
+          echo "probe job id: $jid"
+          max_rss="$(sacct -j "$jid" --json | python3 -c '
+          import json, sys
+          data = json.load(sys.stdin)
+          best = 0
+          for job in data.get("jobs", []):
+              for step in job.get("steps", []):
+                  for item in step.get("tres", {}).get("requested", {}).get("max", []):
+                      if item.get("type") == "mem":
+                          best = max(best, item.get("count", 0))
+          print(best)
+          ')"
+          echo "probe MaxRSS (bytes): $max_rss"
+          if [ "$max_rss" -le 0 ]; then
+            echo "::error::sacct reported MaxRSS=0. Accounting is not capturing memory -- check slurmdbd is running and JobAcctGatherType is jobacct_gather/linux (or /cgroup), not /none."
+            scontrol show config | grep -i jobacctgather || true
+            sacct -j "$jid" --format=JobID,JobName,State,MaxRSS,Elapsed || true
+            exit 1
+          fi
+
+      # Budget, against timeout-minutes: 30 -- the two loops in 02 and 03 are
+      # ~5.5 min of sleeping each and dominate. If that stops fitting, make a
+      # lesson mock-only the way 04 is rather than naming lessons again here.
+      - name: Walk the tutorial against real SLURM
+        working-directory: tutorial
+        run: uv run ./tutorial.py --yes
+
+      # Upload the walked tutorial tree (per-lesson slurmise.h5, fits, and SLURM
+      # job logs) for manual inspection. `always()` so it is captured even when
+      # an earlier step fails.
+      - name: Upload tutorial run
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: tutorial-run
+          path: tutorial
+          if-no-files-found: warn
