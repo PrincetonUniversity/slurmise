@@ -48,6 +48,7 @@ dev = [
 docs = [
   "sphinx",
   "sphinx-rtd-theme",
+  "myst-parser",
 ]
 
 snakemake = [
