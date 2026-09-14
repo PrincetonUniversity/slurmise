@@ -7,6 +7,23 @@ from slurmise.__main__ import main
 from slurmise.job_data import JobData
 
 
+@pytest.mark.parametrize(
+    "subcommand",
+    ["record", "predict", "parse", "update-model"],
+)
+def test_unknown_option_hint(simple_toml, subcommand):
+    """Unknown slurmise options should suggest using -- to separate from the wrapped command."""
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        ["--toml", simple_toml.toml, subcommand, "--unknown-flag", "nupack monomer -T 2 -C simple"],
+    )
+    assert result.exit_code == 2
+    assert "--unknown-flag" in result.output
+    assert "separate slurmise" in result.output
+    assert " -- " in result.output
+
+
 def test_missing_toml():
     """Check that excluding a toml file will fail with error message."""
     runner = CliRunner()

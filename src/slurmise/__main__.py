@@ -38,7 +38,20 @@ def _report_prediction(query_jd: job_data.JobData, query_warns: list[str]) -> No
             click.echo(f"  {warn}", err=True)
 
 
-@click.group()
+class _SlurmiseGroup(click.Group):
+    def invoke(self, ctx: click.Context) -> object:
+        try:
+            return super().invoke(ctx)
+        except click.NoSuchOption as e:
+            raise click.UsageError(
+                e.format_message() + "\n\nTip: to pass options to the wrapped command, separate slurmise"
+                " options from the command with --\n"
+                "  e.g. slurmise [slurmise-options] <subcommand> -- your-command --with-flags",
+                ctx=e.ctx,
+            ) from e
+
+
+@click.group(cls=_SlurmiseGroup)
 @click.option(
     "--toml",
     "-t",
