@@ -210,20 +210,35 @@ class JobSpec:
 
         match = None
         parsable = False
+        fuzzy_errors = 0
+        n_errors = 0
 
         if try_exact_match:
             parsable = True
             match = re.match(raw_regex, cmd)
 
         if not match:
+            import threading
+
             parsable = False
             # Anchors inside a fuzzy group waste error budget; fullmatch already
             # enforces full-string coverage.
             fuzzy_regex = raw_regex.removeprefix("^").removesuffix("$")
             # Cap errors so runtime stays O(n·N): grows slowly with string length
             # but stays well below the threshold where {e} becomes polynomial.
-            n_errors = max(5, min(len(cmd), len(fuzzy_regex)) // 25)
-            match = regex.fullmatch(f"(?b)(?:{fuzzy_regex})" + "{e<=" + str(n_errors) + "}", cmd)
+            n_errors = max(10, min(len(cmd), len(fuzzy_regex)) // 25)
+            _match_holder: list = []
+
+            def _run_fuzzy() -> None:
+                _match_holder.append(regex.fullmatch(f"(?b)(?:{fuzzy_regex})" + "{e<=" + str(n_errors) + "}", cmd))
+
+            _t = threading.Thread(target=_run_fuzzy, daemon=True)
+            _t.start()
+            _t.join(timeout=2.0)
+            if not _t.is_alive() and _match_holder:
+                match = _match_holder[0]
+                if match:
+                    fuzzy_errors = sum(match.fuzzy_counts)
 
         if match:
             spec_with_matches = simple_spec.format(**match.groupdict())
@@ -357,6 +372,9 @@ class JobSpec:
                 result += ["Able to parse"]
             else:
                 result += ["Failed to parse"]
+
+        if n_errors and fuzzy_errors >= n_errors:
+            result += [f"(approximate match, hit {fuzzy_errors}-difference limit — result may be inaccurate)"]
 
         result += [
             "".join(aligned_spec),

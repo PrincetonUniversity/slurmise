@@ -184,8 +184,7 @@ def test_align_fallback_when_too_different():
 
 
 def test_align_fallback_long_spec_wrong_cmd():
-    """Long specs with a completely wrong command must complete quickly (error cap prevents timeout)."""
-    import threading
+    """Long specs with a completely wrong command must complete within the built-in 2s timeout."""
     import time
 
     spec = JobSpec(
@@ -205,24 +204,51 @@ def test_align_fallback_long_spec_wrong_cmd():
         " --bands={bands} --maxiter={iters} -v --tiled=1 --site act"
     )
 
-    result_holder: list[str] = []
-    exc_holder: list[Exception] = []
-
-    def run():
-        try:
-            result_holder.append(spec.align_and_indicate_differences("wrong cmd"))
-        except Exception as e:  # noqa: BLE001
-            exc_holder.append(e)
-
-    t = threading.Thread(target=run, daemon=True)
     start = time.monotonic()
-    t.start()
-    t.join(timeout=5.0)
+    result = spec.align_and_indicate_differences("wrong cmd")
     elapsed = time.monotonic() - start
 
-    assert not t.is_alive(), f"align_and_indicate_differences hung for {elapsed:.1f}s"
-    assert not exc_holder, f"raised: {exc_holder[0]}"
-    assert result_holder and result_holder[0]
+    assert elapsed < 3.0, f"align_and_indicate_differences took {elapsed:.1f}s (expected < 3s)"
+    assert result
+
+
+def test_align_fuzzy_timeout_long_cmd():
+    """A long command that would make fuzzy matching hang must still return within ~2s."""
+    import time
+
+    spec = JobSpec(
+        {
+            "cpus": {"type": "numeric"},
+            "query": {"type": "category"},
+            "footprint": {"type": "category"},
+            "maps": {"type": "category"},
+            "bands": {"type": "category"},
+            "iters": {"type": "numeric"},
+        }
+    )
+    spec.add_job_spec(
+        "--cpu_bind=cores --export=ALL --ntasks-per-node={cpus}"
+        " --cpus-per-task=8 so-site-pipeline make-ml-map {query}"
+        " {footprint} {ignore} --comps={maps} -C {ignore}"
+        " --bands={bands} --maxiter={iters} -v --tiled=1 --site act"
+    )
+    # A near-match long command where fuzzy matching would previously hang
+    cmd = (
+        "--cpu_bind=cores --export=ALL --ntasks-per-node=1"
+        " --cpus-per-task=8 so-site-pipeline make-ml-map timestamp_start"
+        " somefile.fits output --executable so-site-pipeline"
+        " --comps=context.yaml -C context.yaml"
+        " --bands=aband"
+        " --maxiter=10 -v --tiled=1 --site act --extra-flag-that-breaks-it"
+    )
+
+    start = time.monotonic()
+    result = spec.align_and_indicate_differences(cmd, try_exact_match=True)
+    elapsed = time.monotonic() - start
+
+    assert elapsed < 3.0, f"align_and_indicate_differences took {elapsed:.1f}s (expected < 3s)"
+    assert result
+    print(f"\n[elapsed: {elapsed:.2f}s]\n{result}")
 
 
 def test_align_no_anchor_corruption():
@@ -238,33 +264,45 @@ def test_align_no_anchor_corruption():
     assert "cat" in result
 
 
-@pytest.mark.skip
 def test_long_job_spec():
     spec = JobSpec(
-        "--cpu_bind=cores --export=ALL --ntasks-per-node={cpus:numeric} "
-        "--cpus-per-task=8 so-site-pipeline make-ml-map {query:category} "
-        "{footprint:category} {ignore} --comps={maps:category} -C {ignore} "
-        "--bands={bands:category} --maxiter={iters:numeric} -v --tiled=1 --site act",
-        file_parsers={"footprint": "file_md5"},
+        {
+            "cpus": {"type": "numeric"},
+            "query": {"type": "category"},
+            "footprint": {"type": "category"},
+            "maps": {"type": "category"},
+            "bands": {"type": "category"},
+            "iters": {"type": "numeric"},
+        }
     )
+    spec.add_job_spec(
+        "--cpu_bind=cores --export=ALL --ntasks-per-node={cpus}"
+        " --cpus-per-task=8 so-site-pipeline make-ml-map {query}"
+        " {footprint} {ignore} --comps={maps} -C {ignore}"
+        " --bands={bands} --maxiter={iters} -v --tiled=1 --site act"
+    )
+    # The {ignore} tokens absorb the extra --executable flag; the command parses exactly.
     cmd = (
-        "--cpu_bind=cores --export=ALL --ntasks-per-node=1 "
-        "--cpus-per-task=8 so-site-pipeline make-ml-map timestamp_start "
-        "somefile.fits output --executable so-site-pipeline "
-        "--comps=context.yaml -C context.yaml "
-        "--bands=aband "
-        "--maxiter=10 -v --tiled=1 --site act"
+        "--cpu_bind=cores --export=ALL --ntasks-per-node=1"
+        " --cpus-per-task=8 so-site-pipeline make-ml-map timestamp_start"
+        " somefile.fits output --executable so-site-pipeline"
+        " --comps=context.yaml -C context.yaml"
+        " --bands=aband"
+        " --maxiter=10 -v --tiled=1 --site act"
     )
 
-    print(spec.align_and_indicate_differences(cmd))
+    result = spec.align_and_indicate_differences(cmd, try_exact_match=True)
+    print(f"\n{result}")
+    assert result.startswith("Able to parse")
 
-    from datetime import datetime
-
-    start = datetime.now()
-    with pytest.raises(ValueError, match="Job spec for test does not match command:") as ve:
-        spec.parse_job_cmd(JobData(job_name="test", cmd=cmd))
-    print(datetime.now() - start)
-    print(f"\n{ve.value}")
+    jd = spec.parse_job_cmd(JobData(job_name="test", cmd=cmd))
+    assert jd.numerics == {"cpus": 1.0, "iters": 10.0}
+    assert jd.categories == {
+        "query": "timestamp_start",
+        "footprint": "somefile.fits",
+        "maps": "context.yaml",
+        "bands": "aband",
+    }
 
 
 def test_job_spec_with_no_file_parser(tmp_path):
