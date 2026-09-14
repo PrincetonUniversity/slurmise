@@ -172,6 +172,72 @@ def test_try_exact_fails():
     assert result.startswith("Failed to parse")
 
 
+def test_align_fallback_when_too_different():
+    """When the command is too far from the spec for fuzzy matching, fall back to
+    a plain character-level diff rather than raising an error."""
+    spec = JobSpec({"threads": {"type": "numeric"}, "another": {"type": "category"}})
+    spec.add_job_spec("cmd -T {threads} -S {another}")
+
+    result = spec.align_and_indicate_differences("completely unrelated input xyz")
+    assert isinstance(result, str)
+    assert result  # non-empty
+
+
+def test_align_fallback_long_spec_wrong_cmd():
+    """Long specs with a completely wrong command must complete quickly (error cap prevents timeout)."""
+    import threading
+    import time
+
+    spec = JobSpec(
+        {
+            "cpus": {"type": "numeric"},
+            "query": {"type": "category"},
+            "footprint": {"type": "category"},
+            "maps": {"type": "category"},
+            "bands": {"type": "category"},
+            "iters": {"type": "numeric"},
+        }
+    )
+    spec.add_job_spec(
+        "--cpu_bind=cores --export=ALL --ntasks-per-node={cpus}"
+        " --cpus-per-task=8 so-site-pipeline make-ml-map {query}"
+        " {footprint} {ignore} --comps={maps} -C {ignore}"
+        " --bands={bands} --maxiter={iters} -v --tiled=1 --site act"
+    )
+
+    result_holder: list[str] = []
+    exc_holder: list[Exception] = []
+
+    def run():
+        try:
+            result_holder.append(spec.align_and_indicate_differences("wrong cmd"))
+        except Exception as e:  # noqa: BLE001
+            exc_holder.append(e)
+
+    t = threading.Thread(target=run, daemon=True)
+    start = time.monotonic()
+    t.start()
+    t.join(timeout=5.0)
+    elapsed = time.monotonic() - start
+
+    assert not t.is_alive(), f"align_and_indicate_differences hung for {elapsed:.1f}s"
+    assert not exc_holder, f"raised: {exc_holder[0]}"
+    assert result_holder and result_holder[0]
+
+
+def test_align_no_anchor_corruption():
+    """Stripping anchors before fuzzy matching must not corrupt group capture values."""
+    spec = JobSpec({"threads": {"type": "numeric"}, "another": {"type": "category"}})
+    spec.add_job_spec("cmd -T {threads} -S {another}")
+
+    # Exact match: groups should be filled correctly
+    result = spec.align_and_indicate_differences("cmd -T 3 -S cat", try_exact_match=True)
+    assert "Able to parse" in result
+    # The captured value should appear in the annotated output
+    assert "3" in result
+    assert "cat" in result
+
+
 @pytest.mark.skip
 def test_long_job_spec():
     spec = JobSpec(
