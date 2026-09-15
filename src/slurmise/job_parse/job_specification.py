@@ -6,8 +6,8 @@ from pathlib import Path
 from slurmise import job_data
 from slurmise.job_parse.file_parsers import NUMERIC, FileParser
 
-# matches tokens like {threads}
-JOB_SPEC_REGEX = re.compile(r"{(?P<name>[^:}]+)}")
+# matches {{, }}, or variable tokens like {threads}
+JOB_SPEC_REGEX = re.compile(r"\{\{|\}\}|\{(?P<name>[^:}]+)\}")
 KIND_TO_REGEX = {
     "file": ".+?",
     "gzip_file": ".+?",
@@ -72,25 +72,32 @@ class JobSpec:
         result = ""
         last_end = 0
 
+        has_variable = False
         for match in JOB_SPEC_REGEX.finditer(job_spec):
             result += re.escape(job_spec[last_end : match.start()])
             last_end = match.end()
 
-            name = match.group("name")
-            if name == "ignore":
-                if named_ignore:
-                    name = f"ignore_{ignore_ind}"
-                    ignore_ind += 1
-                    result += f"(?P<{name}>{KIND_TO_REGEX['ignore']})"
-                else:
-                    result += KIND_TO_REGEX["ignore"]
+            if match.group(0) == "{{":
+                result += re.escape("{")
+            elif match.group(0) == "}}":
+                result += re.escape("}")
             else:
-                if name not in self.token_kinds:
-                    raise ValueError(f"Unknown variable type for variable {name}")
-                kind = self.token_kinds[name]
-                result += f"(?P<{name}>{KIND_TO_REGEX[kind]})"
+                has_variable = True
+                name = match.group("name")
+                if name == "ignore":
+                    if named_ignore:
+                        name = f"ignore_{ignore_ind}"
+                        ignore_ind += 1
+                        result += f"(?P<{name}>{KIND_TO_REGEX['ignore']})"
+                    else:
+                        result += KIND_TO_REGEX["ignore"]
+                else:
+                    if name not in self.token_kinds:
+                        raise ValueError(f"Unknown variable type for variable {name}")
+                    kind = self.token_kinds[name]
+                    result += f"(?P<{name}>{KIND_TO_REGEX[kind]})"
 
-        if last_end == 0:
+        if not has_variable:
             raise ValueError(f"Job specification contains no variables: {job_spec}")
 
         result += re.escape(job_spec[last_end:])
@@ -228,10 +235,18 @@ class JobSpec:
         if not match:
             raise ValueError("TODO: handle no matches")
 
+        # Replace {{ and }} with sentinels before re.sub so they aren't consumed
+        # as variable tokens; restore them as literal { / } after .format().
+        _L, _R = "\x00L\x00", "\x00R\x00"
+        job_spec_str = job_spec_str.replace("{{", _L).replace("}}", _R)
+
         simple_spec = re.sub(r"{([^:}]+)(:[^}]+)?}", r"{\1}", job_spec_str)
         spec_with_matches = simple_spec.format(**match.groupdict())
+        spec_with_matches = spec_with_matches.replace(_L, "{").replace(_R, "}")
+
         display_spec = re.sub(r"{([^}]+)}", r"{{\1⇒{\1}}}", simple_spec)
         display_spec = display_spec.format(**match.groupdict())
+        display_spec = display_spec.replace(_L, "{").replace(_R, "}")
 
         # this holds indicies for mapping a position in the match string
         # to the display spec

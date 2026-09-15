@@ -781,6 +781,28 @@ def test_job_spec_pipe_in_literal_does_not_over_match():
         spec.parse_job_cmd(JobData(job_name="test", cmd="find -name '*.out' X grep help"))
 
 
+def test_job_spec_literal_brace_in_awk():
+    spec = JobSpec({"input": {"type": "category"}})
+    spec.add_job_spec("awk '{{print $1}}' {input}")
+
+    jd = spec.parse_job_cmd(JobData(job_name="test", cmd="awk '{print $1}' data.txt"))
+    assert jd.categories == {"input": "data.txt"}
+
+
+def test_job_spec_literal_brace_does_not_match_missing_brace():
+    spec = JobSpec({"input": {"type": "category"}})
+    spec.add_job_spec("awk '{{print $1}}' {input}")
+
+    with pytest.raises(ValueError, match="Job spec for test does not match command:"):
+        spec.parse_job_cmd(JobData(job_name="test", cmd="awk 'print $1' data.txt"))
+
+
+def test_job_spec_only_escaped_braces_raises():
+    spec = JobSpec({"threads": {"type": "numeric"}})
+    with pytest.raises(ValueError, match="Job specification contains no variables"):
+        spec.add_job_spec("awk '{{print $1}}'")
+
+
 def test_job_spec_stores_model():
     spec = JobSpec({"threads": {"type": "numeric"}}, model={"model": "knn"})
     assert spec.model == {"model": "knn"}

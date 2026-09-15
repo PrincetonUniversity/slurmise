@@ -149,6 +149,15 @@ The special token `{ignore}` can appear in `job_spec` to match a token that is
 not recorded.  Ignored tokens do not require a variable name or entry in the
 `variables` section.
 
+To include a literal `{` or `}` in a job spec (for example in an `awk` program
+or a shell brace expression), double the brace: `{{` produces a literal `{` and
+`}}` produces a literal `}`.
+```toml
+job_spec = "awk '{{print $1}}' {input}"
+```
+This matches commands like `awk '{print $1}' data.txt` and captures `data.txt`
+as the `input` variable.
+
 #### File Parsers
 Each file can have one or more parsers associated with its variable name.
 Slurmise comes with several built-in options for parsing files:
