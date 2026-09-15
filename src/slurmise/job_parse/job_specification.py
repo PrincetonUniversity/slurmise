@@ -69,27 +69,32 @@ class JobSpec:
     def build_regex(self, named_ignore=False):
         job_spec = self.job_spec_str
         ignore_ind = 0
-        while match := JOB_SPEC_REGEX.search(job_spec):
-            name = match.group("name")
+        result = ""
+        last_end = 0
 
+        for match in JOB_SPEC_REGEX.finditer(job_spec):
+            result += re.escape(job_spec[last_end : match.start()])
+            last_end = match.end()
+
+            name = match.group("name")
             if name == "ignore":
                 if named_ignore:
                     name = f"ignore_{ignore_ind}"
                     ignore_ind += 1
-                    job_spec = job_spec.replace(match.group(0), f"(?P<{name}>{KIND_TO_REGEX['ignore']})", 1)
+                    result += f"(?P<{name}>{KIND_TO_REGEX['ignore']})"
                 else:
-                    job_spec = job_spec.replace(match.group(0), f"{KIND_TO_REGEX['ignore']}", 1)
-
+                    result += KIND_TO_REGEX["ignore"]
             else:
                 if name not in self.token_kinds:
                     raise ValueError(f"Unknown variable type for variable {name}")
                 kind = self.token_kinds[name]
-                job_spec = job_spec.replace(match.group(0), f"(?P<{name}>{KIND_TO_REGEX[kind]})", 1)
+                result += f"(?P<{name}>{KIND_TO_REGEX[kind]})"
 
-        if job_spec == self.job_spec_str:  # no matches in job spec
-            msg = f"Job specification contains no variables: {job_spec}"
-            raise ValueError(msg)
-        return f"^{job_spec}$"
+        if last_end == 0:
+            raise ValueError(f"Job specification contains no variables: {job_spec}")
+
+        result += re.escape(job_spec[last_end:])
+        return f"^{result}$"
 
     def update_file_parsers(self, name, available_parsers, parsers):
         if not isinstance(parsers, list):

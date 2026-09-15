@@ -749,6 +749,38 @@ END {if (seq) print seq}
     }
 
 
+def test_job_spec_dot_in_literal_matches_exactly():
+    spec = JobSpec({"threads": {"type": "numeric"}})
+    spec.add_job_spec("cmd.super -T {threads}")
+
+    jd = spec.parse_job_cmd(JobData(job_name="test", cmd="cmd.super -T 3"))
+    assert jd.numerics == {"threads": 3}
+
+
+def test_job_spec_dot_in_literal_does_not_over_match():
+    spec = JobSpec({"threads": {"type": "numeric"}})
+    spec.add_job_spec("cmd.super -T {threads}")
+
+    with pytest.raises(ValueError, match="Job spec for test does not match command:"):
+        spec.parse_job_cmd(JobData(job_name="test", cmd="cmdXsuper -T 3"))
+
+
+def test_job_spec_pipe_in_literal():
+    spec = JobSpec({"output": {"type": "category"}})
+    spec.add_job_spec("find -name '*.out' | grep {output}")
+
+    jd = spec.parse_job_cmd(JobData(job_name="test", cmd="find -name '*.out' | grep help"))
+    assert jd.categories == {"output": "help"}
+
+
+def test_job_spec_pipe_in_literal_does_not_over_match():
+    spec = JobSpec({"output": {"type": "category"}})
+    spec.add_job_spec("find -name '*.out' | grep {output}")
+
+    with pytest.raises(ValueError, match="Job spec for test does not match command:"):
+        spec.parse_job_cmd(JobData(job_name="test", cmd="find -name '*.out' X grep help"))
+
+
 def test_job_spec_stores_model():
     spec = JobSpec({"threads": {"type": "numeric"}}, model={"model": "knn"})
     assert spec.model == {"model": "knn"}
