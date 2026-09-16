@@ -9,12 +9,12 @@ from slurmise.job_parse.file_parsers import NUMERIC, FileParser
 # matches tokens like {threads}
 JOB_SPEC_REGEX = re.compile(r"{(?P<name>[^}]+)}")
 KIND_TO_REGEX = {
-    "file": ".+?",
-    "gzip_file": ".+?",
-    "file_list": ".+?",
+    "file": "[^ ]+",
+    "gzip_file": "[^ ]+",
+    "file_list": "[^ ]+",
     "numeric": "[-0-9.]+",
-    "category": ".+?",
-    "ignore": ".+?",
+    "category": "[^ ]+",
+    "ignore": "[^ ]+",
 }
 
 

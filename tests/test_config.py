@@ -221,7 +221,7 @@ def test_parse_job_from_variables(basic_toml):
 
 def test_parse_job_cmd_with_ignore(basic_toml):
     config = SlurmiseConfiguration(basic_toml)
-    job_data = config.parse_job_cmd("-T 1 -C simple -i can't see me", "with_ignore", "1234")
+    job_data = config.parse_job_cmd("-T 1 -C simple -i ignored", "with_ignore", "1234")
 
     assert job_data.job_name == "with_ignore"
     assert job_data.slurm_id == "1234"
