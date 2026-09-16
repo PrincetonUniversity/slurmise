@@ -142,15 +142,20 @@ class JobSpec:
         return self.parse_job_from_dict(match.groupdict(), job)
 
     def parse_job_from_dict(self, input_dict: dict, job: job_data.JobData):
-        token_keys = set(self.token_kinds.keys())
+        # ignore-typed variables are captured by the regex but not stored; they are
+        # optional in input_dict (present when called from parse_job_cmd, absent when
+        # called directly by the user)
+        required_keys = {k for k, v in self.token_kinds.items() if v != "ignore"}
         input_keys = set(input_dict.keys())
-        if len(extras := token_keys - input_keys) != 0:
+        if len(extras := required_keys - input_keys) != 0:
             raise ValueError(f"Dict missing variable: {extras.pop()!r}")
-        if len(extras := input_keys - token_keys) != 0:
+        if len(extras := input_keys - set(self.token_kinds.keys())) != 0:
             raise ValueError(f"Dict contained extra variable: {extras.pop()!r}")
 
         for name, kind in self.token_kinds.items():
-            if kind == "numeric":
+            if kind == "ignore":
+                continue
+            elif kind == "numeric":
                 job.numerics[name] = float(input_dict[name])
             elif kind == "category":
                 job.categories[name] = input_dict[name]
