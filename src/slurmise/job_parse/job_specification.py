@@ -7,7 +7,7 @@ from slurmise import job_data
 from slurmise.job_parse.file_parsers import NUMERIC, FileParser
 
 # matches tokens like {threads}
-JOB_SPEC_REGEX = re.compile(r"{(?P<name>[^:}]+)}")
+JOB_SPEC_REGEX = re.compile(r"{(?P<name>[^}]+)}")
 KIND_TO_REGEX = {
     "file": ".+?",
     "gzip_file": ".+?",
@@ -202,7 +202,7 @@ class JobSpec:
             # add names to job spec str as well
             ignore_index = 0
             while "{ignore}" in job_spec_str:
-                job_spec_str = job_spec_str.replace("{ignore}", f"{{ignore_{ignore_index}:ignore}}", 1)
+                job_spec_str = job_spec_str.replace("{ignore}", f"{{ignore_{ignore_index}}}", 1)
                 ignore_index += 1
 
         match = None
@@ -223,7 +223,7 @@ class JobSpec:
         if not match:
             raise ValueError("TODO: handle no matches")
 
-        simple_spec = re.sub(r"{([^:}]+)(:[^}]+)?}", r"{\1}", job_spec_str)
+        simple_spec = job_spec_str
         spec_with_matches = simple_spec.format(**match.groupdict())
         display_spec = re.sub(r"{([^}]+)}", r"{{\1⇒{\1}}}", simple_spec)
         display_spec = display_spec.format(**match.groupdict())

@@ -172,35 +172,6 @@ def test_try_exact_fails():
     assert result.startswith("Failed to parse")
 
 
-@pytest.mark.skip
-def test_long_job_spec():
-    spec = JobSpec(
-        "--cpu_bind=cores --export=ALL --ntasks-per-node={cpus:numeric} "
-        "--cpus-per-task=8 so-site-pipeline make-ml-map {query:category} "
-        "{footprint:category} {ignore} --comps={maps:category} -C {ignore} "
-        "--bands={bands:category} --maxiter={iters:numeric} -v --tiled=1 --site act",
-        file_parsers={"footprint": "file_md5"},
-    )
-    cmd = (
-        "--cpu_bind=cores --export=ALL --ntasks-per-node=1 "
-        "--cpus-per-task=8 so-site-pipeline make-ml-map timestamp_start "
-        "somefile.fits output --executable so-site-pipeline "
-        "--comps=context.yaml -C context.yaml "
-        "--bands=aband "
-        "--maxiter=10 -v --tiled=1 --site act"
-    )
-
-    print(spec.align_and_indicate_differences(cmd))
-
-    from datetime import datetime
-
-    start = datetime.now()
-    with pytest.raises(ValueError, match="Job spec for test does not match command:") as ve:
-        spec.parse_job_cmd(JobData(job_name="test", cmd=cmd))
-    print(datetime.now() - start)
-    print(f"\n{ve.value}")
-
-
 def test_job_spec_with_no_file_parser(tmp_path):
     """
     [slurmise.job.builtin_files]

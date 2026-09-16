@@ -51,7 +51,7 @@ def test_no_placeholders(tmpdir):
     base_dir = "slurmise_dir"
 
     [slurmise.job.nupack]
-    job_spec = "monomer -T {threads:asdf} -C {complexity:asdf}"
+    job_spec = "monomer -T some_fixed_value -C other_fixed_value"
     [slurmise.job.nupack.variables]
     threads = {type = "numeric"}
     complexity = {type = "category"}
