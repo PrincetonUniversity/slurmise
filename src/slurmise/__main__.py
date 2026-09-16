@@ -188,8 +188,8 @@ def raw_predict(ctx, job_name, numerics, categories, cmd):
 
 
 @main.command()
-@click.argument("cmd", nargs=1)
-@click.option("--job-name", type=str, help="Name of the job")
+@click.option("--job-name", required=True, type=str, help="Name of the job.")
+@click.option("--cmd", type=str, help="Actual command to update the model with.")
 @click.pass_context
 def update_model(ctx, cmd, job_name):
     ctx.obj["slurmise"].update_model(cmd, job_name)
