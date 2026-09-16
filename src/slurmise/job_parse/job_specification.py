@@ -32,6 +32,7 @@ class JobSpec:
         available_parsers: A dict of parser names to parser objects
         """
         self.token_kinds = {}
+        self.token_patterns: dict[str, str] = {}
         self.file_parsers: dict[str, list[FileParser]] = {}
         self.model = model
         self.job_spec_str = None
@@ -45,6 +46,13 @@ class JobSpec:
             if kind not in KIND_TO_REGEX:
                 raise ValueError(f"Unknown variable type {kind} for variable {name}")
             self.token_kinds[name] = kind
+
+            if "pattern" in settings:
+                try:
+                    re.compile(settings["pattern"])
+                except re.error as e:
+                    raise ValueError(f"Invalid pattern for variable {name!r}: {e}") from e
+                self.token_patterns[name] = settings["pattern"]
 
             if "source" in settings:
                 if "key" in settings:
@@ -84,7 +92,8 @@ class JobSpec:
                 if name not in self.token_kinds:
                     raise ValueError(f"Unknown variable type for variable {name}")
                 kind = self.token_kinds[name]
-                job_spec = job_spec.replace(match.group(0), f"(?P<{name}>{KIND_TO_REGEX[kind]})", 1)
+                pattern = self.token_patterns.get(name, KIND_TO_REGEX[kind])
+                job_spec = job_spec.replace(match.group(0), f"(?P<{name}>{pattern})", 1)
 
         if job_spec == self.job_spec_str:  # no matches in job spec
             msg = f"Job specification contains no variables: {job_spec}"
