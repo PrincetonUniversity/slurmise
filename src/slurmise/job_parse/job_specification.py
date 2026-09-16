@@ -12,7 +12,7 @@ KIND_TO_REGEX = {
     "file": "[^ ]+",
     "gzip_file": "[^ ]+",
     "file_list": "[^ ]+",
-    "numeric": "[-0-9.]+",
+    "numeric": r"[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?",
     "category": "[^ ]+",
     "ignore": "[^ ]+",
 }
@@ -48,6 +48,8 @@ class JobSpec:
             self.token_kinds[name] = kind
 
             if "pattern" in settings:
+                if kind == "numeric":
+                    raise ValueError(f"Pattern override is not allowed for numeric variable {name!r}")
                 try:
                     re.compile(settings["pattern"])
                 except re.error as e:
