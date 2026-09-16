@@ -86,3 +86,33 @@ def test_inaccurate_model_prediction_is_used_with_warning(monkey_patch_basepath)
     assert job.memory != 5000
     assert job.runtime > 0
     assert job.memory > 0
+
+
+def test_too_few_records_is_not_predicted_with_warning(monkey_patch_basepath):
+    """Under ten records there is not enough to fit, so predict declines and says so.
+
+    The record is handed back as it came in, with a warning naming the reason.
+    Choosing the defaults is left to the caller.
+    """
+    jobs = [
+        JobData(
+            job_name="synthetic",
+            slurm_id=str(n),
+            numerics={"n": n},
+            runtime=2 * n + 5,
+            memory=100 * n + 50,
+        )
+        for n in range(1, 6)
+    ]
+
+    fit = PolynomialFit(query=JobData(job_name="synthetic"), degree=2)
+    fit.fit(jobs, random_state=np.random.RandomState(42))
+
+    query = JobData(job_name="synthetic", numerics={"n": 3}, runtime=60, memory=1000)
+    job, warnings = fit.predict(query)
+
+    assert len(warnings) == 1
+    assert "Not enough fitting data points" in warnings[0]
+    # The record comes back untouched; applying defaults is the caller's job.
+    assert job.runtime == 60
+    assert job.memory == 1000

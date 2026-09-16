@@ -1,5 +1,4 @@
 import multiprocessing
-import time
 from pathlib import Path
 from unittest import mock
 
@@ -11,7 +10,7 @@ from slurmise.job_data import JobData
 from tests.conftest import TomlReturn
 
 
-def slurmise_record(toml, process_id, error_queue):
+def slurmise_record(toml, process_id, error_queue, barrier):
     def mock_metadata(kwargs):
         return {
             "slurm_id": kwargs["slurm_id"],
@@ -27,25 +26,25 @@ def slurmise_record(toml, process_id, error_queue):
         }
 
     try:
-        time.sleep(process_id * 0.1)
+        barrier.wait()
         with mock.patch(
             "slurmise.slurm.parse_slurm_job_metadata",
             side_effect=lambda *args, **kwargs: mock_metadata(kwargs),
         ):
             slurmise = Slurmise(toml)
-            time.sleep(process_id * 0.1)
             for i in range(10):
                 slurmise.record("nupack monomer -T 2 -C simple", slurm_id=str(process_id * 100 + i))
-                time.sleep(process_id * 0.1)
     except Exception as e:  # noqa: BLE001
         error_queue.put(f"PID {process_id}: {e}")
 
 
 def test_multiple_slurmise_instances(simple_toml):
+    n_processes = 10
+    barrier = multiprocessing.Barrier(n_processes)
     processes = []
     error_queue = multiprocessing.Queue()
-    for i in range(10):
-        p = multiprocessing.Process(target=slurmise_record, args=(simple_toml.toml, i, error_queue))
+    for i in range(n_processes):
+        p = multiprocessing.Process(target=slurmise_record, args=(simple_toml.toml, i, error_queue, barrier))
         processes.append(p)
         p.start()
 
@@ -54,7 +53,7 @@ def test_multiple_slurmise_instances(simple_toml):
     if not error_queue.empty():
         while not error_queue.empty():
             print(error_queue.get())
-        pytest.fail("Child prcess had error")
+        pytest.fail("Child process had error")
 
 
 def test_job_data_from_dict(simple_toml):
