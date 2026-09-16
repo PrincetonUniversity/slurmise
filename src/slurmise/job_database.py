@@ -251,10 +251,15 @@ class JobDatabase:
         Yield key (query job) value (list of jobs) pairs of the entire database,
         or of a single job_name when given.
         """
-        job_names = [job_name] if job_name is not None else list(self.db.keys())
+
+        if job_name is not None:
+            if job_name not in self.db:
+                return
+            job_names = [job_name]
+        else:
+            job_names = list(self.db.keys())
+
         for name in job_names:
-            if name not in self.db:
-                continue
             entry = self.db[name]
             for categories, jobs in JobDatabase.iterate_jobs(entry):
                 categories = dict(cat.split("=") for cat in categories)
