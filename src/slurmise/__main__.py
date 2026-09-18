@@ -104,6 +104,7 @@ def parse(ctx, cmd, job_name):
 @click.option(
     "--numerics",
     type=str,
+    required=True,
     help="Numeric run parameters in JSON format without outer {}, such as 'n:3,q:17.4'",
 )
 @click.option(

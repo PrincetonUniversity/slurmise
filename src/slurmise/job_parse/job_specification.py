@@ -24,6 +24,7 @@ class JobSpec:
         variables: dict,
         model: dict[str, str] | None = None,
         available_parsers: dict[str, FileParser] | None = None,
+        job_name: str | None = None,
     ):
         """Parse a job spec string into a regex with named capture groups.
         variables: description of input variables to the model.
@@ -37,6 +38,7 @@ class JobSpec:
         self.job_spec_str = None
         self.job_regex = None
         self.sources = {}
+        self.name = job_name
 
         for name, settings in variables.items():
             if "type" not in settings:
@@ -56,6 +58,14 @@ class JobSpec:
                 if "file_parsers" not in settings:
                     raise ValueError(f"File {name!r} has no assigned file parser")
                 self.update_file_parsers(name, available_parsers, settings["file_parsers"])
+
+        if not self._has_numeric_variable():
+            msg = (
+                f"Job {self.name!r} spec must contain at least one numeric variable"
+                if self.name
+                else "Job spec must contain at least one numeric variable"
+            )
+            raise ValueError(msg)
 
     def add_job_spec(self, job_spec: str):
         """Add job specification string.
@@ -399,3 +409,8 @@ class JobSpec:
         ]
 
         return "\n".join(result)
+
+    def _has_numeric_variable(self) -> bool:
+        if any(kind == "numeric" for kind in self.token_kinds.values()):
+            return True
+        return any(parser.return_type == NUMERIC for parsers in self.file_parsers.values() for parser in parsers)

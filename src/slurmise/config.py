@@ -57,6 +57,7 @@ class SlurmiseConfiguration:
                 self.jobs[job_name]["job_spec_obj"] = JobSpec(
                     job["variables"],
                     available_parsers=self.file_parsers,
+                    job_name=job_name,
                 )
 
                 if "job_spec" in job:
