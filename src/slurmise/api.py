@@ -80,26 +80,28 @@ class Slurmise:
     def raw_predict(self, query_jd):
         query_jd = self.configuration.add_defaults(query_jd)
         model = self.configuration.get_model_class(query_jd.job_name)
-        query_model = model.load(query=query_jd, path=self.configuration.slurmise_base_dir)
+        model_path = model._make_model_path(query_jd, base_path=self.configuration.slurmise_base_dir)
+        query_model = model.load(query=query_jd, path=model_path)
         query_jd, query_warns = query_model.predict(query_jd)
         query_jd = self.configuration.correct_minimum(query_jd)
         return query_jd, query_warns
 
     def update_model(self, cmd, job_name):
-        query_jd = self.configuration.parse_job_cmd(cmd=cmd, job_name=job_name)
         with job_database.JobDatabase.get_database(self.configuration.db_filename) as database:
-            jobs = database.query(query_jd)
-
-        self._update_model(query_jd, jobs)
+            if cmd is not None:
+                query_jd = self.configuration.parse_job_cmd(cmd=cmd, job_name=job_name)
+                jobs = database.query(query_jd)
+                self._update_model(query_jd, jobs)
+            else:
+                for query_jd, jobs in database.iterate_database(job_name=job_name):
+                    self._update_model(query_jd, jobs)
 
     def _update_model(self, query_jd, jobs):
-        model_path = self.configuration.slurmise_base_dir
         model = self.configuration.get_model_class(query_jd.job_name)
+        model_path = model._make_model_path(query_jd, base_path=self.configuration.slurmise_base_dir)
 
-        try:
-            query_model = model.load(query=query_jd, path=model_path)
-        except FileNotFoundError:
-            query_model = model(query=query_jd, path=model_path)
+        # load falls back to a fresh model when nothing has been saved at model_path yet.
+        query_model = model.load(query=query_jd, path=model_path)
 
         random_state = np.random.RandomState(42)
         query_model.fit(jobs, random_state=random_state)

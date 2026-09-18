@@ -6,8 +6,8 @@ from pathlib import Path
 from slurmise import job_data
 from slurmise.job_parse.file_parsers import NUMERIC, FileParser
 
-# matches tokens like {threads}
-JOB_SPEC_REGEX = re.compile(r"{(?P<name>[^}]+)}")
+# matches {{, }}, or variable tokens like {threads}
+JOB_SPEC_REGEX = re.compile(r"\{\{|\}\}|\{(?P<name>[^:}]+)\}")
 KIND_TO_REGEX = {
     "file": "[^ ]+",
     "gzip_file": "[^ ]+",
@@ -79,28 +79,40 @@ class JobSpec:
     def build_regex(self, named_ignore=False):
         job_spec = self.job_spec_str
         ignore_ind = 0
-        while match := JOB_SPEC_REGEX.search(job_spec):
-            name = match.group("name")
+        result = ""
+        last_end = 0
 
-            if name == "ignore":
-                if named_ignore:
-                    name = f"ignore_{ignore_ind}"
-                    ignore_ind += 1
-                    job_spec = job_spec.replace(match.group(0), f"(?P<{name}>{KIND_TO_REGEX['ignore']})", 1)
-                else:
-                    job_spec = job_spec.replace(match.group(0), f"{KIND_TO_REGEX['ignore']}", 1)
+        has_variable = False
+        for match in JOB_SPEC_REGEX.finditer(job_spec):
+            result += re.escape(job_spec[last_end : match.start()])
+            last_end = match.end()
 
+            if match.group(0) == "{{":
+                result += re.escape("{")
+            elif match.group(0) == "}}":
+                result += re.escape("}")
             else:
-                if name not in self.token_kinds:
-                    raise ValueError(f"Unknown variable type for variable {name}")
-                kind = self.token_kinds[name]
-                pattern = self.token_patterns.get(name, KIND_TO_REGEX[kind])
-                job_spec = job_spec.replace(match.group(0), f"(?P<{name}>{pattern})", 1)
+                has_variable = True
+                name = match.group("name")
+                if name == "ignore":
+                    if named_ignore:
+                        name = f"ignore_{ignore_ind}"
+                        ignore_ind += 1
+                        result += f"(?P<{name}>{KIND_TO_REGEX['ignore']})"
+                    else:
+                        result += KIND_TO_REGEX["ignore"]
+                else:
+                    if name not in self.token_kinds:
+                        raise ValueError(f"Unknown variable type for variable {name}")
+                    kind = self.token_kinds[name]
+                    pattern = self.token_patterns.get(name, KIND_TO_REGEX[kind])
+                    result += f"(?P<{name}>{pattern})"
 
-        if job_spec == self.job_spec_str:  # no matches in job spec
-            msg = f"Job specification contains no variables: {job_spec}"
-            raise ValueError(msg)
-        return f"^{job_spec}$"
+        if not has_variable:
+            raise ValueError(f"Job specification contains no variables: {job_spec}")
+
+        result += re.escape(job_spec[last_end:])
+        return f"^{result}$"
 
     def update_file_parsers(self, name, available_parsers, parsers):
         if not isinstance(parsers, list):
@@ -221,47 +233,74 @@ class JobSpec:
                 job_spec_str = job_spec_str.replace("{ignore}", f"{{ignore_{ignore_index}}}", 1)
                 ignore_index += 1
 
+        # Replace {{ and }} with sentinels before re.sub so they aren't consumed
+        # as variable tokens; restore them as literal { / } after .format().
+        _L, _R = "\x00L\x00", "\x00R\x00"
+        job_spec_str = job_spec_str.replace("{{", _L).replace("}}", _R)
+        # simple_spec needed by both the annotated-match path and the plain fallback
+        simple_spec = re.sub(r"{([^:}]+)(:[^}]+)?}", r"{\1}", job_spec_str)
+
         match = None
         parsable = False
+        fuzzy_errors = 0
+        n_errors = 0
 
         if try_exact_match:
             parsable = True
             match = re.match(raw_regex, cmd)
 
-        # unable or unwilling to exact match
         if not match:
+            import threading
+
             parsable = False
-            # ?b is for best match
-            # {e} indicates to allow errors
-            match = regex.fullmatch(f"(?b)(?:{raw_regex})" + r"{e}", cmd)
+            # Anchors inside a fuzzy group waste error budget; fullmatch already
+            # enforces full-string coverage.
+            fuzzy_regex = raw_regex.removeprefix("^").removesuffix("$")
+            # Cap errors so runtime stays O(n·N): grows slowly with string length
+            # but stays well below the threshold where {e} becomes polynomial.
+            n_errors = max(10, min(len(cmd), len(fuzzy_regex)) // 25)
+            _match_holder: list = []
 
-        # still no matches
-        if not match:
-            raise ValueError("TODO: handle no matches")
+            def _run_fuzzy() -> None:
+                _match_holder.append(regex.fullmatch(f"(?b)(?:{fuzzy_regex})" + "{e<=" + str(n_errors) + "}", cmd))
 
-        simple_spec = job_spec_str
-        spec_with_matches = simple_spec.format(**match.groupdict())
-        display_spec = re.sub(r"{([^}]+)}", r"{{\1⇒{\1}}}", simple_spec)
-        display_spec = display_spec.format(**match.groupdict())
+            _t = threading.Thread(target=_run_fuzzy, daemon=True)
+            _t.start()
+            _t.join(timeout=2.0)
+            if not _t.is_alive() and _match_holder:
+                match = _match_holder[0]
+                if match:
+                    fuzzy_errors = sum(match.fuzzy_counts)
 
-        # this holds indicies for mapping a position in the match string
-        # to the display spec
-        matches_to_display = []
-        offset = 0
-        for wc in re.finditer(r"{([^⇒]+)⇒([^}]*)}", display_spec):
-            matches_to_display.append(
-                (
-                    wc.start() + offset,
-                    wc.start() + offset + len(wc.group(2)),
-                    wc.start(),  # start of match in display_spec
-                    wc.end(),  # end of match in display_spec
-                    wc.group(1),  # wc name
+        if match:
+            spec_with_matches = simple_spec.format(**match.groupdict()).replace(_L, "{").replace(_R, "}")
+            display_spec = re.sub(r"{([^}]+)}", r"{{\1⇒{\1}}}", simple_spec)
+            display_spec = display_spec.format(**match.groupdict()).replace(_L, "{").replace(_R, "}")
+
+            # this holds indicies for mapping a position in the match string
+            # to the display spec
+            matches_to_display = []
+            offset = 0
+            for wc in re.finditer(r"{([^⇒]+)⇒([^}]*)}", display_spec):
+                matches_to_display.append(
+                    (
+                        wc.start() + offset,
+                        wc.start() + offset + len(wc.group(2)),
+                        wc.start(),  # start of match in display_spec
+                        wc.end(),  # end of match in display_spec
+                        wc.group(1),  # wc name
+                    )
                 )
-            )
-            offset += len(wc.group(2)) - wc.end() + wc.start()
+                offset += len(wc.group(2)) - wc.end() + wc.start()
 
-        # convert to list for slicing
-        display_spec = list(display_spec)
+            # convert to list for slicing
+            display_spec = list(display_spec)
+        else:
+            # Command is too different for fuzzy alignment; show a plain
+            # character-level diff against the spec pattern without group annotation.
+            spec_with_matches = simple_spec.replace(_L, "{").replace(_R, "}")
+            matches_to_display = []
+            display_spec = list(simple_spec.replace(_L, "{").replace(_R, "}"))
 
         s = SequenceMatcher(None, spec_with_matches, cmd)
         opcodes = s.get_opcodes()
@@ -365,6 +404,9 @@ class JobSpec:
                 result += ["Able to parse"]
             else:
                 result += ["Failed to parse"]
+
+        if n_errors and fuzzy_errors >= n_errors:
+            result += [f"(approximate match, hit {fuzzy_errors}-difference limit — result may be inaccurate)"]
 
         result += [
             "".join(aligned_spec),

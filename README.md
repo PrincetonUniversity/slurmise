@@ -178,6 +178,15 @@ The `pattern` key is not supported for `numeric` variables, whose matching
 pattern is fixed to ensure the captured value can always be converted to a
 number.
 
+To include a literal `{` or `}` in a job spec (for example in an `awk` program
+or a shell brace expression), double the brace: `{{` produces a literal `{` and
+`}}` produces a literal `}`.
+```toml
+job_spec = "awk '{{print $1}}' {input}"
+```
+This matches commands like `awk '{print $1}' data.txt` and captures `data.txt`
+as the `input` variable.
+
 #### File Parsers
 Each file can have one or more parsers associated with its variable name.
 Slurmise comes with several built-in options for parsing files:
