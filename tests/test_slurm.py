@@ -21,7 +21,6 @@ def test_parse_slurm_job_metadata(sacct_mock):
             "number": 729088,
             "set": True,
         },
-        "partition": "mypartition",
         "slurm_id": 58976578,
         "state": "RUNNING",
         "step_id": "extern",
@@ -50,7 +49,6 @@ def test_parse_slurm_job_metadata2(sacct_mock):
             "set": True,
         },
         "slurm_id": 58976578,
-        "partition": "mypartition",
         "state": "RUNNING",
         "step_id": "extern",
     }

@@ -68,7 +68,6 @@ def parse_slurm_job_metadata(slurm_id: str | None = None, step_id: str | None = 
         job_id = sacct_json["jobs"][0]["job_id"]
         job_name = sacct_json["jobs"][0]["name"]
         state = sacct_json["jobs"][0]["state"]["current"][0]
-        partition = sacct_json["jobs"][0]["partition"]
         cpus = sacct_json["jobs"][0]["required"]["CPUs"]
         memory_per_cpu = sacct_json["jobs"][0]["required"]["memory_per_cpu"]
         memory_per_node = sacct_json["jobs"][0]["required"]["memory_per_node"]
@@ -100,7 +99,6 @@ def parse_slurm_job_metadata(slurm_id: str | None = None, step_id: str | None = 
         "step_id": step_id,
         "job_name": job_name,
         "state": state,
-        "partition": partition,
         "elapsed_seconds": elapsed_seconds,
         "CPUs": cpus,
         "memory_per_cpu": memory_per_cpu,
