@@ -147,6 +147,7 @@ def test_snakemake_slurmise_error_benchmark(tmp_path):
 default_mem = 1000
 default_time = 30
 variables.param = {type = "category", source = "params", key = "param"}
+variables.thread = {type = "numeric", source = "threads"}
 
 [slurmise.extras.snakemake]
 keep_benchmarks = true
@@ -198,6 +199,7 @@ def test_snakemake_slurmise_no_error_benchmark(tmp_path):
 default_mem = 1000
 default_time = 30
 variables.param = {type = "category", source = "wildcards", key = "param"}
+variables.thread = {type = "numeric", source = "threads"}
 
 [slurmise.extras.snakemake]
 record_benchmarks = false
@@ -356,6 +358,7 @@ def test_snakemake_slurmise_record_params(tmp_path):
 default_mem = 1000
 default_time = 30
 variables.param = {type = "category", source = "params", key = "test_param"}
+variables.threads = {type = "numeric", source = "threads"}
 
 [slurmise.extras.snakemake]
 benchmark_dir = "nondefault/benchmarks"
@@ -434,7 +437,7 @@ slurmise.patch(workflow=workflow)
             job = jobs[0]
             assert job.job_name == "param_rule"
             bm_dat = benchmark_data[job.categories["param"]]  # don't know order
-            assert job.numerics == {}
+            assert job.numerics == {"threads": 1}
 
             memory = 0 if bm_dat["max_rss"] == "NA" else float(bm_dat["max_rss"])
             assert job.memory == memory

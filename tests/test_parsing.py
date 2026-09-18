@@ -30,6 +30,25 @@ def test_job_spec_unknown_kind():
         JobSpec({"threads": {"type": "double"}})
 
 
+def test_job_spec_category_returning_parser_is_not_a_numeric():
+    """file_basename returns a category, so a file variable alone leaves nothing to fit on."""
+    with pytest.raises(ValueError, match="at least one numeric variable"):
+        JobSpec(
+            {"input1": {"type": "file", "file_parsers": "file_basename"}},
+            available_parsers={"file_basename": file_parsers.FileBasename()},
+        )
+
+
+def test_job_spec_numeric_returning_parser_satisfies_the_requirement():
+    """file_size returns a numeric, so no numeric variable has to be declared alongside it."""
+    spec = JobSpec(
+        {"input1": {"type": "file", "file_parsers": "file_size"}},
+        available_parsers={"file_size": file_parsers.FileSizeParser()},
+    )
+
+    assert spec.token_kinds == {"input1": "file"}
+
+
 def test_basic_job_spec():
     spec = JobSpec({"threads": {"type": "numeric"}})
     spec.add_job_spec("cmd -T {threads}")
@@ -353,14 +372,14 @@ def test_job_spec_with_builtin_parsers_basename(tmp_path):
     }
 
     spec = JobSpec(
-        {"input1": {"type": "file", "file_parsers": "file_basename"}},
+        {"input1": {"type": "file", "file_parsers": "file_basename"}, "input2": {"type": "numeric"}},
         available_parsers=available_parsers,
     )
-    spec.add_job_spec("--input1 {input1}")
+    spec.add_job_spec("--input1 {input1} --input2 {input2}")
 
     input_file = tmp_path / "input.txt"
 
-    command = f"--input1 {input_file}"
+    command = f"--input1 {input_file} --input2 3"
     jd = spec.parse_job_cmd(
         JobData(
             job_name="test",
@@ -368,27 +387,17 @@ def test_job_spec_with_builtin_parsers_basename(tmp_path):
         )
     )
     assert jd.job_name == "test"
-    assert jd.numerics == {}
+    assert jd.numerics == {"input2": 3.0}
     assert jd.categories == {"input1_file_basename": "input.txt"}
 
     jd = spec.parse_job_from_dict(
-        {"input1": input_file},
+        {"input1": input_file, "input2": 3},
         JobData(
             job_name="test",
         ),
     )
     assert jd.job_name == "test"
-    assert jd.numerics == {}
-    assert jd.categories == {"input1_file_basename": "input.txt"}
-
-    jd = spec.parse_job_from_dict(
-        {"input1": input_file},
-        JobData(
-            job_name="test",
-        ),
-    )
-    assert jd.job_name == "test"
-    assert jd.numerics == {}
+    assert jd.numerics == {"input2": 3.0}
     assert jd.categories == {"input1_file_basename": "input.txt"}
 
 
@@ -404,10 +413,10 @@ def test_job_spec_with_builtin_parsers_md5hash(tmp_path):
     }
 
     spec = JobSpec(
-        {"input1": {"type": "file", "file_parsers": "file_md5"}},
+        {"input1": {"type": "file", "file_parsers": "file_md5"}, "input2": {"type": "numeric"}},
         available_parsers=available_parsers,
     )
-    spec.add_job_spec("--input1 {input1}")
+    spec.add_job_spec("--input1 {input1} --input2 {input2}")
 
     input_file = tmp_path / "input.txt"
     input_file.write_text(
@@ -422,7 +431,7 @@ def test_job_spec_with_builtin_parsers_md5hash(tmp_path):
         of text"""
     )
 
-    command = f"--input1 {input_file}"
+    command = f"--input1 {input_file} --input2 3"
     jd = spec.parse_job_cmd(
         JobData(
             job_name="test",
@@ -430,12 +439,12 @@ def test_job_spec_with_builtin_parsers_md5hash(tmp_path):
         )
     )
     assert jd.job_name == "test"
-    assert jd.numerics == {}
+    assert jd.numerics == {"input2": 3.0}
 
     jd_test = spec.parse_job_cmd(
         JobData(
             job_name="test",
-            cmd=f"--input1 {test_file}",
+            cmd=f"--input1 {test_file} --input2 3",
         )
     )
     # test that md5 digest reflects file content
@@ -870,35 +879,37 @@ def test_job_spec_dot_in_literal_does_not_over_match():
 
 
 def test_job_spec_pipe_in_literal():
-    spec = JobSpec({"output": {"type": "category"}})
-    spec.add_job_spec("find -name '*.out' | grep {output}")
+    spec = JobSpec({"output": {"type": "category"}, "threads": {"type": "numeric"}})
+    spec.add_job_spec("find -name '*.out' | grep {output} -T {threads}")
 
-    jd = spec.parse_job_cmd(JobData(job_name="test", cmd="find -name '*.out' | grep help"))
+    jd = spec.parse_job_cmd(JobData(job_name="test", cmd="find -name '*.out' | grep help -T 2"))
     assert jd.categories == {"output": "help"}
+    assert jd.numerics == {"threads": 2.0}
 
 
 def test_job_spec_pipe_in_literal_does_not_over_match():
-    spec = JobSpec({"output": {"type": "category"}})
-    spec.add_job_spec("find -name '*.out' | grep {output}")
+    spec = JobSpec({"output": {"type": "category"}, "threads": {"type": "numeric"}})
+    spec.add_job_spec("find -name '*.out' | grep {output} -T {threads}")
 
     with pytest.raises(ValueError, match="Job spec for test does not match command:"):
-        spec.parse_job_cmd(JobData(job_name="test", cmd="find -name '*.out' X grep help"))
+        spec.parse_job_cmd(JobData(job_name="test", cmd="find -name '*.out' X grep help -T 2"))
 
 
 def test_job_spec_literal_brace_in_awk():
-    spec = JobSpec({"input": {"type": "category"}})
-    spec.add_job_spec("awk '{{print $1}}' {input}")
+    spec = JobSpec({"input": {"type": "category"}, "threads": {"type": "numeric"}})
+    spec.add_job_spec("awk '{{print $1}}' {input} -T {threads}")
 
-    jd = spec.parse_job_cmd(JobData(job_name="test", cmd="awk '{print $1}' data.txt"))
+    jd = spec.parse_job_cmd(JobData(job_name="test", cmd="awk '{print $1}' data.txt -T 2"))
     assert jd.categories == {"input": "data.txt"}
+    assert jd.numerics == {"threads": 2.0}
 
 
 def test_job_spec_literal_brace_does_not_match_missing_brace():
-    spec = JobSpec({"input": {"type": "category"}})
-    spec.add_job_spec("awk '{{print $1}}' {input}")
+    spec = JobSpec({"input": {"type": "category"}, "threads": {"type": "numeric"}})
+    spec.add_job_spec("awk '{{print $1}}' {input} -T {threads}")
 
     with pytest.raises(ValueError, match="Job spec for test does not match command:"):
-        spec.parse_job_cmd(JobData(job_name="test", cmd="awk 'print $1' data.txt"))
+        spec.parse_job_cmd(JobData(job_name="test", cmd="awk 'print $1' data.txt -T 2"))
 
 
 def test_job_spec_only_escaped_braces_raises():

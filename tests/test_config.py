@@ -27,6 +27,46 @@ def test_missing_variables_section(tmpdir):
         SlurmiseConfiguration(toml)
 
 
+def test_job_without_numeric_variable(tmpdir):
+    """A job needs something to regress on, so an all category job is rejected (issue #78)."""
+    toml_str = """
+    [slurmise]
+    base_dir = "slurmise_dir"
+
+    [slurmise.job.nupack]
+    job_spec = "monomer -M {mode} -C {complexity}"
+    [slurmise.job.nupack.variables]
+    mode = {type = "category"}
+    complexity = {type = "category"}
+    """
+    toml = write_toml(tmpdir, toml_str)
+
+    with pytest.raises(ValueError, match="at least one numeric variable"):
+        SlurmiseConfiguration(toml)
+
+
+def test_job_with_numeric_variable_is_accepted(tmpdir):
+    """One numeric alongside the categories is enough."""
+    toml_str = """
+    [slurmise]
+    base_dir = "slurmise_dir"
+
+    [slurmise.job.nupack]
+    job_spec = "monomer -T {threads} -C {complexity}"
+    [slurmise.job.nupack.variables]
+    threads = {type = "numeric"}
+    complexity = {type = "category"}
+    """
+    toml = write_toml(tmpdir, toml_str)
+
+    config = SlurmiseConfiguration(toml)
+
+    assert config.jobs["nupack"]["job_spec_obj"].token_kinds == {
+        "threads": "numeric",
+        "complexity": "category",
+    }
+
+
 def test_missing_variable_type(tmpdir):
     """Test the default can be set at the slurmise level for all jobs without additional defaults."""
     toml_str = """
