@@ -191,6 +191,73 @@ def test_try_exact_fails():
     assert result.startswith("Failed to parse")
 
 
+def test_adjacent_tokens_no_ambiguity():
+    spec = JobSpec({"file1": {"type": "category"}, "file2": {"type": "category"}})
+    spec.add_job_spec("cmd {file1} {file2}")
+    jd = spec.parse_job_cmd(JobData(job_name="test", cmd="cmd alpha beta"))
+    assert jd.categories == {"file1": "alpha", "file2": "beta"}
+
+
+def test_adjacent_tokens_ignore_between():
+    spec = JobSpec({"file1": {"type": "category"}, "file2": {"type": "category"}})
+    spec.add_job_spec("cmd {file1} {ignore} {file2}")
+    jd = spec.parse_job_cmd(JobData(job_name="test", cmd="cmd alpha skip beta"))
+    assert jd.categories == {"file1": "alpha", "file2": "beta"}
+
+
+def test_pattern_override_multiword_ignore():
+    spec = JobSpec({"opts": {"type": "ignore", "pattern": ".+?"}, "file2": {"type": "category"}})
+    spec.add_job_spec("cmd {opts} {file2}")
+    jd = spec.parse_job_cmd(JobData(job_name="test", cmd="cmd option1 option2 result"))
+    assert jd.categories == {"file2": "result"}
+
+
+def test_pattern_override_multiword_ignore_cant_see_me():
+    spec = JobSpec(
+        {
+            "threads": {"type": "numeric"},
+            "complexity": {"type": "category"},
+            "extra": {"type": "ignore", "pattern": ".+"},
+        }
+    )
+    spec.add_job_spec("-T {threads} -C {complexity} -i {extra}")
+    jd = spec.parse_job_cmd(JobData(job_name="test", cmd="-T 1 -C simple -i can't see me"))
+    assert jd.numerics == {"threads": 1.0}
+    assert jd.categories == {"complexity": "simple"}
+
+
+def test_pattern_override_quoted_file(tmp_path):
+    available_parsers = {"file_basename": file_parsers.FileBasename()}
+    spec = JobSpec(
+        {"input": {"type": "file", "file_parsers": "file_basename", "pattern": '[^"]+'}},
+        available_parsers=available_parsers,
+    )
+    spec.add_job_spec('cmd "{input}"')
+    input_file = tmp_path / "path with spaces" / "input.txt"
+    input_file.parent.mkdir()
+    input_file.touch()
+    jd = spec.parse_job_cmd(JobData(job_name="test", cmd=f'cmd "{input_file}"'))
+    assert jd.categories == {"input_file_basename": "input.txt"}
+
+
+def test_pattern_override_invalid_regex():
+    with pytest.raises(ValueError, match="Invalid pattern for variable 'opts'"):
+        JobSpec({"opts": {"type": "category", "pattern": "[invalid"}})
+
+
+def test_pattern_override_numeric_disallowed():
+    with pytest.raises(ValueError, match="Pattern override is not allowed for numeric variable 'threads'"):
+        JobSpec({"threads": {"type": "numeric", "pattern": r"\d+"}})
+
+
+def test_numeric_scientific_notation():
+    spec = JobSpec({"lr": {"type": "numeric"}})
+    spec.add_job_spec("train --lr {lr}")
+    for val, expected in [("1e-4", 1e-4), ("2.5E+6", 2.5e6), ("-1.0e+3", -1000.0), (".5", 0.5)]:
+        jd = spec.parse_job_cmd(JobData(job_name="test", cmd=f"train --lr {val}"))
+        assert jd.numerics == {"lr": expected}
+
+
 def test_align_fallback_when_too_different():
     """When the command is too far from the spec for fuzzy matching, fall back to
     a plain character-level diff rather than raising an error."""
@@ -300,16 +367,15 @@ def test_long_job_spec():
         " {footprint} {ignore} --comps={maps} -C {ignore}"
         " --bands={bands} --maxiter={iters} -v --tiled=1 --site act"
     )
-    # The {ignore} tokens absorb the extra --executable flag; the command parses exactly.
+    # The {ignore} tokens absorb one extra word each; the command parses exactly.
     cmd = (
         "--cpu_bind=cores --export=ALL --ntasks-per-node=1"
         " --cpus-per-task=8 so-site-pipeline make-ml-map timestamp_start"
-        " somefile.fits output --executable so-site-pipeline"
+        " somefile.fits output"
         " --comps=context.yaml -C context.yaml"
         " --bands=aband"
         " --maxiter=10 -v --tiled=1 --site act"
     )
-
     result = spec.align_and_indicate_differences(cmd, try_exact_match=True)
     print(f"\n{result}")
     assert result.startswith("Able to parse")

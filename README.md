@@ -132,6 +132,8 @@ The name should be unique within a job and contain no spaces.  The type can be
 one of:
 - `numeric`: A single number, used in regression as an independent variable.
 Examples include the number of threads, epochs, or replicates to perform.
+Integer, decimal, and scientific notation values (e.g. `1e-4`, `2.5E+6`) are
+all supported.
 - `category`: A string which is used to select the correct model.  Examples include
 what algorithm to choose, switches or flags.  Note that a category can be a number,
 but will be stored as a string, e.g. "1.0" is different from "1".  For inference,
@@ -145,9 +147,36 @@ When a `job_spec` is provided, its placeholders reference the variable names:
 ```
 {variable_name}
 ```
-The special token `{ignore}` can appear in `job_spec` to match a token that is
-not recorded.  Ignored tokens do not require a variable name or entry in the
-`variables` section.
+By default each placeholder matches a single whitespace-delimited token.  The
+special token `{ignore}` can appear in `job_spec` to match and discard one
+token that is not recorded; it does not require a variable name or entry in the
+`variables` section.  Use multiple `{ignore}` tokens to skip multiple arguments:
+```toml
+job_spec = "cmd {input} {ignore} {ignore} {output}"
+```
+
+#### Matching multi-word or non-standard tokens
+
+When a placeholder needs to match something other than a single whitespace-delimited
+word — for example, multiple arguments to discard, a file path containing spaces, or
+a value delimited by something other than whitespace — add a `pattern` key to the
+variable entry with a Python regular expression:
+```toml
+[slurmise.job.my_job.variables]
+# absorb a variable number of extra arguments at the end of the command
+extra_args = {type = "ignore", pattern = ".+"}
+
+# file path wrapped in double quotes (e.g. cmd "/path/with spaces/file.txt")
+input = {type = "file", file_parsers = "file_basename", pattern = '[^"]+'}
+```
+For the quoted-file case, surround the placeholder with literal quote characters
+in `job_spec` so the quotes are consumed but not captured:
+```toml
+job_spec = 'cmd "{input}" {output}'
+```
+The `pattern` key is not supported for `numeric` variables, whose matching
+pattern is fixed to ensure the captured value can always be converted to a
+number.
 
 To include a literal `{` or `}` in a job spec (for example in an `awk` program
 or a shell brace expression), double the brace: `{{` produces a literal `{` and

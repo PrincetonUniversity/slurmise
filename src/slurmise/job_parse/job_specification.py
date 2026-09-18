@@ -9,12 +9,12 @@ from slurmise.job_parse.file_parsers import NUMERIC, FileParser
 # matches {{, }}, or variable tokens like {threads}
 JOB_SPEC_REGEX = re.compile(r"\{\{|\}\}|\{(?P<name>[^:}]+)\}")
 KIND_TO_REGEX = {
-    "file": ".+?",
-    "gzip_file": ".+?",
-    "file_list": ".+?",
-    "numeric": "[-0-9.]+",
-    "category": ".+?",
-    "ignore": ".+?",
+    "file": "[^ ]+",
+    "gzip_file": "[^ ]+",
+    "file_list": "[^ ]+",
+    "numeric": r"[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?",
+    "category": "[^ ]+",
+    "ignore": "[^ ]+",
 }
 
 
@@ -33,6 +33,7 @@ class JobSpec:
         available_parsers: A dict of parser names to parser objects
         """
         self.token_kinds = {}
+        self.token_patterns: dict[str, str] = {}
         self.file_parsers: dict[str, list[FileParser]] = {}
         self.model = model
         self.job_spec_str = None
@@ -47,6 +48,15 @@ class JobSpec:
             if kind not in KIND_TO_REGEX:
                 raise ValueError(f"Unknown variable type {kind} for variable {name}")
             self.token_kinds[name] = kind
+
+            if "pattern" in settings:
+                if kind == "numeric":
+                    raise ValueError(f"Pattern override is not allowed for numeric variable {name!r}")
+                try:
+                    re.compile(settings["pattern"])
+                except re.error as e:
+                    raise ValueError(f"Invalid pattern for variable {name!r}: {e}") from e
+                self.token_patterns[name] = settings["pattern"]
 
             if "source" in settings:
                 if "key" in settings:
@@ -105,7 +115,8 @@ class JobSpec:
                     if name not in self.token_kinds:
                         raise ValueError(f"Unknown variable type for variable {name}")
                     kind = self.token_kinds[name]
-                    result += f"(?P<{name}>{KIND_TO_REGEX[kind]})"
+                    pattern = self.token_patterns.get(name, KIND_TO_REGEX[kind])
+                    result += f"(?P<{name}>{pattern})"
 
         if not has_variable:
             raise ValueError(f"Job specification contains no variables: {job_spec}")
@@ -153,15 +164,20 @@ class JobSpec:
         return self.parse_job_from_dict(match.groupdict(), job)
 
     def parse_job_from_dict(self, input_dict: dict, job: job_data.JobData):
-        token_keys = set(self.token_kinds.keys())
+        # ignore-typed variables are captured by the regex but not stored; they are
+        # optional in input_dict (present when called from parse_job_cmd, absent when
+        # called directly by the user)
+        required_keys = {k for k, v in self.token_kinds.items() if v != "ignore"}
         input_keys = set(input_dict.keys())
-        if len(extras := token_keys - input_keys) != 0:
+        if len(extras := required_keys - input_keys) != 0:
             raise ValueError(f"Dict missing variable: {extras.pop()!r}")
-        if len(extras := input_keys - token_keys) != 0:
+        if len(extras := input_keys - set(self.token_kinds.keys())) != 0:
             raise ValueError(f"Dict contained extra variable: {extras.pop()!r}")
 
         for name, kind in self.token_kinds.items():
-            if kind == "numeric":
+            if kind == "ignore":
+                continue
+            elif kind == "numeric":
                 job.numerics[name] = float(input_dict[name])
             elif kind == "category":
                 job.categories[name] = input_dict[name]
@@ -224,7 +240,7 @@ class JobSpec:
             # add names to job spec str as well
             ignore_index = 0
             while "{ignore}" in job_spec_str:
-                job_spec_str = job_spec_str.replace("{ignore}", f"{{ignore_{ignore_index}:ignore}}", 1)
+                job_spec_str = job_spec_str.replace("{ignore}", f"{{ignore_{ignore_index}}}", 1)
                 ignore_index += 1
 
         # Replace {{ and }} with sentinels before re.sub so they aren't consumed
