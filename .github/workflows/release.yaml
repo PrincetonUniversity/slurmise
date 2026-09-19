@@ -26,3 +26,23 @@ jobs:
 
       - name: Publish package distributions to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+
+  # The getting-started tutorial ships as a release asset available with `wget ... | tar -xz`
+  tutorial-tarball:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build the tutorial tarball
+        # `--prefix` is prepended literally, not as a path component, so
+        # `slurmise-` + `tutorial/...` unpacks as `slurmise-tutorial/`.
+        run: git archive --format=tar.gz --prefix=slurmise- -o slurmise-tutorial.tar.gz HEAD tutorial
+
+      - name: Attach it to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.event.release.tag_name }}" slurmise-tutorial.tar.gz --clobber
