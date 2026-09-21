@@ -1,3 +1,4 @@
+from pathlib import Path
 from unittest import mock
 
 import numpy as np
@@ -27,16 +28,35 @@ def test_unknown_option_hint(simple_toml, subcommand):
     assert " -- " in result.output
 
 
-def test_missing_toml():
-    """Check that excluding a toml file will fail with error message."""
+def test_missing_toml(tmp_path, monkeypatch):
+    """Excluding a toml file with none in the search path fails with an error."""
+    # point both search locations at an empty directory so the developer's own
+    # ~/.slurmise/slurmise.toml cannot satisfy the lookup
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
     runner = CliRunner()
     result = runner.invoke(
         main,
         ["record", "something"],
     )
     assert result.exit_code == 1
-    assert "Slurmise requires a toml file" in result.output
-    assert "See readme for more information" in result.output
+    assert "No slurmise.toml was found" in result.stderr
+    assert "See readme for more information" in result.stderr
+
+
+def test_toml_discovered_without_option(simple_toml, tmp_path, monkeypatch):
+    """Without --toml, the config found by the search path is used."""
+    monkeypatch.chdir(simple_toml.toml.parent)
+    monkeypatch.setattr(Path, "home", lambda: tmp_path / "empty_home")
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        ["parse", "nupack monomer -T 2 -C simple"],
+    )
+    assert result.exit_code == 0
+    assert result.stdout.startswith("Able to parse")
 
 
 def test_record(simple_toml, sacct_mock):
