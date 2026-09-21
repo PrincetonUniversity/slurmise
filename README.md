@@ -38,21 +38,31 @@ more complex information from a file.
 # base directory to store database and optimized models
 base_dir = "slurmise_dir"
 
-# default resources to return if a model doesn't exist or isn't trained
-# can be overwritten by subsequent jobs
-# if not set, will use 1000 MB for default memory and 60 minutes for default runtime
-default_mem = 2000
-default_time = 70
+# Global resource bounds applied to all jobs unless overridden per-job.
+# Built-in defaults: 60 minutes for runtime, 1000 MB for memory.
+[slurmise.runtime]
+default = 70          # minutes returned when no model is available
+minimum = 10          # never predict below this
+maximum = 1440        # never predict above this (e.g. 24-hour wall-time limit)
+multiply_prediction_by = 1.0   # scale factor applied after prediction
+retry_exponent = 1.0  # on Snakemake retry attempt N: prediction *= N**retry_exponent
+on_high_uncertainty_return = "prediction"  # "default", "prediction", "max", or "min"
 
-# minimum values of time or memory for any prediction.  Default is 0 for each.
-minimum_mem = 2000
-minimum_time = 70
+[slurmise.memory]
+default = 2000        # MB returned when no model is available
+minimum = 500
+maximum = 500000
+multiply_prediction_by = 1.0
+retry_exponent = 1.0
+on_high_uncertainty_return = "prediction"
 
-# for each job you want to track, give a unique job name
-[slurmise.job.job_name]
-# jobs of `job_name` will now return default memory of 3000 and time of 80
-default_mem = 3000
-default_time = 80
+# Per-job overrides: any field from [slurmise.runtime] / [slurmise.memory] can be
+# specified here and will override the global value for that job only.
+[slurmise.job.job_name.runtime]
+default = 80          # override global default for this job
+
+[slurmise.job.job_name.memory]
+default = 3000
 
 # the variables section defines types and how to parse the command
 [slurmise.job.job_name.variables]

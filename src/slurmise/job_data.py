@@ -57,8 +57,8 @@ class JobData:
     slurm_id: str | None = None
     categories: dict = field(default_factory=dict)
     numerics: dict = field(default_factory=dict)
-    memory: int | None = None  # in MBs
-    runtime: int | None = None  # in minutes
+    memory: float | None = None  # in MBs
+    runtime: float | None = None  # in minutes
     cmd: str | None = None  # TODO: NOT STORED OR RETURNED
 
     @staticmethod

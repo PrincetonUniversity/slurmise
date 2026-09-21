@@ -570,7 +570,7 @@ def test_update_predict(nupack_toml):
     assert predicted_memory[0] == "Predicted memory"
     np.testing.assert_allclose(float(predicted_memory[1]), 10168.72, rtol=0.01)
 
-    # Test that slurmise returns the default values when the predicted values are not possible.
+    # Test that predictions above the configured maximums are clamped to those maximums.
     result = runner.invoke(
         main,
         [
@@ -586,12 +586,12 @@ def test_update_predict(nupack_toml):
     predicted_runtime = tmp_stdout[0].split(":")
     predicted_memory = tmp_stdout[1].split(":")
     assert predicted_runtime[0] == "Predicted runtime"
-    assert float(predicted_runtime[1]) == 60
+    assert float(predicted_runtime[1]) == 1440
     assert predicted_memory[0] == "Predicted memory"
-    assert float(predicted_memory[1]) == 1000
+    assert float(predicted_memory[1]) == 100000
     assert "Warnings:" in result.stderr
 
-    # Test that slurmise returns the default values when the predicted values are not possible.
+    # Same test through raw-predict.
     result = runner.invoke(
         main,
         [
@@ -609,9 +609,9 @@ def test_update_predict(nupack_toml):
     predicted_runtime = tmp_stdout[0].split(":")
     predicted_memory = tmp_stdout[1].split(":")
     assert predicted_runtime[0] == "Predicted runtime"
-    assert float(predicted_runtime[1]) == 60
+    assert float(predicted_runtime[1]) == 1440
     assert predicted_memory[0] == "Predicted memory"
-    assert float(predicted_memory[1]) == 1000
+    assert float(predicted_memory[1]) == 100000
     assert "Warnings:" in result.stderr
 
 

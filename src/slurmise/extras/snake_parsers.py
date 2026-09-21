@@ -97,39 +97,6 @@ class SnakemakeAdapter(ABC):
             # force extended benchmark recording
             self.extend_benchmark(workflow)
 
-        # TODO: make adapter function or accept a file to write to?
-        def make_predictor(variables, rule, resource):
-            def slurmise_predict(wildcards, input, attempt=1):
-                vars = {
-                    name: func(rule, wildcards, input)
-                    for name, func in variables.items()
-                    if not name.startswith("SLURMISE")
-                }
-                job_data = slurmise.job_data_from_dict(vars, rule.name)
-                if resource == "logging":
-                    # if we are recording threads need to mark in benchmark file
-                    for name, func in variables.items():
-                        if name.startswith("SLURMISE"):
-                            continue
-                        if func.__name__ == "get_threads":
-                            # update name to flag as thread
-                            job_data = _mark_threads(job_data, name)
-
-                    job_data_variables = {
-                        "categories": job_data.categories,
-                        "numerics": job_data.numerics,
-                    }
-                    return json.dumps(job_data_variables)
-
-                job_data = slurmise.raw_predict(job_data)[0]
-
-                # TODO: add to rule configuration
-                exp = variables.get("SLURMISE_attempt_exp", 1)
-
-                return getattr(job_data, resource) * attempt**exp
-
-            return slurmise_predict
-
         if rules is None:
             rules = slurmise.configuration.jobs.keys()
             # TODO: handle extra rules in slurmise
@@ -142,10 +109,44 @@ class SnakemakeAdapter(ABC):
 
             if record_benchmarks:
                 # set benchmark to record stats
-                self.record_benchmark(rule, workflow, benchmark_dir, make_predictor(variables, rule, "logging"))
+                self.record_benchmark(
+                    rule, workflow, benchmark_dir, self.make_predictor(slurmise, variables, rule, "logging")
+                )
 
-            rule.resources["mem_mb"] = make_predictor(variables, rule, "memory")
-            rule.resources["runtime"] = make_predictor(variables, rule, "runtime")
+            rule.resources["mem_mb"] = self.make_predictor(slurmise, variables, rule, "memory")
+            rule.resources["runtime"] = self.make_predictor(slurmise, variables, rule, "runtime")
+
+    def make_predictor(self, slurmise: Slurmise, variables: dict, rule: Any, resource: str):
+        """Return a Snakemake resource function that calls slurmise to predict a resource.
+
+        The Snakemake attempt number (1-based) is forwarded to raw_predict so the
+        ResourceCorrector can apply retry_exponent scaling before clamping.
+        """
+
+        def slurmise_predict(wildcards, input, attempt=1):
+            vars = {
+                name: func(rule, wildcards, input)
+                for name, func in variables.items()
+                if not name.startswith("SLURMISE")
+            }
+            job_data = slurmise.job_data_from_dict(vars, rule.name)
+            if resource == "logging":
+                for name, func in variables.items():
+                    if name.startswith("SLURMISE"):
+                        continue
+                    if func.__name__ == "get_threads":
+                        job_data = _mark_threads(job_data, name)
+
+                job_data_variables = {
+                    "categories": job_data.categories,
+                    "numerics": job_data.numerics,
+                }
+                return json.dumps(job_data_variables)
+
+            job_data = slurmise.raw_predict(job_data, attempt=attempt)[0]
+            return getattr(job_data, resource)
+
+        return slurmise_predict
 
     def iter_benchmark_data(self, benchmark_dir: Path):
         """Yield (file_path, benchmark_data_dict) for each benchmark. Default for V8/V9."""

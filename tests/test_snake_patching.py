@@ -96,9 +96,13 @@ base_dir="{base_path}/slurmise"
         toml_text += f"""
 
 [slurmise.job.{rule}_rule]
-default_mem = 1000
-default_time = 30
 variables.threads = {{type = "numeric", source = "threads"}}
+
+[slurmise.job.{rule}_rule.runtime]
+default = 30
+
+[slurmise.job.{rule}_rule.memory]
+default = 1000
 """
     toml_text += append
 
@@ -144,10 +148,14 @@ def test_snakemake_slurmise_error_benchmark(tmp_path):
         tmp_path,
         append="""
 [slurmise.job.bench_rule]
-default_mem = 1000
-default_time = 30
 variables.param = {type = "category", source = "params", key = "param"}
 variables.thread = {type = "numeric", source = "threads"}
+
+[slurmise.job.bench_rule.runtime]
+default = 30
+
+[slurmise.job.bench_rule.memory]
+default = 1000
 
 [slurmise.extras.snakemake]
 keep_benchmarks = true
@@ -196,10 +204,14 @@ def test_snakemake_slurmise_no_error_benchmark(tmp_path):
         tmp_path,
         append="""
 [slurmise.job.bench_rule]
-default_mem = 1000
-default_time = 30
 variables.param = {type = "category", source = "wildcards", key = "param"}
 variables.thread = {type = "numeric", source = "threads"}
+
+[slurmise.job.bench_rule.runtime]
+default = 30
+
+[slurmise.job.bench_rule.memory]
+default = 1000
 
 [slurmise.extras.snakemake]
 record_benchmarks = false
@@ -355,10 +367,14 @@ def test_snakemake_slurmise_record_params(tmp_path):
         tmp_path,
         append="""
 [slurmise.job.param_rule]
-default_mem = 1000
-default_time = 30
 variables.param = {type = "category", source = "params", key = "test_param"}
 variables.threads = {type = "numeric", source = "threads"}
+
+[slurmise.job.param_rule.runtime]
+default = 30
+
+[slurmise.job.param_rule.memory]
+default = 1000
 
 [slurmise.extras.snakemake]
 benchmark_dir = "nondefault/benchmarks"
@@ -455,10 +471,14 @@ def test_snakemake_slurmise_record_threads(tmp_path):
         tmp_path,
         append="""
 [slurmise.job.thread_rule]
-default_mem = 1000
-default_time = 30
 variables.thread = {type = "numeric", source = "threads"}
 variables.thread_wc = {type = "numeric", source = "wildcards", key = "thrd"}
+
+[slurmise.job.thread_rule.runtime]
+default = 30
+
+[slurmise.job.thread_rule.memory]
+default = 1000
 
 [slurmise.extras.snakemake]
 keep_benchmarks = true

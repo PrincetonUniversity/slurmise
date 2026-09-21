@@ -16,14 +16,13 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 from slurmise.job_data import JobData
+from slurmise.resource_corrector import ResourceCorrector
 from slurmise.utils import jobs_to_pandas
 
 BASEMODELPATH = pathlib.Path.home() / ".slurmise/models/"
 
 # Above this mean percent error a model's prediction is reported with a warning.
 MPE_THRESHOLD = 10
-# Predictions at or beyond this multiple of the default are rejected outright.
-MAX_PREDICTION_FACTOR = 100
 
 
 @dataclass(kw_only=True)
@@ -211,36 +210,13 @@ class ResourceFit:
         }
         # TODO: Warning if model metrics are larger than a threshold.
 
-    def _resolve(self, model, X, default, resource: str, job_name: str, mpe: float) -> tuple[float, list[str]]:
-        """Choose between a model's prediction and the caller's default for one resource."""
-        predicted = model.predict(X)[0]
-
-        if predicted <= 0:
-            return default, [
-                f"Predicted {resource} for job {job_name} is zero or negative: {predicted}",
-                f"Returning default {resource} value.",
-            ]
-
-        if predicted >= MAX_PREDICTION_FACTOR * default:
-            return default, [
-                (
-                    f"Predicted {resource} for job {job_name} is more than "
-                    f"{MAX_PREDICTION_FACTOR} times larger than default."
-                ),
-                f"Returning default {resource} value.",
-            ]
-
-        if mpe > MPE_THRESHOLD:
-            return predicted, [
-                (
-                    f"{resource.capitalize()} prediction for job {job_name} is not within "
-                    f"{MPE_THRESHOLD}% of actual value."
-                ),
-            ]
-
-        return predicted, []
-
-    def predict(self, job: JobData) -> tuple[JobData, list[str]]:
+    def predict(
+        self,
+        job: JobData,
+        runtime_corrector: ResourceCorrector,
+        memory_corrector: ResourceCorrector,
+        attempt: int = 0,
+    ) -> tuple[JobData, list[str]]:
         if self.last_fit_dsize < 10:
             return (
                 job,
@@ -248,16 +224,18 @@ class ResourceFit:
             )
 
         X, _, _ = jobs_to_pandas([job])
-        warnmsg = []
+        warnings: list[str] = []
 
-        job.runtime, runtime_warnings = self._resolve(
-            self.runtime_model, X, job.runtime, "runtime", job.job_name, self.model_metrics["runtime"]["mpe"]
-        )
-        warnmsg += runtime_warnings
+        runtime_raw = self.runtime_model.predict(X)[0]
+        memory_raw = self.memory_model.predict(X)[0]
 
-        job.memory, memory_warnings = self._resolve(
-            self.memory_model, X, job.memory, "memory", job.job_name, self.model_metrics["memory"]["mpe"]
-        )
-        warnmsg += memory_warnings
+        runtime_uncertain = self.model_metrics["runtime"]["mpe"] > MPE_THRESHOLD
+        memory_uncertain = self.model_metrics["memory"]["mpe"] > MPE_THRESHOLD
 
-        return job, warnmsg
+        job.runtime, rt_warns = runtime_corrector.correct(runtime_raw, runtime_uncertain, job.job_name, attempt)
+        warnings.extend(rt_warns)
+
+        job.memory, mem_warns = memory_corrector.correct(memory_raw, memory_uncertain, job.job_name, attempt)
+        warnings.extend(mem_warns)
+
+        return job, warnings

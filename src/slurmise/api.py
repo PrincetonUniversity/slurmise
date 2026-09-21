@@ -77,13 +77,14 @@ class Slurmise:
 
         return self.raw_predict(query_jd)
 
-    def raw_predict(self, query_jd):
+    def raw_predict(self, query_jd, attempt: int = 0):
         query_jd = self.configuration.add_defaults(query_jd)
         model = self.configuration.get_model_class(query_jd.job_name)
         model_path = model._make_model_path(query_jd, base_path=self.configuration.slurmise_base_dir)
         query_model = model.load(query=query_jd, path=model_path)
-        query_jd, query_warns = query_model.predict(query_jd)
-        query_jd = self.configuration.correct_minimum(query_jd)
+        runtime_corrector = self.configuration.get_runtime_corrector(query_jd.job_name)
+        memory_corrector = self.configuration.get_memory_corrector(query_jd.job_name)
+        query_jd, query_warns = query_model.predict(query_jd, runtime_corrector, memory_corrector, attempt=attempt)
         return query_jd, query_warns
 
     def update_model(self, cmd, job_name):
