@@ -192,23 +192,25 @@ def test_try_exact_fails():
 
 
 def test_adjacent_tokens_no_ambiguity():
-    spec = JobSpec({"file1": {"type": "category"}, "file2": {"type": "category"}})
-    spec.add_job_spec("cmd {file1} {file2}")
-    jd = spec.parse_job_cmd(JobData(job_name="test", cmd="cmd alpha beta"))
+    spec = JobSpec({"n": {"type": "numeric"}, "file1": {"type": "category"}, "file2": {"type": "category"}})
+    spec.add_job_spec("cmd {n} {file1} {file2}")
+    jd = spec.parse_job_cmd(JobData(job_name="test", cmd="cmd 1 alpha beta"))
     assert jd.categories == {"file1": "alpha", "file2": "beta"}
 
 
 def test_adjacent_tokens_ignore_between():
-    spec = JobSpec({"file1": {"type": "category"}, "file2": {"type": "category"}})
-    spec.add_job_spec("cmd {file1} {ignore} {file2}")
-    jd = spec.parse_job_cmd(JobData(job_name="test", cmd="cmd alpha skip beta"))
+    spec = JobSpec({"n": {"type": "numeric"}, "file1": {"type": "category"}, "file2": {"type": "category"}})
+    spec.add_job_spec("cmd {n} {file1} {ignore} {file2}")
+    jd = spec.parse_job_cmd(JobData(job_name="test", cmd="cmd 1 alpha skip beta"))
     assert jd.categories == {"file1": "alpha", "file2": "beta"}
 
 
 def test_pattern_override_multiword_ignore():
-    spec = JobSpec({"opts": {"type": "ignore", "pattern": ".+?"}, "file2": {"type": "category"}})
-    spec.add_job_spec("cmd {opts} {file2}")
-    jd = spec.parse_job_cmd(JobData(job_name="test", cmd="cmd option1 option2 result"))
+    spec = JobSpec(
+        {"n": {"type": "numeric"}, "opts": {"type": "ignore", "pattern": ".+?"}, "file2": {"type": "category"}}
+    )
+    spec.add_job_spec("cmd {n} {opts} {file2}")
+    jd = spec.parse_job_cmd(JobData(job_name="test", cmd="cmd 1 option1 option2 result"))
     assert jd.categories == {"file2": "result"}
 
 
@@ -229,14 +231,17 @@ def test_pattern_override_multiword_ignore_cant_see_me():
 def test_pattern_override_quoted_file(tmp_path):
     available_parsers = {"file_basename": file_parsers.FileBasename()}
     spec = JobSpec(
-        {"input": {"type": "file", "file_parsers": "file_basename", "pattern": '[^"]+'}},
+        {
+            "n": {"type": "numeric"},
+            "input": {"type": "file", "file_parsers": "file_basename", "pattern": '[^"]+'},
+        },
         available_parsers=available_parsers,
     )
-    spec.add_job_spec('cmd "{input}"')
+    spec.add_job_spec('cmd {n} "{input}"')
     input_file = tmp_path / "path with spaces" / "input.txt"
     input_file.parent.mkdir()
     input_file.touch()
-    jd = spec.parse_job_cmd(JobData(job_name="test", cmd=f'cmd "{input_file}"'))
+    jd = spec.parse_job_cmd(JobData(job_name="test", cmd=f'cmd 1 "{input_file}"'))
     assert jd.categories == {"input_file_basename": "input.txt"}
 
 
