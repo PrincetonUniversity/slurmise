@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 
 from slurmise import job_database, slurm
-from slurmise.config import SlurmiseConfiguration
+from slurmise.config import SlurmiseConfiguration, find_config_file
 
 
 class Slurmise:
@@ -12,8 +12,8 @@ class Slurmise:
     """
 
     def __init__(self, toml_path=None):
-        self.toml_path = toml_path
-        self.configuration = SlurmiseConfiguration(toml_path)
+        self.toml_path = find_config_file() if toml_path is None else toml_path
+        self.configuration = SlurmiseConfiguration(self.toml_path)
 
     def record(
         self,

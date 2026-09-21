@@ -163,3 +163,18 @@ class SlurmiseConfiguration:
 
     def get_sources(self, job_name: str) -> dict:
         return self.jobs[job_name]["job_spec_obj"].get_sources()
+
+
+def find_config_file() -> Path:
+    """
+    Search for a config file if it is not provided. Search first in the current
+    working directory, and if the file does not exist search in the default
+    slurmise base directory.
+    """
+
+    if (Path.cwd() / "slurmise.toml").exists():
+        return Path.cwd() / "slurmise.toml"
+    elif (Path.home() / ".slurmise/slurmise.toml").exists():
+        return Path.home() / ".slurmise/slurmise.toml"
+    else:
+        raise RuntimeError("No slurmise.toml was found in current or ~/.slurmise/ directory.")

@@ -63,13 +63,14 @@ class _SlurmiseGroup(click.Group):
 def main(ctx, toml):
     ctx.ensure_object(dict)
     # `print` can operate on a bare .h5 path and does not require a toml config.
-    if toml is None:
-        if ctx.invoked_subcommand == "print":
-            return
-        click.echo("Slurmise requires a toml file", err=True)
+    if toml is None and ctx.invoked_subcommand == "print":
+        return
+    try:
+        ctx.obj["slurmise"] = Slurmise(toml)
+    except RuntimeError as e:
+        click.echo(str(e), err=True)
         click.echo("See readme for more information", err=True)
         sys.exit(1)
-    ctx.obj["slurmise"] = Slurmise(toml)
 
 
 @main.command()

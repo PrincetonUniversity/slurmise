@@ -1,6 +1,8 @@
+from pathlib import Path
+
 import pytest
 
-from slurmise.config import SlurmiseConfiguration
+from slurmise.config import SlurmiseConfiguration, find_config_file
 from slurmise.job_data import JobData
 from slurmise.job_parse import file_parsers
 
@@ -339,3 +341,35 @@ def test_minimum_resources_non_default(tmpdir):
 
     assert job_data.memory == 100
     assert job_data.runtime == 5
+
+
+@pytest.mark.parametrize(
+    ("in_cwd", "in_home", "expected"),
+    [
+        (True, False, "cwd/slurmise.toml"),
+        (False, True, "home/.slurmise/slurmise.toml"),
+        (True, True, "cwd/slurmise.toml"),  # the working directory takes precedence
+    ],
+)
+def test_find_config_file(tmp_path, monkeypatch, in_cwd, in_home, expected):
+    cwd = tmp_path / "cwd"
+    home = tmp_path / "home"
+    cwd.mkdir()
+    (home / ".slurmise").mkdir(parents=True)
+    monkeypatch.chdir(cwd)
+    monkeypatch.setattr(Path, "home", lambda: home)
+    if in_cwd:
+        (cwd / "slurmise.toml").touch()
+    if in_home:
+        (home / ".slurmise" / "slurmise.toml").touch()
+
+    assert find_config_file() == tmp_path / expected
+
+
+def test_find_config_file_missing(tmp_path, monkeypatch):
+    """With no config in either location, a RuntimeError is raised."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+    with pytest.raises(RuntimeError, match="No slurmise.toml was found"):
+        find_config_file()
