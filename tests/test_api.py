@@ -238,18 +238,29 @@ def _record_extra(db_path, count, mode="fast", complexity="simple", slope=3):
             )
 
 
-UPDATE_HINT = "Run: slurmise update-model --job-name nupack"
-
-
 @pytest.mark.parametrize(
     ("fit_first", "extra_records", "expected_warnings"),
     [
         # never fit: #75
-        (False, 0, ["No model has been fit for job nupack. Returning default values.", UPDATE_HINT]),
+        (
+            False,
+            0,
+            [
+                "No model has been fit for job nupack. Returning default values.",
+                "Run: slurmise update-model --job-name nupack",
+            ],
+        ),
         (True, 0, []),
         (True, 4, []),  # the default 0.2 threshold allows 4 more than the 20 trained on
         # enough new records to be worth a refit: #124
-        (True, 5, ["The model for job nupack was fit on 20 jobs, the database holds 25.", UPDATE_HINT]),
+        (
+            True,
+            5,
+            [
+                "The model for job nupack was fit on 20 jobs, the database holds 25.",
+                "Run: slurmise update-model --job-name nupack",
+            ],
+        ),
     ],
 )
 def test_predict_warnings(two_categories_toml, fit_first, extra_records, expected_warnings):
