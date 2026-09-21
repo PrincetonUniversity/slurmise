@@ -413,3 +413,22 @@ def test_find_config_file_missing(tmp_path, monkeypatch):
 
     with pytest.raises(RuntimeError, match="No slurmise.toml was found"):
         find_config_file()
+
+
+def test_retrain_threshold_default(basic_toml):
+    """Without a setting, a fifth of the training set may accumulate before warning."""
+    assert SlurmiseConfiguration(basic_toml).retrain_threshold == 0.2
+
+
+def test_retrain_threshold_override(tmpdir):
+    """The threshold is configurable at the slurmise level."""
+    toml = write_toml(
+        tmpdir,
+        """
+    [slurmise]
+    base_dir = "slurmise_dir"
+    retrain_threshold = 0.5
+    """,
+    )
+
+    assert SlurmiseConfiguration(toml).retrain_threshold == 0.5
