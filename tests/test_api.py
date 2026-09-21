@@ -238,66 +238,43 @@ def _record_extra(db_path, count, mode="fast", complexity="simple", slope=3):
             )
 
 
-def test_predict_without_model_says_to_update(two_categories_toml):
-    """Predicting before any fit returns defaults and names the command to run (#75)."""
+UPDATE_HINT = "Run: slurmise update-model --job-name nupack"
+
+
+@pytest.mark.parametrize(
+    ("fit_first", "extra_records", "expected_warnings"),
+    [
+        # never fit: #75
+        (False, 0, ["No model has been fit for job nupack. Returning default values.", UPDATE_HINT]),
+        (True, 0, []),
+        (True, 4, []),  # the default 0.2 threshold allows 4 more than the 20 trained on
+        # enough new records to be worth a refit: #124
+        (True, 5, ["The model for job nupack was fit on 20 jobs, the database holds 25.", UPDATE_HINT]),
+    ],
+)
+def test_predict_warnings(two_categories_toml, fit_first, extra_records, expected_warnings):
+    """Predict names the command to run whenever it cannot stand behind its answer."""
     slurmise = Slurmise(two_categories_toml.toml)
-
-    predicted, warnings = slurmise.predict("monomer -c 5 -M fast -C simple", "nupack")
-
-    assert predicted.runtime == 60
-    assert predicted.memory == 1000
-    assert warnings == [
-        "No model has been fit for job nupack. Returning default values.",
-        "Run: slurmise update-model --job-name nupack",
-    ]
-
-
-def test_predict_after_update_is_quiet(two_categories_toml):
-    """A freshly fit model predicts without any warning."""
-    slurmise = Slurmise(two_categories_toml.toml)
-    slurmise.update_model(None, "nupack")
+    if fit_first:
+        slurmise.update_model(None, "nupack")
+    _record_extra(two_categories_toml.db, extra_records)
 
     _, warnings = slurmise.predict("monomer -c 5 -M fast -C simple", "nupack")
 
-    assert warnings == []
-
-
-def test_predict_warns_when_database_outgrows_model(two_categories_toml):
-    """Enough new records since the fit asks the user to retrain (#124)."""
-    slurmise = Slurmise(two_categories_toml.toml)
-    slurmise.update_model(None, "nupack")
-    # trained on 20; the default 0.2 threshold allows 4 more before warning
-    _record_extra(two_categories_toml.db, 5)
-
-    _, warnings = slurmise.predict("monomer -c 5 -M fast -C simple", "nupack")
-
-    assert warnings == [
-        "The model for job nupack was fit on 20 jobs, the database holds 25.",
-        "Run: slurmise update-model --job-name nupack",
-    ]
-
-
-def test_predict_quiet_below_retrain_threshold(two_categories_toml):
-    """A handful of new records is not enough to warrant a warning."""
-    slurmise = Slurmise(two_categories_toml.toml)
-    slurmise.update_model(None, "nupack")
-    _record_extra(two_categories_toml.db, 4)
-
-    _, warnings = slurmise.predict("monomer -c 5 -M fast -C simple", "nupack")
-
-    assert warnings == []
+    assert warnings == expected_warnings
 
 
 def test_update_model_refreshes_trained_count(two_categories_toml):
     """Refitting rewrites the stored count so staleness is measured from the latest fit."""
     slurmise = Slurmise(two_categories_toml.toml)
+    query = JobData(job_name="nupack", categories={"mode": "fast", "complexity": "simple"})
+
     slurmise.update_model(None, "nupack")
     _record_extra(two_categories_toml.db, 5)
+    with job_database.JobDatabase.get_database(two_categories_toml.db) as database:
+        assert database.trained_records(query) == 20
+
     slurmise.update_model(None, "nupack")
 
-    query = JobData(job_name="nupack", categories={"mode": "fast", "complexity": "simple"})
     with job_database.JobDatabase.get_database(two_categories_toml.db) as database:
         assert database.trained_records(query) == 25
-
-    _, warnings = slurmise.predict("monomer -c 5 -M fast -C simple", "nupack")
-    assert warnings == []

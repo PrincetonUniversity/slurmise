@@ -82,8 +82,6 @@ class Slurmise:
         model = self.configuration.get_model_class(query_jd.job_name)
         model_path = model._make_model_path(query_jd, base_path=self.configuration.slurmise_base_dir)
 
-        update_hint = f"Run: slurmise update-model --job-name {query_jd.job_name}"
-
         # save() creates the directory, so a missing one means the model was never fit.
         if not model_path.exists():
             query_warns = [f"No model has been fit for job {query_jd.job_name}. Returning default values."]
@@ -93,7 +91,7 @@ class Slurmise:
             query_warns += self._stale_model_warning(query_jd)
 
         if query_warns:
-            query_warns.append(update_hint)
+            query_warns.append(f"Run: slurmise update-model --job-name {query_jd.job_name}")
 
         return self.configuration.correct_minimum(query_jd), query_warns
 

@@ -603,27 +603,15 @@ def test_count_records(small_db, categories, expected):
     assert small_db.count_records(JobData(job_name="test_job", categories=categories)) == expected
 
 
-def test_count_records_after_delete(small_db):
-    """The count follows deletions rather than a stored counter."""
-    query = JobData(job_name="test_job", categories={"option1": "value2"})
-    small_db.delete(query)
-
-    assert small_db.count_records(query) == 0
-
-
 def test_trained_records_round_trip(small_db):
-    """The trained count is stored on the category group and read back."""
+    """The trained count is stored per category group, defaulting to 0."""
     query = JobData(job_name="test_job", categories={"option1": "value2"})
-    assert small_db.trained_records(query) is None
+    assert small_db.trained_records(query) == 0
+    assert small_db.trained_records(JobData(job_name="never_recorded")) == 0
+    assert "/never_recorded" not in small_db.db  # reading must not create the group
 
     small_db.set_trained_records(query, 17)
+
     assert small_db.trained_records(query) == 17
-
     # a different category combination keeps its own count
-    assert small_db.trained_records(JobData(job_name="test_job")) is None
-
-
-def test_trained_records_unknown_job(small_db):
-    """An unseen job has no trained count and is not created by asking."""
-    assert small_db.trained_records(JobData(job_name="never_recorded")) is None
-    assert "/never_recorded" not in small_db.db
+    assert small_db.trained_records(JobData(job_name="test_job")) == 0

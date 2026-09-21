@@ -415,20 +415,19 @@ def test_find_config_file_missing(tmp_path, monkeypatch):
         find_config_file()
 
 
-def test_retrain_threshold_default(basic_toml):
-    """Without a setting, a fifth of the training set may accumulate before warning."""
-    assert SlurmiseConfiguration(basic_toml).retrain_threshold == 0.2
-
-
-def test_retrain_threshold_override(tmpdir):
-    """The threshold is configurable at the slurmise level."""
+@pytest.mark.parametrize(
+    ("setting", "expected"),
+    [("", 0.2), ("retrain_threshold = 0.5", 0.5)],
+)
+def test_retrain_threshold(tmpdir, setting, expected):
+    """A fifth of the training set may accumulate before warning, unless configured."""
     toml = write_toml(
         tmpdir,
-        """
+        f"""
     [slurmise]
     base_dir = "slurmise_dir"
-    retrain_threshold = 0.5
+    {setting}
     """,
     )
 
-    assert SlurmiseConfiguration(toml).retrain_threshold == 0.5
+    assert SlurmiseConfiguration(toml).retrain_threshold == expected

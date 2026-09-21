@@ -153,15 +153,13 @@ class JobDatabase:
         job_group = self.db.get(JobDatabase.get_group_name(job_data), default={})
         return sum(1 for slurm_data in job_group.values() if JobDatabase.is_slurm_job(slurm_data))
 
-    def trained_records(self, job_data: JobData) -> int | None:
+    def trained_records(self, job_data: JobData) -> int:
         """
         The number of jobs the model for this category combination was last fit on,
-        or None when it has never been fit by a version that records it.
+        or 0 when it has never been fit.
         """
         job_group = self.db.get(JobDatabase.get_group_name(job_data))
-        if job_group is None or TRAINED_RECORDS not in job_group.attrs:
-            return None
-        return int(job_group.attrs[TRAINED_RECORDS])
+        return 0 if job_group is None else int(job_group.attrs.get(TRAINED_RECORDS, 0))
 
     def set_trained_records(self, job_data: JobData, count: int) -> None:
         """Record how many jobs the model for this category combination was fit on."""
