@@ -70,10 +70,9 @@ clear it and fit the job you're about to ask about:
 
 ```bash
 $ rm -f fits.json *.pkl
-$ slurmise --toml slurmise.toml update-model \
-    "perfectScaler --intensity 2750 --duration 10"
+$ slurmise --toml slurmise.toml update-model --job-name perfectScaler
 #> expect ok
-$ grep -o '"job_name": "[^"]*"' fits.json
+$ grep -o '"job_name": "[^"]*"' PolynomialFit/*/fits.json
 #> expect /perfectScaler/
 $ slurmise --toml slurmise.toml predict \
     "perfectScaler --intensity 2750 --duration 10"
@@ -87,10 +86,9 @@ memory is the interesting one.
 
 ```bash
 $ rm -f fits.json *.pkl
-$ slurmise --toml slurmise.toml update-model \
-    "complexMemScaler --intensity 2750 --duration 10"
+$ slurmise --toml slurmise.toml update-model --job-name complexMemScaler
 #> expect ok
-$ grep -o '"job_name": "[^"]*"' fits.json
+$ grep -o '"job_name": "[^"]*"' PolynomialFit/*/fits.json
 #> expect /complexMemScaler/
 $ slurmise --toml slurmise.toml predict \
     "complexMemScaler --intensity 2750 --duration 10"
@@ -168,8 +166,7 @@ earlier:
 
 ```bash
 $ rm -f fits.json *.pkl
-$ slurmise --toml slurmise.toml update-model \
-    "categoricalScaler --intensity 20 --duration 10 --scaling linear"
+$ slurmise --toml slurmise.toml update-model --job-name categoricalScaler
 #> expect ok
 $ slurmise --toml slurmise.toml predict \
     "categoricalScaler --intensity 20 --duration 10 --scaling linear"
@@ -181,8 +178,7 @@ same question with the other end of the scale:
 
 ```bash
 $ rm -f fits.json *.pkl
-$ slurmise --toml slurmise.toml update-model \
-    "categoricalScaler --intensity 20 --duration 10 --scaling cubic"
+$ slurmise --toml slurmise.toml update-model --job-name categoricalScaler
 #> expect ok
 $ slurmise --toml slurmise.toml predict \
     "categoricalScaler --intensity 20 --duration 10 --scaling cubic"
@@ -205,7 +201,7 @@ for you, every time, before the lesson starts:
 
 ```bash
 #> reset
-$ rm -f slurmise.h5 fits.json *.pkl
-$ rm -f out_slurm_logs/*.out
-$ mkdir -p out_slurm_logs
+$ rm -f slurmise.h5
+$ rm -rf PolynomialFit
+$ rm -rf out_slurm_logs
 ```

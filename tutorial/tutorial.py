@@ -741,6 +741,7 @@ ARTIFACTS = (
     "__pycache__",
     "slurm_outs",
     "out_slurm_logs",
+    "PolynomialFit",
 )
 
 
