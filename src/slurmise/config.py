@@ -57,6 +57,7 @@ class SlurmiseConfiguration:
                 self.jobs[job_name]["job_spec_obj"] = JobSpec(
                     job["variables"],
                     available_parsers=self.file_parsers,
+                    job_name=job_name,
                 )
 
                 if "job_spec" in job:
@@ -65,8 +66,8 @@ class SlurmiseConfiguration:
                     if validation is not None:
                         raise ValueError(f"Unable to validate variables for {job_name}\n" + validation)
 
-                if "job_prefix" in job:
-                    self.job_prefixes[job_name] = job["job_prefix"]
+                # The job name doubles as the command prefix unless one is declared.
+                self.job_prefixes[job_name] = job.get("job_prefix", job_name)
                 if "default_time" in job:
                     self.default_runtime[job_name] = int(job["default_time"])
                 if "default_mem" in job:
@@ -125,15 +126,8 @@ class SlurmiseConfiguration:
                     break
 
             else:  # not a prefix. Runs when it does not hit the break.
-                for name in self.jobs.keys():
-                    if cmd.startswith(name):
-                        job_name = name
-                        cmd = cmd.removeprefix(name).lstrip()
-                        break
-
-                else:
-                    msg = f"Unable to match job name to {cmd!r}"
-                    raise ValueError(msg)
+                msg = f"Unable to match job name to {cmd!r}"
+                raise ValueError(msg)
         else:
             job_prefix = self.job_prefixes.get(job_name, None)
             if job_prefix is not None:
@@ -170,3 +164,18 @@ class SlurmiseConfiguration:
 
     def get_sources(self, job_name: str) -> dict:
         return self.jobs[job_name]["job_spec_obj"].get_sources()
+
+
+def find_config_file() -> Path:
+    """
+    Search for a config file if it is not provided. Search first in the current
+    working directory, and if the file does not exist search in the default
+    slurmise base directory.
+    """
+
+    if (Path.cwd() / "slurmise.toml").exists():
+        return Path.cwd() / "slurmise.toml"
+    elif (Path.home() / ".slurmise/slurmise.toml").exists():
+        return Path.home() / ".slurmise/slurmise.toml"
+    else:
+        raise RuntimeError("No slurmise.toml was found in current or ~/.slurmise/ directory.")

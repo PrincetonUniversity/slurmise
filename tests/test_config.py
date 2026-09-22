@@ -1,6 +1,8 @@
+from pathlib import Path
+
 import pytest
 
-from slurmise.config import SlurmiseConfiguration
+from slurmise.config import SlurmiseConfiguration, find_config_file
 from slurmise.job_data import JobData
 from slurmise.job_parse import file_parsers
 
@@ -27,6 +29,46 @@ def test_missing_variables_section(tmpdir):
         SlurmiseConfiguration(toml)
 
 
+def test_job_without_numeric_variable(tmpdir):
+    """A job needs something to regress on, so an all category job is rejected (issue #78)."""
+    toml_str = """
+    [slurmise]
+    base_dir = "slurmise_dir"
+
+    [slurmise.job.nupack]
+    job_spec = "monomer -M {mode} -C {complexity}"
+    [slurmise.job.nupack.variables]
+    mode = {type = "category"}
+    complexity = {type = "category"}
+    """
+    toml = write_toml(tmpdir, toml_str)
+
+    with pytest.raises(ValueError, match="at least one numeric variable"):
+        SlurmiseConfiguration(toml)
+
+
+def test_job_with_numeric_variable_is_accepted(tmpdir):
+    """One numeric alongside the categories is enough."""
+    toml_str = """
+    [slurmise]
+    base_dir = "slurmise_dir"
+
+    [slurmise.job.nupack]
+    job_spec = "monomer -T {threads} -C {complexity}"
+    [slurmise.job.nupack.variables]
+    threads = {type = "numeric"}
+    complexity = {type = "category"}
+    """
+    toml = write_toml(tmpdir, toml_str)
+
+    config = SlurmiseConfiguration(toml)
+
+    assert config.jobs["nupack"]["job_spec_obj"].token_kinds == {
+        "threads": "numeric",
+        "complexity": "category",
+    }
+
+
 def test_missing_variable_type(tmpdir):
     """Test the default can be set at the slurmise level for all jobs without additional defaults."""
     toml_str = """
@@ -51,7 +93,7 @@ def test_no_placeholders(tmpdir):
     base_dir = "slurmise_dir"
 
     [slurmise.job.nupack]
-    job_spec = "monomer -T {threads:asdf} -C {complexity:asdf}"
+    job_spec = "monomer -T some_fixed_value -C other_fixed_value"
     [slurmise.job.nupack.variables]
     threads = {type = "numeric"}
     complexity = {type = "category"}
@@ -221,7 +263,7 @@ def test_parse_job_from_variables(basic_toml):
 
 def test_parse_job_cmd_with_ignore(basic_toml):
     config = SlurmiseConfiguration(basic_toml)
-    job_data = config.parse_job_cmd("-T 1 -C simple -i can't see me", "with_ignore", "1234")
+    job_data = config.parse_job_cmd("-T 1 -C simple -i ignored", "with_ignore", "1234")
 
     assert job_data.job_name == "with_ignore"
     assert job_data.slurm_id == "1234"
@@ -339,3 +381,35 @@ def test_minimum_resources_non_default(tmpdir):
 
     assert job_data.memory == 100
     assert job_data.runtime == 5
+
+
+@pytest.mark.parametrize(
+    ("in_cwd", "in_home", "expected"),
+    [
+        (True, False, "cwd/slurmise.toml"),
+        (False, True, "home/.slurmise/slurmise.toml"),
+        (True, True, "cwd/slurmise.toml"),  # the working directory takes precedence
+    ],
+)
+def test_find_config_file(tmp_path, monkeypatch, in_cwd, in_home, expected):
+    cwd = tmp_path / "cwd"
+    home = tmp_path / "home"
+    cwd.mkdir()
+    (home / ".slurmise").mkdir(parents=True)
+    monkeypatch.chdir(cwd)
+    monkeypatch.setattr(Path, "home", lambda: home)
+    if in_cwd:
+        (cwd / "slurmise.toml").touch()
+    if in_home:
+        (home / ".slurmise" / "slurmise.toml").touch()
+
+    assert find_config_file() == tmp_path / expected
+
+
+def test_find_config_file_missing(tmp_path, monkeypatch):
+    """With no config in either location, a RuntimeError is raised."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+    with pytest.raises(RuntimeError, match="No slurmise.toml was found"):
+        find_config_file()

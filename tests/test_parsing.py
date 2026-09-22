@@ -30,6 +30,25 @@ def test_job_spec_unknown_kind():
         JobSpec({"threads": {"type": "double"}})
 
 
+def test_job_spec_category_returning_parser_is_not_a_numeric():
+    """file_basename returns a category, so a file variable alone leaves nothing to fit on."""
+    with pytest.raises(ValueError, match="at least one numeric variable"):
+        JobSpec(
+            {"input1": {"type": "file", "file_parsers": "file_basename"}},
+            available_parsers={"file_basename": file_parsers.FileBasename()},
+        )
+
+
+def test_job_spec_numeric_returning_parser_satisfies_the_requirement():
+    """file_size returns a numeric, so no numeric variable has to be declared alongside it."""
+    spec = JobSpec(
+        {"input1": {"type": "file", "file_parsers": "file_size"}},
+        available_parsers={"file_size": file_parsers.FileSizeParser()},
+    )
+
+    assert spec.token_kinds == {"input1": "file"}
+
+
 def test_basic_job_spec():
     spec = JobSpec({"threads": {"type": "numeric"}})
     spec.add_job_spec("cmd -T {threads}")
@@ -172,33 +191,208 @@ def test_try_exact_fails():
     assert result.startswith("Failed to parse")
 
 
-@pytest.mark.skip
+def test_adjacent_tokens_no_ambiguity():
+    spec = JobSpec({"n": {"type": "numeric"}, "file1": {"type": "category"}, "file2": {"type": "category"}})
+    spec.add_job_spec("cmd {n} {file1} {file2}")
+    jd = spec.parse_job_cmd(JobData(job_name="test", cmd="cmd 1 alpha beta"))
+    assert jd.categories == {"file1": "alpha", "file2": "beta"}
+
+
+def test_adjacent_tokens_ignore_between():
+    spec = JobSpec({"n": {"type": "numeric"}, "file1": {"type": "category"}, "file2": {"type": "category"}})
+    spec.add_job_spec("cmd {n} {file1} {ignore} {file2}")
+    jd = spec.parse_job_cmd(JobData(job_name="test", cmd="cmd 1 alpha skip beta"))
+    assert jd.categories == {"file1": "alpha", "file2": "beta"}
+
+
+def test_pattern_override_multiword_ignore():
+    spec = JobSpec(
+        {"n": {"type": "numeric"}, "opts": {"type": "ignore", "pattern": ".+?"}, "file2": {"type": "category"}}
+    )
+    spec.add_job_spec("cmd {n} {opts} {file2}")
+    jd = spec.parse_job_cmd(JobData(job_name="test", cmd="cmd 1 option1 option2 result"))
+    assert jd.categories == {"file2": "result"}
+
+
+def test_pattern_override_multiword_ignore_cant_see_me():
+    spec = JobSpec(
+        {
+            "threads": {"type": "numeric"},
+            "complexity": {"type": "category"},
+            "extra": {"type": "ignore", "pattern": ".+"},
+        }
+    )
+    spec.add_job_spec("-T {threads} -C {complexity} -i {extra}")
+    jd = spec.parse_job_cmd(JobData(job_name="test", cmd="-T 1 -C simple -i can't see me"))
+    assert jd.numerics == {"threads": 1.0}
+    assert jd.categories == {"complexity": "simple"}
+
+
+def test_pattern_override_quoted_file(tmp_path):
+    available_parsers = {"file_basename": file_parsers.FileBasename()}
+    spec = JobSpec(
+        {
+            "n": {"type": "numeric"},
+            "input": {"type": "file", "file_parsers": "file_basename", "pattern": '[^"]+'},
+        },
+        available_parsers=available_parsers,
+    )
+    spec.add_job_spec('cmd {n} "{input}"')
+    input_file = tmp_path / "path with spaces" / "input.txt"
+    input_file.parent.mkdir()
+    input_file.touch()
+    jd = spec.parse_job_cmd(JobData(job_name="test", cmd=f'cmd 1 "{input_file}"'))
+    assert jd.categories == {"input_file_basename": "input.txt"}
+
+
+def test_pattern_override_invalid_regex():
+    with pytest.raises(ValueError, match="Invalid pattern for variable 'opts'"):
+        JobSpec({"opts": {"type": "category", "pattern": "[invalid"}})
+
+
+def test_pattern_override_numeric_disallowed():
+    with pytest.raises(ValueError, match="Pattern override is not allowed for numeric variable 'threads'"):
+        JobSpec({"threads": {"type": "numeric", "pattern": r"\d+"}})
+
+
+def test_numeric_scientific_notation():
+    spec = JobSpec({"lr": {"type": "numeric"}})
+    spec.add_job_spec("train --lr {lr}")
+    for val, expected in [("1e-4", 1e-4), ("2.5E+6", 2.5e6), ("-1.0e+3", -1000.0), (".5", 0.5)]:
+        jd = spec.parse_job_cmd(JobData(job_name="test", cmd=f"train --lr {val}"))
+        assert jd.numerics == {"lr": expected}
+
+
+def test_align_fallback_when_too_different():
+    """When the command is too far from the spec for fuzzy matching, fall back to
+    a plain character-level diff rather than raising an error."""
+    spec = JobSpec({"threads": {"type": "numeric"}, "another": {"type": "category"}})
+    spec.add_job_spec("cmd -T {threads} -S {another}")
+
+    result = spec.align_and_indicate_differences("completely unrelated input xyz")
+    assert isinstance(result, str)
+    assert result  # non-empty
+
+
+def test_align_fallback_long_spec_wrong_cmd():
+    """Long specs with a completely wrong command must complete within the built-in 2s timeout."""
+    import time
+
+    spec = JobSpec(
+        {
+            "cpus": {"type": "numeric"},
+            "query": {"type": "category"},
+            "footprint": {"type": "category"},
+            "maps": {"type": "category"},
+            "bands": {"type": "category"},
+            "iters": {"type": "numeric"},
+        }
+    )
+    spec.add_job_spec(
+        "--cpu_bind=cores --export=ALL --ntasks-per-node={cpus}"
+        " --cpus-per-task=8 so-site-pipeline make-ml-map {query}"
+        " {footprint} {ignore} --comps={maps} -C {ignore}"
+        " --bands={bands} --maxiter={iters} -v --tiled=1 --site act"
+    )
+
+    start = time.monotonic()
+    result = spec.align_and_indicate_differences("wrong cmd")
+    elapsed = time.monotonic() - start
+
+    assert elapsed < 3.0, f"align_and_indicate_differences took {elapsed:.1f}s (expected < 3s)"
+    assert result
+
+
+def test_align_fuzzy_timeout_long_cmd():
+    """A long command that would make fuzzy matching hang must still return within ~2s."""
+    import time
+
+    spec = JobSpec(
+        {
+            "cpus": {"type": "numeric"},
+            "query": {"type": "category"},
+            "footprint": {"type": "category"},
+            "maps": {"type": "category"},
+            "bands": {"type": "category"},
+            "iters": {"type": "numeric"},
+        }
+    )
+    spec.add_job_spec(
+        "--cpu_bind=cores --export=ALL --ntasks-per-node={cpus}"
+        " --cpus-per-task=8 so-site-pipeline make-ml-map {query}"
+        " {footprint} {ignore} --comps={maps} -C {ignore}"
+        " --bands={bands} --maxiter={iters} -v --tiled=1 --site act"
+    )
+    # A near-match long command where fuzzy matching would previously hang
+    cmd = (
+        "--cpu_bind=cores --export=ALL --ntasks-per-node=1"
+        " --cpus-per-task=8 so-site-pipeline make-ml-map timestamp_start"
+        " somefile.fits output --executable so-site-pipeline"
+        " --comps=context.yaml -C context.yaml"
+        " --bands=aband"
+        " --maxiter=10 -v --tiled=1 --site act --extra-flag-that-breaks-it"
+    )
+
+    start = time.monotonic()
+    result = spec.align_and_indicate_differences(cmd, try_exact_match=True)
+    elapsed = time.monotonic() - start
+
+    assert elapsed < 3.0, f"align_and_indicate_differences took {elapsed:.1f}s (expected < 3s)"
+    assert result
+    print(f"\n[elapsed: {elapsed:.2f}s]\n{result}")
+
+
+def test_align_no_anchor_corruption():
+    """Stripping anchors before fuzzy matching must not corrupt group capture values."""
+    spec = JobSpec({"threads": {"type": "numeric"}, "another": {"type": "category"}})
+    spec.add_job_spec("cmd -T {threads} -S {another}")
+
+    # Exact match: groups should be filled correctly
+    result = spec.align_and_indicate_differences("cmd -T 3 -S cat", try_exact_match=True)
+    assert "Able to parse" in result
+    # The captured value should appear in the annotated output
+    assert "3" in result
+    assert "cat" in result
+
+
 def test_long_job_spec():
     spec = JobSpec(
-        "--cpu_bind=cores --export=ALL --ntasks-per-node={cpus:numeric} "
-        "--cpus-per-task=8 so-site-pipeline make-ml-map {query:category} "
-        "{footprint:category} {ignore} --comps={maps:category} -C {ignore} "
-        "--bands={bands:category} --maxiter={iters:numeric} -v --tiled=1 --site act",
-        file_parsers={"footprint": "file_md5"},
+        {
+            "cpus": {"type": "numeric"},
+            "query": {"type": "category"},
+            "footprint": {"type": "category"},
+            "maps": {"type": "category"},
+            "bands": {"type": "category"},
+            "iters": {"type": "numeric"},
+        }
     )
+    spec.add_job_spec(
+        "--cpu_bind=cores --export=ALL --ntasks-per-node={cpus}"
+        " --cpus-per-task=8 so-site-pipeline make-ml-map {query}"
+        " {footprint} {ignore} --comps={maps} -C {ignore}"
+        " --bands={bands} --maxiter={iters} -v --tiled=1 --site act"
+    )
+    # The {ignore} tokens absorb one extra word each; the command parses exactly.
     cmd = (
-        "--cpu_bind=cores --export=ALL --ntasks-per-node=1 "
-        "--cpus-per-task=8 so-site-pipeline make-ml-map timestamp_start "
-        "somefile.fits output --executable so-site-pipeline "
-        "--comps=context.yaml -C context.yaml "
-        "--bands=aband "
-        "--maxiter=10 -v --tiled=1 --site act"
+        "--cpu_bind=cores --export=ALL --ntasks-per-node=1"
+        " --cpus-per-task=8 so-site-pipeline make-ml-map timestamp_start"
+        " somefile.fits output"
+        " --comps=context.yaml -C context.yaml"
+        " --bands=aband"
+        " --maxiter=10 -v --tiled=1 --site act"
     )
+    result = spec.align_and_indicate_differences(cmd, try_exact_match=True)
+    print(f"\n{result}")
+    assert result.startswith("Able to parse")
 
-    print(spec.align_and_indicate_differences(cmd))
-
-    from datetime import datetime
-
-    start = datetime.now()
-    with pytest.raises(ValueError, match="Job spec for test does not match command:") as ve:
-        spec.parse_job_cmd(JobData(job_name="test", cmd=cmd))
-    print(datetime.now() - start)
-    print(f"\n{ve.value}")
+    jd = spec.parse_job_cmd(JobData(job_name="test", cmd=cmd))
+    assert jd.numerics == {"cpus": 1.0, "iters": 10.0}
+    assert jd.categories == {
+        "query": "timestamp_start",
+        "footprint": "somefile.fits",
+        "maps": "context.yaml",
+        "bands": "aband",
+    }
 
 
 def test_job_spec_with_no_file_parser(tmp_path):
@@ -249,14 +443,14 @@ def test_job_spec_with_builtin_parsers_basename(tmp_path):
     }
 
     spec = JobSpec(
-        {"input1": {"type": "file", "file_parsers": "file_basename"}},
+        {"input1": {"type": "file", "file_parsers": "file_basename"}, "input2": {"type": "numeric"}},
         available_parsers=available_parsers,
     )
-    spec.add_job_spec("--input1 {input1}")
+    spec.add_job_spec("--input1 {input1} --input2 {input2}")
 
     input_file = tmp_path / "input.txt"
 
-    command = f"--input1 {input_file}"
+    command = f"--input1 {input_file} --input2 3"
     jd = spec.parse_job_cmd(
         JobData(
             job_name="test",
@@ -264,27 +458,17 @@ def test_job_spec_with_builtin_parsers_basename(tmp_path):
         )
     )
     assert jd.job_name == "test"
-    assert jd.numerics == {}
+    assert jd.numerics == {"input2": 3.0}
     assert jd.categories == {"input1_file_basename": "input.txt"}
 
     jd = spec.parse_job_from_dict(
-        {"input1": input_file},
+        {"input1": input_file, "input2": 3},
         JobData(
             job_name="test",
         ),
     )
     assert jd.job_name == "test"
-    assert jd.numerics == {}
-    assert jd.categories == {"input1_file_basename": "input.txt"}
-
-    jd = spec.parse_job_from_dict(
-        {"input1": input_file},
-        JobData(
-            job_name="test",
-        ),
-    )
-    assert jd.job_name == "test"
-    assert jd.numerics == {}
+    assert jd.numerics == {"input2": 3.0}
     assert jd.categories == {"input1_file_basename": "input.txt"}
 
 
@@ -300,10 +484,10 @@ def test_job_spec_with_builtin_parsers_md5hash(tmp_path):
     }
 
     spec = JobSpec(
-        {"input1": {"type": "file", "file_parsers": "file_md5"}},
+        {"input1": {"type": "file", "file_parsers": "file_md5"}, "input2": {"type": "numeric"}},
         available_parsers=available_parsers,
     )
-    spec.add_job_spec("--input1 {input1}")
+    spec.add_job_spec("--input1 {input1} --input2 {input2}")
 
     input_file = tmp_path / "input.txt"
     input_file.write_text(
@@ -318,7 +502,7 @@ def test_job_spec_with_builtin_parsers_md5hash(tmp_path):
         of text"""
     )
 
-    command = f"--input1 {input_file}"
+    command = f"--input1 {input_file} --input2 3"
     jd = spec.parse_job_cmd(
         JobData(
             job_name="test",
@@ -326,12 +510,12 @@ def test_job_spec_with_builtin_parsers_md5hash(tmp_path):
         )
     )
     assert jd.job_name == "test"
-    assert jd.numerics == {}
+    assert jd.numerics == {"input2": 3.0}
 
     jd_test = spec.parse_job_cmd(
         JobData(
             job_name="test",
-            cmd=f"--input1 {test_file}",
+            cmd=f"--input1 {test_file} --input2 3",
         )
     )
     # test that md5 digest reflects file content
@@ -747,6 +931,62 @@ END {if (seq) print seq}
         "input1_fasta_inline": [40, 25, 43, 1],
         "input1_fasta_script": [40, 25, 43, 1],
     }
+
+
+def test_job_spec_dot_in_literal_matches_exactly():
+    spec = JobSpec({"threads": {"type": "numeric"}})
+    spec.add_job_spec("cmd.super -T {threads}")
+
+    jd = spec.parse_job_cmd(JobData(job_name="test", cmd="cmd.super -T 3"))
+    assert jd.numerics == {"threads": 3}
+
+
+def test_job_spec_dot_in_literal_does_not_over_match():
+    spec = JobSpec({"threads": {"type": "numeric"}})
+    spec.add_job_spec("cmd.super -T {threads}")
+
+    with pytest.raises(ValueError, match="Job spec for test does not match command:"):
+        spec.parse_job_cmd(JobData(job_name="test", cmd="cmdXsuper -T 3"))
+
+
+def test_job_spec_pipe_in_literal():
+    spec = JobSpec({"output": {"type": "category"}, "threads": {"type": "numeric"}})
+    spec.add_job_spec("find -name '*.out' | grep {output} -T {threads}")
+
+    jd = spec.parse_job_cmd(JobData(job_name="test", cmd="find -name '*.out' | grep help -T 2"))
+    assert jd.categories == {"output": "help"}
+    assert jd.numerics == {"threads": 2.0}
+
+
+def test_job_spec_pipe_in_literal_does_not_over_match():
+    spec = JobSpec({"output": {"type": "category"}, "threads": {"type": "numeric"}})
+    spec.add_job_spec("find -name '*.out' | grep {output} -T {threads}")
+
+    with pytest.raises(ValueError, match="Job spec for test does not match command:"):
+        spec.parse_job_cmd(JobData(job_name="test", cmd="find -name '*.out' X grep help -T 2"))
+
+
+def test_job_spec_literal_brace_in_awk():
+    spec = JobSpec({"input": {"type": "category"}, "threads": {"type": "numeric"}})
+    spec.add_job_spec("awk '{{print $1}}' {input} -T {threads}")
+
+    jd = spec.parse_job_cmd(JobData(job_name="test", cmd="awk '{print $1}' data.txt -T 2"))
+    assert jd.categories == {"input": "data.txt"}
+    assert jd.numerics == {"threads": 2.0}
+
+
+def test_job_spec_literal_brace_does_not_match_missing_brace():
+    spec = JobSpec({"input": {"type": "category"}, "threads": {"type": "numeric"}})
+    spec.add_job_spec("awk '{{print $1}}' {input} -T {threads}")
+
+    with pytest.raises(ValueError, match="Job spec for test does not match command:"):
+        spec.parse_job_cmd(JobData(job_name="test", cmd="awk 'print $1' data.txt -T 2"))
+
+
+def test_job_spec_only_escaped_braces_raises():
+    spec = JobSpec({"threads": {"type": "numeric"}})
+    with pytest.raises(ValueError, match="Job specification contains no variables"):
+        spec.add_job_spec("awk '{{print $1}}'")
 
 
 def test_job_spec_stores_model():

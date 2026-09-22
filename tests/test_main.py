@@ -1,22 +1,62 @@
+from pathlib import Path
+from unittest import mock
+
 import numpy as np
 import pytest
 from click.testing import CliRunner
 
 from slurmise import job_database
 from slurmise.__main__ import main
+from slurmise.api import Slurmise
 from slurmise.job_data import JobData
 
 
-def test_missing_toml():
-    """Check that excluding a toml file will fail with error message."""
+@pytest.mark.parametrize(
+    "subcommand",
+    ["record", "predict", "parse", "update-model"],
+)
+def test_unknown_option_hint(simple_toml, subcommand):
+    """Unknown slurmise options should suggest using -- to separate from the wrapped command."""
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        ["--toml", simple_toml.toml, subcommand, "--unknown-flag", "nupack monomer -T 2 -C simple"],
+    )
+    assert result.exit_code == 2
+    assert "--unknown-flag" in result.output
+    assert "separate slurmise" in result.output
+    assert " -- " in result.output
+
+
+def test_missing_toml(tmp_path, monkeypatch):
+    """Excluding a toml file with none in the search path fails with an error."""
+    # point both search locations at an empty directory so the developer's own
+    # ~/.slurmise/slurmise.toml cannot satisfy the lookup
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
     runner = CliRunner()
     result = runner.invoke(
         main,
         ["record", "something"],
     )
     assert result.exit_code == 1
-    assert "Slurmise requires a toml file" in result.output
-    assert "See readme for more information" in result.output
+    assert "No slurmise.toml was found" in result.stderr
+    assert "See readme for more information" in result.stderr
+
+
+def test_toml_discovered_without_option(simple_toml, tmp_path, monkeypatch):
+    """Without --toml, the config found by the search path is used."""
+    monkeypatch.chdir(simple_toml.toml.parent)
+    monkeypatch.setattr(Path, "home", lambda: tmp_path / "empty_home")
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        ["parse", "nupack monomer -T 2 -C simple"],
+    )
+    assert result.exit_code == 0
+    assert result.stdout.startswith("Able to parse")
 
 
 def test_record(simple_toml, sacct_mock):
@@ -480,6 +520,9 @@ def test_update_predict(nupack_toml):
             "--toml",
             nupack_toml.toml,
             "update-model",
+            "--job-name",
+            "nupack",
+            "--cmd",
             "nupack monomer -c 1 -S 4985",
         ],
         catch_exceptions=True,
@@ -570,6 +613,61 @@ def test_update_predict(nupack_toml):
     assert predicted_memory[0] == "Predicted memory"
     assert float(predicted_memory[1]) == 1000
     assert "Warnings:" in result.stderr
+
+
+def test_update_model_without_cmd(small_db_toml):
+    """update-model with only --job-name refits every category of that job.
+
+    _update_model is mocked out because the small_db fixture has too few records per
+    category for sklearn's train_test_split; what matters here is that the command
+    is dispatched once per category combination rather than requiring a command.
+    """
+    runner = CliRunner()
+    with mock.patch.object(Slurmise, "_update_model") as update_mock:
+        result = runner.invoke(
+            main,
+            [
+                "--toml",
+                small_db_toml.toml,
+                "update-model",
+                "--job-name",
+                "test_job",
+            ],
+            catch_exceptions=True,
+        )
+
+    if result.exception:  # pragma: no cover
+        print(f"Exception: {result.exception}")
+    assert result.exit_code == 0
+
+    updated_queries = [call.args[0] for call in update_mock.call_args_list]
+    assert updated_queries == [
+        JobData(job_name="test_job", categories={"option1": "value1", "option2": "value2"}),
+        JobData(job_name="test_job", categories={"option1": "value2"}),
+        JobData(job_name="test_job"),
+    ]
+
+
+def test_update_model_unknown_job_name(small_db_toml):
+    """A job name absent from the database updates nothing instead of failing."""
+    runner = CliRunner()
+    with mock.patch.object(Slurmise, "_update_model") as update_mock:
+        result = runner.invoke(
+            main,
+            [
+                "--toml",
+                small_db_toml.toml,
+                "update-model",
+                "--job-name",
+                "job_not_in_database",
+            ],
+            catch_exceptions=True,
+        )
+
+    if result.exception:  # pragma: no cover
+        print(f"Exception: {result.exception}")
+    assert result.exit_code == 0
+    update_mock.assert_not_called()
 
 
 def test_update_all_predict(nupack_toml):

@@ -38,7 +38,20 @@ def _report_prediction(query_jd: job_data.JobData, query_warns: list[str]) -> No
             click.echo(f"  {warn}", err=True)
 
 
-@click.group()
+class _SlurmiseGroup(click.Group):
+    def invoke(self, ctx: click.Context) -> object:
+        try:
+            return super().invoke(ctx)
+        except click.NoSuchOption as e:
+            raise click.UsageError(
+                e.format_message() + "\n\nTip: to pass options to the wrapped command, separate slurmise"
+                " options from the command with --\n"
+                "  e.g. slurmise [slurmise-options] <subcommand> -- your-command --with-flags",
+                ctx=e.ctx,
+            ) from e
+
+
+@click.group(cls=_SlurmiseGroup)
 @click.option(
     "--toml",
     "-t",
@@ -50,13 +63,14 @@ def _report_prediction(query_jd: job_data.JobData, query_warns: list[str]) -> No
 def main(ctx, toml):
     ctx.ensure_object(dict)
     # `print` can operate on a bare .h5 path and does not require a toml config.
-    if toml is None:
-        if ctx.invoked_subcommand == "print":
-            return
-        click.echo("Slurmise requires a toml file", err=True)
+    if toml is None and ctx.invoked_subcommand == "print":
+        return
+    try:
+        ctx.obj["slurmise"] = Slurmise(toml)
+    except RuntimeError as e:
+        click.echo(str(e), err=True)
         click.echo("See readme for more information", err=True)
         sys.exit(1)
-    ctx.obj["slurmise"] = Slurmise(toml)
 
 
 @main.command()
@@ -91,6 +105,7 @@ def parse(ctx, cmd, job_name):
 @click.option(
     "--numerics",
     type=str,
+    required=True,
     help="Numeric run parameters in JSON format without outer {}, such as 'n:3,q:17.4'",
 )
 @click.option(
@@ -188,8 +203,8 @@ def raw_predict(ctx, job_name, numerics, categories, cmd):
 
 
 @main.command()
-@click.argument("cmd", nargs=1)
-@click.option("--job-name", type=str, help="Name of the job")
+@click.option("--job-name", required=True, type=str, help="Name of the job.")
+@click.option("--cmd", type=str, help="Actual command to update the model with.")
 @click.pass_context
 def update_model(ctx, cmd, job_name):
     ctx.obj["slurmise"].update_model(cmd, job_name)
