@@ -275,17 +275,13 @@ def test_predict_warnings(two_categories_toml, fit_first, extra_records, expecte
     assert warnings == expected_warnings
 
 
-def test_update_model_refreshes_trained_count(two_categories_toml):
-    """Refitting rewrites the stored count so staleness is measured from the latest fit."""
+def test_update_model_clears_the_stale_warning(two_categories_toml):
+    """Refitting measures staleness from the latest fit, so the warning stops."""
     slurmise = Slurmise(two_categories_toml.toml)
-    query = JobData(job_name="nupack", categories={"mode": "fast", "complexity": "simple"})
-
     slurmise.update_model(None, "nupack")
     _record_extra(two_categories_toml.db, 5)
-    with job_database.JobDatabase.get_database(two_categories_toml.db) as database:
-        assert database.trained_records(query) == 20
 
     slurmise.update_model(None, "nupack")
 
-    with job_database.JobDatabase.get_database(two_categories_toml.db) as database:
-        assert database.trained_records(query) == 25
+    _, warnings = slurmise.predict("monomer -c 5 -M fast -C simple", "nupack")
+    assert warnings == []

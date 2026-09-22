@@ -601,17 +601,3 @@ def test_update_missing_mem_elapsed(empty_h5py_file, monkeypatch):
 def test_count_records(small_db, categories, expected):
     """Records are counted per category combination, without descending into children."""
     assert small_db.count_records(JobData(job_name="test_job", categories=categories)) == expected
-
-
-def test_trained_records_round_trip(small_db):
-    """The trained count is stored per category group, defaulting to 0."""
-    query = JobData(job_name="test_job", categories={"option1": "value2"})
-    assert small_db.trained_records(query) == 0
-    assert small_db.trained_records(JobData(job_name="never_recorded")) == 0
-    assert "/never_recorded" not in small_db.db  # reading must not create the group
-
-    small_db.set_trained_records(query, 17)
-
-    assert small_db.trained_records(query) == 17
-    # a different category combination keeps its own count
-    assert small_db.trained_records(JobData(job_name="test_job")) == 0

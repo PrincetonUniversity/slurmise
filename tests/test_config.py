@@ -417,10 +417,16 @@ def test_find_config_file_missing(tmp_path, monkeypatch):
 
 @pytest.mark.parametrize(
     ("setting", "expected"),
-    [("", 0.2), ("retrain_threshold = 0.5", 0.5)],
+    [
+        ("", 0.2),
+        ("retrain_warning_threshold = 0.5", 0.5),
+        # disabling wins over any threshold, by making it unreachable
+        ("retrain_warning_enable = false", float("inf")),
+        ("retrain_warning_enable = false\n    retrain_warning_threshold = 0.5", float("inf")),
+    ],
 )
-def test_retrain_threshold(tmpdir, setting, expected):
-    """A fifth of the training set may accumulate before warning, unless configured."""
+def test_retrain_warning_threshold(tmpdir, setting, expected):
+    """A fifth of the fitted records may accumulate before warning, unless configured."""
     toml = write_toml(
         tmpdir,
         f"""
@@ -430,4 +436,4 @@ def test_retrain_threshold(tmpdir, setting, expected):
     """,
     )
 
-    assert SlurmiseConfiguration(toml).retrain_threshold == expected
+    assert SlurmiseConfiguration(toml).retrain_warning_threshold == expected

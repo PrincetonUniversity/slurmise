@@ -14,9 +14,6 @@ import numpy as np
 from slurmise import slurm
 from slurmise.job_data import JobData
 
-# HDF5 attribute holding the number of jobs the category's model was last fit on.
-TRAINED_RECORDS = "trained_records"
-
 
 class JobDatabase:
     """
@@ -152,18 +149,6 @@ class JobDatabase:
         """
         job_group = self.db.get(JobDatabase.get_group_name(job_data), default={})
         return sum(1 for slurm_data in job_group.values() if JobDatabase.is_slurm_job(slurm_data))
-
-    def trained_records(self, job_data: JobData) -> int:
-        """
-        The number of jobs the model for this category combination was last fit on,
-        or 0 when it has never been fit.
-        """
-        job_group = self.db.get(JobDatabase.get_group_name(job_data))
-        return 0 if job_group is None else int(job_group.attrs.get(TRAINED_RECORDS, 0))
-
-    def set_trained_records(self, job_data: JobData, count: int) -> None:
-        """Record how many jobs the model for this category combination was fit on."""
-        self.db.require_group(JobDatabase.get_group_name(job_data)).attrs[TRAINED_RECORDS] = count
 
     def delete(self, job_data: JobData, delete_all_children: bool = False) -> None:
         """
