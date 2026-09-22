@@ -48,6 +48,7 @@ dev = [
 docs = [
   "sphinx",
   "sphinx-rtd-theme",
+  "myst-parser",
 ]
 
 snakemake = [
@@ -115,7 +116,7 @@ exclude_lines = [
 
 [tool.ruff]
 line-length = 120
-exclude = ["__about__.py"]
+exclude = ["__about__.py", "*.marimo.py"]
 
 [tool.ruff.lint]
 ignore = ["ANN001",
