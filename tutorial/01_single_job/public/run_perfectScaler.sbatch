@@ -1,0 +1,1 @@
+../run_perfectScaler.sbatch
