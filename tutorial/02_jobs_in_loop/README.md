@@ -74,13 +74,13 @@ $ slurmise --toml slurmise.toml update-all
 We skipped this in `01_single_job/` because it had nothing to fit: slurmise
 holds back 20% of the runs to test the model against and wants at least 10 runs
 left to train on, so it takes about 13 completed runs before a prediction stops
-being the toml's defaults. 
+being the toml's defaults.
 
-The fitted model lands in this directory as `fits.json` and a couple of `.pkl`
-files:
+The fitted model lands in a sub-directory as `fits.json` and a couple of `.pkl`
+files. Currently to default is for a polynomial model to be  used.
 
 ```bash
-$ grep -o '"job_name": "[^"]*"' fits.json
+$ grep -o '"job_name": "[^"]*"' PolynomialFit/*/fits.json
 #> expect /perfectScaler/
 ```
 
