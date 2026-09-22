@@ -48,6 +48,14 @@ default_time = 70
 minimum_mem = 2000
 minimum_time = 70
 
+# how much the database may grow past the records a model was fit on before
+# `predict` warns that the model should be refit, as a fraction of those records.
+# Default is 0.2, so a model fit on 20 jobs warns once the database holds 25.
+retrain_warning_threshold = 0.2
+
+# set to false to silence the refit warning entirely.  Default is true.
+retrain_warning_enable = true
+
 # for each job you want to track, give a unique job name
 [slurmise.job.job_name]
 # jobs of `job_name` will now return default memory of 3000 and time of 80

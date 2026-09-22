@@ -219,3 +219,69 @@ def test_record_step_id_without_slurm_id_or_env(simple_toml, no_slurm_env):
     slurmise = Slurmise(simple_toml.toml)
     with pytest.raises(ValueError, match="SLURM_JOB_ID"):
         slurmise.record("nupack monomer -T 2 -C simple", step_id="0")
+
+
+def _record_extra(db_path, count, mode="fast", complexity="simple", slope=3):
+    """Add more finished jobs to an existing category combination."""
+    with job_database.JobDatabase.get_database(db_path) as database:
+        for i in range(count):
+            cpus = i + 1
+            database.record(
+                JobData(
+                    job_name="nupack",
+                    slurm_id=f"extra_{i}",
+                    runtime=slope * cpus + 10,
+                    memory=100 * slope * cpus + 500,
+                    numerics={"cpus": cpus},
+                    categories={"mode": mode, "complexity": complexity},
+                )
+            )
+
+
+@pytest.mark.parametrize(
+    ("fit_first", "extra_records", "expected_warnings"),
+    [
+        # never fit: #75
+        (
+            False,
+            0,
+            [
+                "No model has been fit for job nupack. Returning default values.",
+                "Run: slurmise update-model --job-name nupack",
+            ],
+        ),
+        (True, 0, []),
+        (True, 4, []),  # the default 0.2 threshold allows 4 more than the 20 trained on
+        # enough new records to be worth a refit: #124
+        (
+            True,
+            5,
+            [
+                "The model for job nupack was fit on 20 jobs, the database holds 25.",
+                "Run: slurmise update-model --job-name nupack",
+            ],
+        ),
+    ],
+)
+def test_predict_warnings(two_categories_toml, fit_first, extra_records, expected_warnings):
+    """Predict names the command to run whenever it cannot stand behind its answer."""
+    slurmise = Slurmise(two_categories_toml.toml)
+    if fit_first:
+        slurmise.update_model(None, "nupack")
+    _record_extra(two_categories_toml.db, extra_records)
+
+    _, warnings = slurmise.predict("monomer -c 5 -M fast -C simple", "nupack")
+
+    assert warnings == expected_warnings
+
+
+def test_update_model_clears_the_stale_warning(two_categories_toml):
+    """Refitting measures staleness from the latest fit, so the warning stops."""
+    slurmise = Slurmise(two_categories_toml.toml)
+    slurmise.update_model(None, "nupack")
+    _record_extra(two_categories_toml.db, 5)
+
+    slurmise.update_model(None, "nupack")
+
+    _, warnings = slurmise.predict("monomer -c 5 -M fast -C simple", "nupack")
+    assert warnings == []

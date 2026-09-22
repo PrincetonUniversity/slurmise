@@ -47,6 +47,15 @@ class SlurmiseConfiguration:
             self.minimum_runtime = toml_data["slurmise"].get("minimum_time", 0)
             self.minimum_memory = toml_data["slurmise"].get("minimum_mem", 0)
 
+            # Fraction of the training set size that may accumulate before predict
+            # warns that the model should be refit.
+            self.retrain_warning_enable = toml_data["slurmise"].get("retrain_warning_enable", True)
+            self.retrain_warning_threshold = (
+                float(toml_data["slurmise"].get("retrain_warning_threshold", 0.2))
+                if self.retrain_warning_enable
+                else float("inf")
+            )
+
             self.extras = toml_data["slurmise"].get("extras", {})
 
             for job_name, job in self.jobs.items():

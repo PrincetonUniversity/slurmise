@@ -587,3 +587,17 @@ def test_update_missing_mem_elapsed(empty_h5py_file, monkeypatch):
             update_missing=False,
         )
         assert results == expected_output
+
+
+@pytest.mark.parametrize(
+    ("categories", "expected"),
+    [
+        ({}, 3),
+        ({"option1": "value1", "option2": "value2"}, 2),
+        ({"option1": "value2"}, 1),
+        ({"option1": "not_recorded"}, 0),
+    ],
+)
+def test_count_records(small_db, categories, expected):
+    """Records are counted per category combination, without descending into children."""
+    assert small_db.count_records(JobData(job_name="test_job", categories=categories)) == expected
