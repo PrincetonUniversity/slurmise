@@ -69,7 +69,6 @@ As in `02_jobs_in_loop/`, slurmise keeps one fitted model per `base_dir`, so
 clear it and fit the job you're about to ask about:
 
 ```bash
-$ rm -f fits.json *.pkl
 $ slurmise --toml slurmise.toml update-model --job-name perfectScaler
 #> expect ok
 $ grep -o '"job_name": "[^"]*"' PolynomialFit/*/fits.json
@@ -85,7 +84,6 @@ memory prediction should land near it anyway. Every task here ran with the same
 memory is the interesting one.
 
 ```bash
-$ rm -f fits.json *.pkl
 $ slurmise --toml slurmise.toml update-model --job-name complexMemScaler
 #> expect ok
 $ grep -o '"job_name": "[^"]*"' PolynomialFit/*/fits.json
@@ -99,9 +97,7 @@ Higher, when you get a model answer at all: `../bin/complexMemScaler` adds a
 flat 1000 MB on top of the intensity you ask for, and jitters it by ±20% on the
 way. That noise sometimes pushes the fit's error past 20%, and slurmise then
 returns `default_mem` with a warning instead — `03_noisy_job/` section 05
-covers why. The `grep` above is worth keeping in the habit either way: it's how
-you confirm the model answering your question belongs to the job you asked
-about.
+covers why.
 
 ## 05 — a feature that isn't a number
 
@@ -165,7 +161,6 @@ So fit and ask one category at a time, the same discipline as the two jobs
 earlier:
 
 ```bash
-$ rm -f fits.json *.pkl
 $ slurmise --toml slurmise.toml update-model --job-name categoricalScaler
 #> expect ok
 $ slurmise --toml slurmise.toml predict \
@@ -177,7 +172,6 @@ About 20 MB — `--scaling linear` means intensity to the first power. Now the
 same question with the other end of the scale:
 
 ```bash
-$ rm -f fits.json *.pkl
 $ slurmise --toml slurmise.toml update-model --job-name categoricalScaler
 #> expect ok
 $ slurmise --toml slurmise.toml predict \
@@ -188,10 +182,6 @@ $ slurmise --toml slurmise.toml predict \
 About 8000 MB — 20³. Same job, same `--intensity`, a four-hundred-fold
 difference in what it needs, and slurmise has it because it never mixed the two
 histories together.
-
-Try it without the `rm` and you'll get the previous category's answer to the new
-category's question: one fitted model lives in this directory at a time, and it
-does not check whether it was fitted for what you're asking about.
 
 ## Starting over
 
