@@ -20,8 +20,8 @@ for i in "${!intensities[@]}"; do
             --job-name perfectScaler \
             --slurm-id 12345 --step-id "$step" \
             --numerics "\"intensity\":$intensity,\"duration\":$duration" \
-            --used-minutes "$((duration + 2))" \
-            --used-mbs "$((intensity + 20))"
+            --used-minutes "$duration" \
+            --used-mbs "$intensity"
 
         step=$((step + 1))
     done
