@@ -16,7 +16,7 @@ anywhere:
    cd slurmise-tutorial
 
 That gives you a ``slurmise-tutorial/`` directory. Also make sure you
-so install slurmise too (see :doc:`install`).
+install slurmise too (see :doc:`install`).
 
 Inside the ``slurmise-tutorial`` you will find a top-level ``README`` and
 multiple self-contained lessons that you can work through in order.

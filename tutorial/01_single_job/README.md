@@ -115,7 +115,7 @@ The slurmise job-agnostic built-in defaults of 60 minutes and 1 GB are
 arbitrary. It is good practice to set both defaults in your toml so the default
 guess is at least in the right range for your job.
 
-Now you're read for the next tutorial, `../02_jobs_in_loop/`: where we
+Now you're ready for the next tutorial, `../02_jobs_in_loop/`: where we
 actually generate enough records to train a model and get good predictions.
 
 ## Starting over

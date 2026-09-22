@@ -53,7 +53,7 @@ The lessons' code blocks carry a few lines that might look strange such as:
 
 Here `#> expect` describes the expected output of the command above it. For example
 this block runs `echo` and checks that "World!" appears somewhere in the output.
-Note that this is a shell comments, so if you copy and paste them it should be fine.
+Note that this line is a shell comment, so if you copy and paste them it will have no effect.
 
 
 The purpose of `#>expect` are for `tutorial.py` to validate against, and they
@@ -69,18 +69,16 @@ Wherever a lesson submits a job, its block usually offers two ways to do it:
     $ bash mock_perfectScaler.sh
     #> expect ok
 
-`cluster` really submits. `mock` runs a script meant to mimic the `.sbatch`
+The `cluster` option really submits to slurm. `mock` runs a script meant to mimic the `.sbatch`
 and pre-defines what the job would have used instead instead of submitting.
 
 The benefit of `mock` is that it's much faster than waiting on a SLURM queue,
 and allows you to work through the tutorial without even having `sbatch` available.
-If you were running slurmise for real, you'd never use the mock approach. This is
-just for the tutorial.
+In actual usage, you will want to always use the sbatch approach.  Mocking is just for the tutorial.
 
-`04_array_jobs/` is the one exception to the choice: it always mocks, because
-its arrays come to 112 tasks and waiting on them teaches nothing the records
-don't. It prints the submissions it stands in for, so you can still run them
-yourself.
+`04_array_jobs/` does not give you a choice: it always mocks, because
+it creates 112 tasks which would waste resources without benefit. The mock prints the submissions it stands in for, so you can still run them
+yourself if you really want to.
 
 ## 04 — before you start
 

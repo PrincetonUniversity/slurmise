@@ -50,7 +50,7 @@ $ bash mock_perfectScaler_loop.sh
 ```
 
 `--wait` doesn't return until the job finishes, which here means all 39 steps —
-the durations in the list add up to about 110 seconds per replicate.
+the durations in the list add up to about 110 seconds per replicate (about 6 minutes total, go grab a coffee!).
 
 ## 04 — inspect
 
@@ -74,8 +74,7 @@ $ slurmise --toml slurmise.toml update-all
 We skipped this in `01_single_job/` because it had nothing to fit: slurmise
 holds back 20% of the runs to test the model against and wants at least 10 runs
 left to train on, so it takes about 13 completed runs before a prediction stops
-being the toml's defaults. One run was never going to do it; 39 comfortably
-does.
+being the toml's defaults. 
 
 The fitted model lands in this directory as `fits.json` and a couple of `.pkl`
 files:

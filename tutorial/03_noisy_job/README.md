@@ -77,7 +77,7 @@ showing up — or this:
 
     Warnings:
       Memory prediction for job complexMemScaler is not within 20% of actual value.
-      Returing default memory value.
+      Returning default memory value.
 
 5000 is `default_mem` from the toml. slurmise scored the fitted model against
 the runs it held back, found it missed by more than 20%, and declined to use it.
