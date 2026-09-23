@@ -38,6 +38,8 @@ class ResourceCorrector:
             raise ValueError(f"maximum ({self.maximum}) must be >= minimum ({self.minimum})")
         if self.multiply_prediction_by <= 0:
             raise ValueError(f"multiply_prediction_by must be > 0, got {self.multiply_prediction_by}")
+        if self.on_high_uncertainty_return == "max" and not math.isfinite(self.maximum):
+            raise ValueError("on_high_uncertainty_return='max' requires a finite maximum to be set")
 
     @classmethod
     def from_config(cls, resource: str, global_config: dict, job_config: dict | None = None) -> ResourceCorrector:
@@ -98,13 +100,11 @@ class ResourceCorrector:
                     )
                     return self.default, warnings
                 case "max":
-                    if math.isfinite(self.maximum):
-                        warnings.append(
-                            f"{self.resource.capitalize()} prediction for job {job_name} has high uncertainty. "
-                            f"Returning maximum {self.resource} value."
-                        )
-                        return self.maximum, warnings
-                    warnings.append(f"{self.resource.capitalize()} prediction for job {job_name} has high uncertainty.")
+                    warnings.append(
+                        f"{self.resource.capitalize()} prediction for job {job_name} has high uncertainty. "
+                        f"Returning maximum {self.resource} value."
+                    )
+                    return self.maximum, warnings
                 case "min":
                     warnings.append(
                         f"{self.resource.capitalize()} prediction for job {job_name} has high uncertainty. "

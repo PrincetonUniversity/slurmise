@@ -229,11 +229,10 @@ def test_high_uncertainty_max_returns_maximum():
     assert any("maximum" in w for w in warnings)
 
 
-def test_high_uncertainty_max_no_maximum_falls_through_to_prediction():
-    """When on_high_uncertainty_return='max' but maximum is inf, continue with the prediction."""
-    c = make_corrector(on_high_uncertainty_return="max", default=60, maximum=math.inf)
-    value, _warnings = c.correct(42.0, is_high_uncertainty=True, job_name="job")
-    assert value == pytest.approx(42.0)
+def test_high_uncertainty_max_no_maximum_raises():
+    """on_high_uncertainty_return='max' requires a finite maximum at construction time."""
+    with pytest.raises(ValueError, match="finite maximum"):
+        make_corrector(on_high_uncertainty_return="max", default=60, maximum=math.inf)
 
 
 def test_high_uncertainty_min_returns_minimum():
