@@ -42,6 +42,15 @@ class SlurmiseConfiguration:
             self._global_runtime_config: dict = toml_data["slurmise"].get("runtime", {})
             self._global_memory_config: dict = toml_data["slurmise"].get("memory", {})
 
+            # Fraction of the training set size that may accumulate before predict
+            # warns that the model should be refit.
+            self.retrain_warning_enable = toml_data["slurmise"].get("retrain_warning_enable", True)
+            self.retrain_warning_threshold = (
+                float(toml_data["slurmise"].get("retrain_warning_threshold", 0.2))
+                if self.retrain_warning_enable
+                else float("inf")
+            )
+
             self.extras = toml_data["slurmise"].get("extras", {})
 
             self.jobs = toml_data["slurmise"].get("job", {})

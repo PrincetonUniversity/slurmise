@@ -38,6 +38,14 @@ more complex information from a file.
 # base directory to store database and optimized models
 base_dir = "slurmise_dir"
 
+# how much the database may grow past the records a model was fit on before
+# `predict` warns that the model should be refit, as a fraction of those records.
+# Default is 0.2, so a model fit on 20 jobs warns once the database holds 25.
+retrain_warning_threshold = 0.2
+
+# set to false to silence the refit warning entirely.  Default is true.
+retrain_warning_enable = true
+
 # Global resource bounds applied to all jobs unless overridden per-job.
 # Built-in defaults: 60 minutes for runtime, 1000 MB for memory.
 [slurmise.runtime]

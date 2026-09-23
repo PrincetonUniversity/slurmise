@@ -29,6 +29,8 @@ MPE_THRESHOLD = 10
 class ResourceFit:
     query: JobData
     last_fit_dsize: int = 0
+    # Records available at the last fit; last_fit_dsize is only the training split.
+    last_fit_records: int = 0
     fit_timestamp: datetime.datetime = field(default_factory=datetime.datetime.now)
     model_metrics: dict = field(default_factory=dict)
     path: pathlib.Path | None = None
@@ -187,6 +189,7 @@ class ResourceFit:
         X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.2, random_state=random_state)
 
         self.last_fit_dsize = len(X_train)
+        self.last_fit_records = len(X)
 
         self.runtime_model = self._make_model(categories, numerics)
         self.memory_model = self._make_model(categories, numerics)

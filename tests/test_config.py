@@ -511,3 +511,27 @@ def test_find_config_file_missing(tmp_path, monkeypatch):
 
     with pytest.raises(RuntimeError, match="No slurmise.toml was found"):
         find_config_file()
+
+
+@pytest.mark.parametrize(
+    ("setting", "expected"),
+    [
+        ("", 0.2),
+        ("retrain_warning_threshold = 0.5", 0.5),
+        # disabling wins over any threshold, by making it unreachable
+        ("retrain_warning_enable = false", float("inf")),
+        ("retrain_warning_enable = false\n    retrain_warning_threshold = 0.5", float("inf")),
+    ],
+)
+def test_retrain_warning_threshold(tmpdir, setting, expected):
+    """A fifth of the fitted records may accumulate before warning, unless configured."""
+    toml = write_toml(
+        tmpdir,
+        f"""
+    [slurmise]
+    base_dir = "slurmise_dir"
+    {setting}
+    """,
+    )
+
+    assert SlurmiseConfiguration(toml).retrain_warning_threshold == expected
