@@ -77,7 +77,7 @@ class Slurmise:
 
         return self.raw_predict(query_jd)
 
-    def raw_predict(self, query_jd):
+    def raw_predict(self, query_jd, attempt: int = 0):
         query_jd = self.configuration.add_defaults(query_jd)
         model = self.configuration.get_model_class(query_jd.job_name)
         model_path = model._make_model_path(query_jd, base_path=self.configuration.slurmise_base_dir)
@@ -87,13 +87,15 @@ class Slurmise:
             query_warns = [f"No model has been fit for job {query_jd.job_name}. Returning default values."]
         else:
             query_model = model.load(query=query_jd, path=model_path)
-            query_jd, query_warns = query_model.predict(query_jd)
+            runtime_corrector = self.configuration.get_runtime_corrector(query_jd.job_name)
+            memory_corrector = self.configuration.get_memory_corrector(query_jd.job_name)
+            query_jd, query_warns = query_model.predict(query_jd, runtime_corrector, memory_corrector, attempt=attempt)
             query_warns += self._stale_model_warning(query_jd, query_model=query_model)
 
         if query_warns:
             query_warns.append(f"Run: slurmise update-model --job-name {query_jd.job_name}")
 
-        return self.configuration.correct_minimum(query_jd), query_warns
+        return query_jd, query_warns
 
     def _stale_model_warning(self, query_jd, query_model) -> list[str]:
         """Warn when enough jobs were recorded since the fit to justify retraining."""

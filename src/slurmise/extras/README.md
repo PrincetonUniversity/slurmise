@@ -43,8 +43,11 @@ The corresponding slurmise toml would be
 # slurmise.toml
 
 [slurmise.job.monitored]
-default_mem = 1000  # MB
-default_time = 60   # minutes
+[slurmise.job.monitored.runtime]
+default = 60       # minutes
+retry_exponent = 1.0  # resource *= attempt**retry_exponent on each Snakemake retry
+[slurmise.job.monitored.memory]
+default = 1000     # MB
 [slurmise.job.monitored.variables]
 # can specify a key, otherwise first file
 infile = {type = "file", source = "input", file_parsers = "file_size" }

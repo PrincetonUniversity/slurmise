@@ -1,10 +1,11 @@
+import math
 from pathlib import Path
 
 import pytest
 
 from slurmise.config import SlurmiseConfiguration, find_config_file
-from slurmise.job_data import JobData
 from slurmise.job_parse import file_parsers
+from slurmise.resource_corrector import ResourceCorrector
 
 
 def write_toml(tmp_path, toml_str):
@@ -105,7 +106,7 @@ def test_no_placeholders(tmpdir):
 
 
 def test_default_resources_no_setting(tmpdir):
-    """Test the default can be set at the slurmise level for all jobs without additional defaults."""
+    """When no runtime/memory section exists, built-in defaults are used."""
     toml_str = """
     [slurmise]
     base_dir = "slurmise_dir"
@@ -179,13 +180,19 @@ def basic_toml(tmpdir):
         """
     [slurmise]
     base_dir = "slurmise_dir"
-    default_mem = 2000
-    default_time = 70
+
+    [slurmise.runtime]
+    default = 70
+
+    [slurmise.memory]
+    default = 2000
 
     [slurmise.job.nupack]
     job_spec = "monomer -T {threads} -C {complexity}"
-    default_mem = 3000
-    default_time = 80
+    [slurmise.job.nupack.runtime]
+    default = 80
+    [slurmise.job.nupack.memory]
+    default = 3000
     [slurmise.job.nupack.variables]
     threads = {type = "numeric"}
     complexity = {type = "category"}
@@ -323,8 +330,8 @@ def test_parse_job_cmd_inference(basic_toml):
     assert match_name.job_name == "nupack"
 
 
-def test_default_resources_slurmise_base(basic_toml):
-    """Test the default can be set at the slurmise level for all jobs without additional defaults."""
+def test_default_resources_global(basic_toml):
+    """Global [slurmise.runtime] / [slurmise.memory] defaults flow to jobs without overrides."""
     config = SlurmiseConfiguration(basic_toml)
     job_data = config.parse_job_cmd("nothing -T 3 -C high -i something")
     config.add_defaults(job_data)
@@ -332,7 +339,10 @@ def test_default_resources_slurmise_base(basic_toml):
     assert job_data.memory == 2000
     assert job_data.runtime == 70
 
-    # nupack job has defaults overwritten
+
+def test_default_resources_per_job(basic_toml):
+    """Per-job runtime/memory sections override the global defaults."""
+    config = SlurmiseConfiguration(basic_toml)
     job_data = config.parse_job_cmd("nupack monomer -T 3 -C high")
     config.add_defaults(job_data)
 
@@ -340,47 +350,135 @@ def test_default_resources_slurmise_base(basic_toml):
     assert job_data.runtime == 80
 
 
-def test_minimum_resources_slurmise_base(basic_toml):
-    """Test the minimum resource correction has a default of 0."""
-    config = SlurmiseConfiguration(basic_toml)
-    job_data = JobData("test", memory=10, runtime=20)
-    # should do nothing as default is set to 0
-    config.correct_minimum(job_data)
-
-    assert job_data.memory == 10
-    assert job_data.runtime == 20
-
-    job_data = JobData("test", memory=-10, runtime=-20)
-    # negative values are set to 0
-    config.correct_minimum(job_data)
-
-    assert job_data.memory == 0
-    assert job_data.runtime == 0
-
-
-def test_minimum_resources_non_default(tmpdir):
-    """Test the minimum resource correction can be set in toml."""
+def test_get_runtime_corrector_no_override(tmpdir):
+    """Jobs without a runtime section use global config."""
     toml_str = """
     [slurmise]
     base_dir = "slurmise_dir"
-    minimum_time = 5
-    minimum_mem = 100
+
+    [slurmise.runtime]
+    default = 120
+    minimum = 10
+    maximum = 2880
+
+    [slurmise.job.myjob]
+    [slurmise.job.myjob.variables]
+    n = {type = "numeric"}
     """
     toml = write_toml(tmpdir, toml_str)
     config = SlurmiseConfiguration(toml)
-    job_data = JobData("test", memory=10, runtime=20)
-    # should do nothing as default is set to 0
-    config.correct_minimum(job_data)
 
-    assert job_data.memory == 100
-    assert job_data.runtime == 20  # not effected
+    corrector = config.get_runtime_corrector("myjob")
+    assert corrector.default == 120
+    assert corrector.minimum == 10
+    assert corrector.maximum == 2880
+    assert isinstance(corrector, ResourceCorrector)
 
-    job_data = JobData("test", memory=-10, runtime=-20)
-    # negative values are set to 0
-    config.correct_minimum(job_data)
 
-    assert job_data.memory == 100
-    assert job_data.runtime == 5
+def test_get_runtime_corrector_per_job_override(tmpdir):
+    """Per-job runtime section overrides specific fields; others inherit global."""
+    toml_str = """
+    [slurmise]
+    base_dir = "slurmise_dir"
+
+    [slurmise.runtime]
+    default = 60
+    minimum = 5
+    maximum = 1440
+
+    [slurmise.job.myjob]
+    [slurmise.job.myjob.runtime]
+    default = 240
+    maximum = 480
+    [slurmise.job.myjob.variables]
+    n = {type = "numeric"}
+    """
+    toml = write_toml(tmpdir, toml_str)
+    config = SlurmiseConfiguration(toml)
+
+    corrector = config.get_runtime_corrector("myjob")
+    assert corrector.default == 240
+    assert corrector.minimum == 5  # inherited from global
+    assert corrector.maximum == 480  # overridden
+
+
+def test_get_memory_corrector_no_override(tmpdir):
+    """Jobs without a memory section use global config."""
+    toml_str = """
+    [slurmise]
+    base_dir = "slurmise_dir"
+
+    [slurmise.memory]
+    default = 4000
+    minimum = 500
+    maximum = 64000
+
+    [slurmise.job.myjob]
+    [slurmise.job.myjob.variables]
+    n = {type = "numeric"}
+    """
+    toml = write_toml(tmpdir, toml_str)
+    config = SlurmiseConfiguration(toml)
+
+    corrector = config.get_memory_corrector("myjob")
+    assert corrector.default == 4000
+    assert corrector.minimum == 500
+    assert corrector.maximum == 64000
+
+
+def test_get_memory_corrector_all_corrector_fields(tmpdir):
+    """All ResourceCorrector fields can be set via toml."""
+    toml_str = """
+    [slurmise]
+    base_dir = "slurmise_dir"
+
+    [slurmise.memory]
+    default = 2000
+    minimum = 100
+    maximum = 128000
+    multiply_prediction_by = 1.2
+    retry_exponent = 2.0
+    on_high_uncertainty_return = "max"
+
+    [slurmise.job.myjob]
+    [slurmise.job.myjob.variables]
+    n = {type = "numeric"}
+    """
+    toml = write_toml(tmpdir, toml_str)
+    config = SlurmiseConfiguration(toml)
+
+    corrector = config.get_memory_corrector("myjob")
+    assert corrector.default == 2000
+    assert corrector.minimum == 100
+    assert corrector.maximum == 128000
+    assert corrector.multiply_prediction_by == pytest.approx(1.2)
+    assert corrector.retry_exponent == pytest.approx(2.0)
+    assert corrector.on_high_uncertainty_return == "max"
+
+
+def test_no_runtime_or_memory_section_uses_builtins(tmpdir):
+    """When neither [slurmise.runtime] nor [slurmise.memory] exist, use built-in defaults."""
+    toml_str = """
+    [slurmise]
+    base_dir = "slurmise_dir"
+
+    [slurmise.job.myjob]
+    [slurmise.job.myjob.variables]
+    n = {type = "numeric"}
+    """
+    toml = write_toml(tmpdir, toml_str)
+    config = SlurmiseConfiguration(toml)
+
+    rt = config.get_runtime_corrector("myjob")
+    mem = config.get_memory_corrector("myjob")
+
+    assert rt.default == 60
+    assert rt.minimum == 0
+    assert rt.maximum == math.inf
+
+    assert mem.default == 1000
+    assert mem.minimum == 0
+    assert mem.maximum == math.inf
 
 
 @pytest.mark.parametrize(
