@@ -64,7 +64,7 @@ def test_job_with_numeric_variable_is_accepted(tmpdir):
 
     config = SlurmiseConfiguration(toml)
 
-    assert config.jobs["nupack"]["job_spec_obj"].token_kinds == {
+    assert config.job_configurations["nupack"]["job_spec_obj"].token_kinds == {
         "threads": "numeric",
         "complexity": "category",
     }
@@ -245,8 +245,8 @@ def basic_toml(tmpdir):
 def test_init_SlurmiseConfiguration(basic_toml):
     config = SlurmiseConfiguration(basic_toml)
     assert config.slurmise_base_dir == "slurmise_dir"
-    assert len(config.jobs) == 4
-    assert config.jobs["with_ignore"]["job_prefix"] == "nothing"
+    assert len(config.job_configurations) == 4
+    assert config.job_configurations["with_ignore"]["job_prefix"] == "nothing"
 
 
 def test_parse_job_cmd(basic_toml):

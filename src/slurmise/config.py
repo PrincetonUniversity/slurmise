@@ -53,38 +53,40 @@ class SlurmiseConfiguration:
 
             self.extras = toml_data["slurmise"].get("extras", {})
 
-            self.jobs = toml_data["slurmise"].get("job", {})
+            self.job_configurations = toml_data["slurmise"].get("job", {})
             self.job_prefixes: dict[str, str] = {}
 
             self._runtime_correctors: dict[str, ResourceCorrector] = {}
             self._memory_correctors: dict[str, ResourceCorrector] = {}
 
-            for job_name, job in self.jobs.items():
-                if "variables" not in job:
+            for job_name, job_configuration in self.job_configurations.items():
+                if "variables" not in job_configuration:
                     msg = f"Job {job_name} has no variable types. A `variables` entry is required."
                     raise ValueError(msg)
 
-                self.jobs[job_name]["job_spec_obj"] = JobSpec(
-                    job["variables"],
+                self.job_configurations[job_name]["job_spec_obj"] = JobSpec(
+                    job_configuration["variables"],
                     available_parsers=self.file_parsers,
                     job_name=job_name,
                 )
 
-                if "job_spec" in job:
-                    self.jobs[job_name]["job_spec_obj"].add_job_spec(job["job_spec"])
-                    validation = self.jobs[job_name]["job_spec_obj"].validate_variables(job["variables"])
+                if "job_spec" in job_configuration:
+                    self.job_configurations[job_name]["job_spec_obj"].add_job_spec(job_configuration["job_spec"])
+                    validation = self.job_configurations[job_name]["job_spec_obj"].validate_variables(
+                        job_configuration["variables"]
+                    )
                     if validation is not None:
                         raise ValueError(f"Unable to validate variables for {job_name}\n" + validation)
 
-                self.job_prefixes[job_name] = job.get("job_prefix", job_name)
+                self.job_prefixes[job_name] = job_configuration.get("job_prefix", job_name)
 
-                if "runtime" in job:
+                if "runtime" in job_configuration:
                     self._runtime_correctors[job_name] = ResourceCorrector.from_config(
-                        "runtime", self._global_runtime_config, job["runtime"]
+                        "runtime", self._global_runtime_config, job_configuration["runtime"]
                     )
-                if "memory" in job:
+                if "memory" in job_configuration:
                     self._memory_correctors[job_name] = ResourceCorrector.from_config(
-                        "memory", self._global_memory_config, job["memory"]
+                        "memory", self._global_memory_config, job_configuration["memory"]
                     )
 
     def get_runtime_corrector(self, job_name: str) -> ResourceCorrector:
@@ -109,7 +111,7 @@ class SlurmiseConfiguration:
         """Parse a job data dataset into a JobData object."""
 
         jd = self._fill_job_name(cmd, job_name, slurm_id, step_id)
-        job_spec = self.jobs[jd.job_name]["job_spec_obj"]
+        job_spec = self.job_configurations[jd.job_name]["job_spec_obj"]
 
         return job_spec.parse_job_cmd(jd)
 
@@ -123,7 +125,7 @@ class SlurmiseConfiguration:
         """Parse a job data dataset into a JobData object."""
 
         jd = self._fill_job_name("", job_name, slurm_id, step_id)
-        job_spec = self.jobs[jd.job_name]["job_spec_obj"]
+        job_spec = self.job_configurations[jd.job_name]["job_spec_obj"]
 
         return job_spec.parse_job_from_dict(variables, jd)
 
@@ -133,7 +135,7 @@ class SlurmiseConfiguration:
         job_name: str | None = None,
     ):
         jd = self._fill_job_name(cmd, job_name)
-        job_spec = self.jobs[jd.job_name]["job_spec_obj"]
+        job_spec = self.job_configurations[jd.job_name]["job_spec_obj"]
         return job_spec.align_and_indicate_differences(jd.cmd, try_exact_match=True)
 
     def _fill_job_name(
@@ -159,7 +161,7 @@ class SlurmiseConfiguration:
             if job_prefix is not None:
                 cmd = cmd.removeprefix(job_prefix).lstrip()
 
-        if job_name not in self.jobs:
+        if job_name not in self.job_configurations:
             msg = f"Job {job_name} not found in configuration."
             raise ValueError(msg)
 
@@ -175,7 +177,7 @@ class SlurmiseConfiguration:
 
     def get_model_class(self, job_name: str):
         """Returns the model class a job is using."""
-        model_config = self.jobs[job_name].get("model", {})
+        model_config = self.job_configurations[job_name].get("model", {})
         model_name = model_config.get("model", "poly")
 
         from slurmise.fit import model_factory
@@ -183,7 +185,7 @@ class SlurmiseConfiguration:
         return model_factory(model_name)
 
     def get_sources(self, job_name: str) -> dict:
-        return self.jobs[job_name]["job_spec_obj"].get_sources()
+        return self.job_configurations[job_name]["job_spec_obj"].get_sources()
 
 
 def find_config_file() -> Path:

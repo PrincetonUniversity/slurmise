@@ -77,7 +77,7 @@ class Slurmise:
 
         return self.raw_predict(query_jd)
 
-    def raw_predict(self, query_jd, attempt: int = 0):
+    def raw_predict(self, query_jd, attempt: int = 1):
         query_jd = self.configuration.add_defaults(query_jd)
         model = self.configuration.get_model_class(query_jd.job_name)
         model_path = model._make_model_path(query_jd, base_path=self.configuration.slurmise_base_dir)

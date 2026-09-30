@@ -218,7 +218,7 @@ class ResourceFit:
         job: JobData,
         runtime_corrector: ResourceCorrector,
         memory_corrector: ResourceCorrector,
-        attempt: int = 0,
+        attempt: int = 1,
     ) -> tuple[JobData, list[str]]:
         if self.last_fit_dsize < 10:
             return (

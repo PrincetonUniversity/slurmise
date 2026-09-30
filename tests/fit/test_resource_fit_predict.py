@@ -188,7 +188,7 @@ def test_prediction_clamped_to_maximum(monkey_patch_basepath):
 
 
 def test_retry_scaling_applied(monkey_patch_basepath):
-    """attempt>0 scales the raw prediction by attempt**retry_exponent before clamping."""
+    """attempt>1 scales the raw prediction by attempt**retry_exponent before clamping."""
 
     jobs = [
         JobData(
@@ -210,7 +210,7 @@ def test_retry_scaling_applied(monkey_patch_basepath):
     rt_corrector = _corrector("runtime", default=60, maximum=math.inf, retry_exponent=1.0)
     mem_corrector = _corrector("memory", default=1000, maximum=math.inf, retry_exponent=1.0)
 
-    base_job, _ = fit.predict(query_base, rt_corrector, mem_corrector, attempt=0)
+    base_job, _ = fit.predict(query_base, rt_corrector, mem_corrector, attempt=1)
     retry_job, _ = fit.predict(query_retry, rt_corrector, mem_corrector, attempt=2)
 
     assert retry_job.runtime == pytest.approx(base_job.runtime * 2)

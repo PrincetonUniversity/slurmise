@@ -60,13 +60,18 @@ class ResourceCorrector:
         )
 
     def correct(
-        self, predicted: float, is_high_uncertainty: bool, job_name: str, attempt: int = 0
+        self, predicted: float, is_high_uncertainty: bool, job_name: str, attempt: int = 1
     ) -> tuple[float, list[str]]:
         """Apply all corrections to a raw model prediction.
 
+        ``attempt`` is 1-based (matching Snakemake): 1 is the first attempt, with no
+        retries yet. Scaling uses ``attempt`` itself as the base, so attempt=1 is
+        always exactly 1**retry_exponent == 1 (no scaling) for any exponent, while
+        each later attempt scales relative to that baseline.
+
         Order of operations:
           1. Negative/zero check → return default
-          2. Retry scaling: predicted *= attempt**retry_exponent  (only when attempt > 0)
+          2. Retry scaling: predicted *= attempt**retry_exponent  (only when attempt > 1)
           3. Static scaling: *= multiply_prediction_by
           4. High-uncertainty branch (on_high_uncertainty_return)
           5. Clamp to [minimum, maximum]
@@ -86,33 +91,25 @@ class ResourceCorrector:
                 case "min":
                     return self.minimum, warnings
 
-        if attempt > 0:
+        if attempt > 1:
             predicted = predicted * attempt**self.retry_exponent
 
         scaled = predicted * self.multiply_prediction_by
 
         if is_high_uncertainty:
+            base_warning = f"{self.resource.capitalize()} prediction for job {job_name} has high uncertainty."
             match self.on_high_uncertainty_return:
                 case "default":
-                    warnings.append(
-                        f"{self.resource.capitalize()} prediction for job {job_name} has high uncertainty. "
-                        f"Returning default {self.resource} value."
-                    )
+                    warnings.append(f"{base_warning} Returning default {self.resource} value.")
                     return self.default, warnings
                 case "max":
-                    warnings.append(
-                        f"{self.resource.capitalize()} prediction for job {job_name} has high uncertainty. "
-                        f"Returning maximum {self.resource} value."
-                    )
+                    warnings.append(f"{base_warning} Returning maximum {self.resource} value.")
                     return self.maximum, warnings
                 case "min":
-                    warnings.append(
-                        f"{self.resource.capitalize()} prediction for job {job_name} has high uncertainty. "
-                        f"Returning minimum {self.resource} value."
-                    )
+                    warnings.append(f"{base_warning} Returning minimum {self.resource} value.")
                     return self.minimum, warnings
                 case "prediction":
-                    warnings.append(f"{self.resource.capitalize()} prediction for job {job_name} has high uncertainty.")
+                    warnings.append(base_warning)
 
         if scaled > self.maximum:
             warnings.append(

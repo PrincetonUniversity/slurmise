@@ -45,7 +45,7 @@ The corresponding slurmise toml would be
 [slurmise.job.monitored]
 [slurmise.job.monitored.runtime]
 default = 60       # minutes
-retry_exponent = 1.0  # resource *= attempt**retry_exponent on each Snakemake retry
+retry_exponent = 1.0  # resource *= attempt**retry_exponent on each Snakemake retry (attempt=1 is unscaled)
 [slurmise.job.monitored.memory]
 default = 1000     # MB
 [slurmise.job.monitored.variables]

@@ -171,16 +171,11 @@ def test_correct_multiply_then_clamp():
 # ---------------------------------------------------------------------------
 
 
-def test_correct_attempt_zero_no_scaling():
+def test_correct_attempt_one_no_scaling():
+    """attempt=1 is the first attempt: 1**retry_exponent == 1 for any exponent, so it's never scaled."""
     c = make_corrector(retry_exponent=2.0)
-    value, _warnings = c.correct(50.0, is_high_uncertainty=False, job_name="job", attempt=0)
-    assert value == pytest.approx(50.0)
-
-
-def test_correct_attempt_one_linear_exponent():
-    c = make_corrector(retry_exponent=1.0)
     value, _warnings = c.correct(50.0, is_high_uncertainty=False, job_name="job", attempt=1)
-    assert value == pytest.approx(50.0)  # 50 * 1**1 = 50
+    assert value == pytest.approx(50.0)
 
 
 def test_correct_attempt_two_linear_exponent():

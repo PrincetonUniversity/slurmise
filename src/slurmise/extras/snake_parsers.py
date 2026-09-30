@@ -98,7 +98,7 @@ class SnakemakeAdapter(ABC):
             self.extend_benchmark(workflow)
 
         if rules is None:
-            rules = slurmise.configuration.jobs.keys()
+            rules = slurmise.configuration.job_configurations.keys()
             # TODO: handle extra rules in slurmise
 
         for rule_name in rules:
@@ -143,7 +143,7 @@ class SnakemakeAdapter(ABC):
                 }
                 return json.dumps(job_data_variables)
 
-            job_data = slurmise.raw_predict(job_data, attempt=attempt)[0]
+            job_data, _predict_warnings = slurmise.raw_predict(job_data, attempt=attempt)
             return getattr(job_data, resource)
 
         return slurmise_predict
