@@ -1,22 +1,16 @@
-# Setup
+# slurmise tutorial files
 
-If you don't have this directory locally, then download the tutorial files as
-folder named slurmise-tutorial/ in your current directory:
+These are the files the tutorial lessons operate on — one directory per lesson,
+holding its `slurmise.toml`, its `.sbatch` scripts, and the mock scripts that
+stand in for a scheduler. The toy programs the lessons run are in `bin/`.
 
-```bash
-wget -qO- https://github.com/PrincetonUniversity/slurmise/releases/latest/download/slurmise-tutorial.tar.gz | tar -xz
-cd slurmise-tutorial
-```
+**The lessons themselves are in the documentation:**
+<https://princetonuniversity.github.io/slurmise/>
 
-# Quickstart
+Work through them there and type — or copy — the commands into a shell in the
+matching directory here. Every command shown in the book was really executed when
+the book was built, and the output printed beneath it is what the command really
+produced.
 
-Run `./tutorial.py` to get an interactive tutorial. It lists the lessons and
-walks whichever one you pick, showing each command before it runs it.
-
-Or work through them by hand: start with `00_introduction/README.md`, then
-`cd 01_single_job/` and type the commands from its `README.md` yourself.
-
-# The lessons
-
-Each numbered folder is a self-contained lesson and its `README.md` is the
-tutorial. Take them in order; each builds on the one before.
+There is no script that runs the lessons for you. That is deliberate: the point of
+the exercise is to run the commands yourself and look at what comes back.

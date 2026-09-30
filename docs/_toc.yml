@@ -1,0 +1,18 @@
+format: jb-book
+root: index
+parts:
+  - caption: Getting Started
+    chapters:
+      - file: install
+      - file: how-it-works
+  - caption: Tutorial
+    chapters:
+      - file: lessons/00_introduction/lesson
+      - file: lessons/01_single_job/lesson
+      - file: lessons/02_jobs_in_loop/lesson
+      - file: lessons/03_noisy_job/lesson
+      - file: lessons/04_array_jobs/lesson
+      - file: lessons/88_as_a_launcher/lesson
+  - caption: Reference
+    chapters:
+      - file: api

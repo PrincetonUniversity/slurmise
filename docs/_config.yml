@@ -1,0 +1,53 @@
+# Jupyter Book 1 configuration. JB1 is the Sphinx-based line, chosen because it
+# keeps `automodule` working for the API reference -- Jupyter Book 2 dropped
+# Sphinx and has no autodoc equivalent yet.
+title: slurmise
+author: Troy Comi, David Turner, Giannis Paraskevakos, Rob Bierman
+copyright: "2024"
+logo: ""
+
+# Only build what the table of contents names. Without this, Sphinx also picks up
+# the lesson support files that `lessons/` symlinks in (`slurmise.toml`, the
+# `.sbatch` scripts) and warns that they are not in any toctree.
+only_build_toc_files: true
+
+exclude_patterns:
+  - _build
+  - Thumbs.db
+  - .DS_Store
+  - "**.ipynb_checkpoints"
+  - "**/out_slurm_logs/*"
+
+execute:
+  # `force`: run every lesson on every build. The lessons are the integration
+  # test now that `tutorial.py` is gone, so a cached result is worth nothing --
+  # the point is to find out today whether the commands still work.
+  execute_notebooks: force
+  allow_errors: false
+  # The mock path is the one that runs here, and it only writes to a database, so
+  # every lesson finishes in seconds. Generous anyway: 02 and 03 loop 39 times.
+  timeout: 300
+
+repository:
+  url: https://github.com/PrincetonUniversity/slurmise
+  branch: main
+  path_to_book: docs
+
+html:
+  use_issues_button: true
+  use_repository_button: true
+
+sphinx:
+  extra_extensions:
+    - sphinx.ext.autodoc
+    - sphinx.ext.napoleon
+    - sphinx.ext.viewcode
+    - sphinx.ext.intersphinx
+  config:
+    # A lesson whose command fails, or whose output no longer says what the prose
+    # claims, must break the build. Without this myst-nb records the traceback on
+    # the page and reports success, which is exactly the silent drift that the
+    # `#> expect` lines used to catch.
+    nb_execution_raise_on_error: true
+    autodoc_typehints: description
+    autodoc_member_order: bysource
