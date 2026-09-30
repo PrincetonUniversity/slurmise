@@ -12,7 +12,6 @@ parts:
       - file: lessons/02_jobs_in_loop/lesson
       - file: lessons/03_noisy_job/lesson
       - file: lessons/04_array_jobs/lesson
-      - file: lessons/88_as_a_launcher/lesson
   - caption: Reference
     chapters:
       - file: api
