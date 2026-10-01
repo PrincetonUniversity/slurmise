@@ -35,6 +35,10 @@ To follow along, `cd` into `04_array_jobs/`.
 ## Arrays, and why no `--step-id`
 
 ```{code-cell}
+---
+mystnb:
+  text_lexer: bash
+---
 cat run_perfectScaler.sbatch
 ```
 
@@ -61,6 +65,7 @@ To run these for real, submit the `.sbatch` files the mocks stand in for —
 `--wait` on an array waits for the whole array, not just the first task:
 
 ```bash
+mkdir -p out_slurm_logs
 sbatch --wait run_perfectScaler.sbatch
 sbatch --wait run_complexMemScaler.sbatch
 ```
@@ -135,6 +140,10 @@ on a *word*, not a number.
 The toml declares that word as a category:
 
 ```{code-cell}
+---
+mystnb:
+  text_lexer: toml
+---
 cat slurmise.toml
 ```
 

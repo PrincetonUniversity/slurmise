@@ -1,7 +1,0 @@
-# The release tarball is `git archive ... HEAD tutorial`, and it ships the files a
-# reader needs in order to run the lessons: the toml, the .sbatch scripts, the mock
-# scripts, and the toy programs in bin/. The lesson prose is not among them -- it
-# lives in the Jupyter Book, where its commands are executed and checked on every
-# build. Shipping a second copy in the tarball is how the old docs/tutorial.rst came
-# to describe a directory that no longer existed.
-tutorial/**/lesson.md export-ignore

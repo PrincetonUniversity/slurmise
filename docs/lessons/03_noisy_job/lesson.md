@@ -36,6 +36,10 @@ differs is inside the script: it allocates the intensity you asked for, jitters 
 by ±20%, **and adds a flat 1000 MB on top**.
 
 ```{code-cell}
+---
+mystnb:
+  text_lexer: bash
+---
 cat run_complexMemScaler_loop.sbatch
 ```
 
@@ -53,6 +57,10 @@ middle and be wrong by up to a fifth either way.
 The toml is lesson 02's with the job name changed:
 
 ```{code-cell}
+---
+mystnb:
+  text_lexer: toml
+---
 cat slurmise.toml
 ```
 
@@ -66,6 +74,7 @@ cat slurmise.toml | grep -q complexMemScaler
 On a cluster:
 
 ```bash
+mkdir -p out_slurm_logs
 sbatch --wait run_complexMemScaler_loop.sbatch
 ```
 

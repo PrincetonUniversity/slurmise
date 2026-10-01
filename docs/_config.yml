@@ -6,9 +6,10 @@ author: Troy Comi, David Turner, Giannis Paraskevakos, Rob Bierman
 copyright: "2024"
 logo: ""
 
-# Only build what the table of contents names. Without this, Sphinx also picks up
-# the lesson support files that `lessons/` symlinks in (`slurmise.toml`, the
-# `.sbatch` scripts) and warns that they are not in any toctree.
+# Only build what the table of contents names. `lessons/` holds the files each lesson
+# operates on as well as its prose -- the `slurmise.toml`, the `.sbatch` and mock
+# scripts, the toy programs in `bin/`, and the placeholder directories. Without this,
+# Sphinx picks up the markdown among them and warns that it is not in any toctree.
 only_build_toc_files: true
 
 exclude_patterns:
@@ -49,5 +50,9 @@ sphinx:
     # the page and reports success, which is exactly the silent drift that the
     # `#> expect` lines used to catch.
     nb_execution_raise_on_error: true
+    # The bash kernel sends each line of output as its own stream message, which
+    # myst-nb would otherwise render as a separate code block -- a 30-line `print`
+    # became 30 stacked blocks. This coalesces them back into one block per cell.
+    nb_merge_streams: true
     autodoc_typehints: description
     autodoc_member_order: bysource

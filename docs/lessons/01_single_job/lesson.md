@@ -41,6 +41,10 @@ into features, and `default_time` / `default_mem` are the guesses slurmise falls
 back on until a model has been trained:
 
 ```{code-cell}
+---
+mystnb:
+  text_lexer: toml
+---
 cat slurmise.toml
 ```
 
@@ -57,6 +61,10 @@ created.
 `run_perfectScaler.sbatch` runs `perfectScaler` once:
 
 ```{code-cell}
+---
+mystnb:
+  text_lexer: bash
+---
 cat run_perfectScaler.sbatch
 ```
 
@@ -77,12 +85,18 @@ happily records a job that never ran.
 The `#SBATCH --output=` line keeps the job's log in `out_slurm_logs/` rather than
 dropping it in this directory. Nothing here prints to it, but your own jobs will.
 
+That directory has to exist before you submit. SLURM opens the output file itself,
+before your script runs, and it will not create a missing directory — the job dies
+without writing anything, and the reason only shows up in the `slurmd` log. A
+`mkdir` inside the `.sbatch` is too late to help, so it goes in the shell first.
+
 ## Run it
 
 On a cluster, submit it. `--wait` blocks until the job finishes, so there's no
 polling loop to write — the command simply doesn't return for about ten seconds:
 
 ```bash
+mkdir -p out_slurm_logs
 sbatch --wait run_perfectScaler.sbatch
 ```
 

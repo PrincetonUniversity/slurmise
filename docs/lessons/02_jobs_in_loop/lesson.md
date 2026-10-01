@@ -33,6 +33,10 @@ To follow along, `cd` into `02_jobs_in_loop/`.
 ## The loop, and why `--step-id`
 
 ```{code-cell}
+---
+mystnb:
+  text_lexer: bash
+---
 cat run_perfectScaler_loop.sbatch
 ```
 
@@ -62,6 +66,10 @@ slurmise --toml slurmise.toml record \
 The toml is lesson 01's with defaults filled in for both resources:
 
 ```{code-cell}
+---
+mystnb:
+  text_lexer: toml
+---
 cat slurmise.toml
 ```
 
@@ -75,6 +83,7 @@ cat slurmise.toml | grep -q default_mem
 On a cluster:
 
 ```bash
+mkdir -p out_slurm_logs
 sbatch --wait run_perfectScaler_loop.sbatch
 ```
 
