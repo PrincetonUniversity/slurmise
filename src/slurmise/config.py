@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import tomllib
-from collections import defaultdict
 from pathlib import Path
 
 from slurmise import job_data, slurm
 from slurmise.job_parse import file_parsers
 from slurmise.job_parse.job_specification import JobSpec
+from slurmise.resource_corrector import ResourceCorrector
+
+_RESOURCES = ("runtime", "memory")
 
 
 class SlurmiseConfiguration:
@@ -39,13 +41,9 @@ class SlurmiseConfiguration:
                         script_is_file,
                     )
 
-            self.jobs = toml_data["slurmise"].get("job", {})
-            self.job_prefixes: dict[str, str] = {}
-            self.default_runtime = defaultdict(lambda: int(toml_data["slurmise"].get("default_time", 60)))
-            self.default_memory = defaultdict(lambda: int(toml_data["slurmise"].get("default_mem", 1000)))
-
-            self.minimum_runtime = toml_data["slurmise"].get("minimum_time", 0)
-            self.minimum_memory = toml_data["slurmise"].get("minimum_mem", 0)
+            self._global_resource_configs: dict[str, dict] = {
+                resource: toml_data["slurmise"].get(resource, {}) for resource in _RESOURCES
+            }
 
             # Fraction of the training set size that may accumulate before predict
             # warns that the model should be refit.
@@ -58,29 +56,42 @@ class SlurmiseConfiguration:
 
             self.extras = toml_data["slurmise"].get("extras", {})
 
-            for job_name, job in self.jobs.items():
-                if "variables" not in job:
+            self.job_configurations = toml_data["slurmise"].get("job", {})
+            self.job_prefixes: dict[str, str] = {}
+
+            for job_name, job_configuration in self.job_configurations.items():
+                if "variables" not in job_configuration:
                     msg = f"Job {job_name} has no variable types. A `variables` entry is required."
                     raise ValueError(msg)
 
-                self.jobs[job_name]["job_spec_obj"] = JobSpec(
-                    job["variables"],
+                self.job_configurations[job_name]["job_spec_obj"] = JobSpec(
+                    job_configuration["variables"],
                     available_parsers=self.file_parsers,
                     job_name=job_name,
                 )
 
-                if "job_spec" in job:
-                    self.jobs[job_name]["job_spec_obj"].add_job_spec(job["job_spec"])
-                    validation = self.jobs[job_name]["job_spec_obj"].validate_variables(job["variables"])
+                if "job_spec" in job_configuration:
+                    self.job_configurations[job_name]["job_spec_obj"].add_job_spec(job_configuration["job_spec"])
+                    validation = self.job_configurations[job_name]["job_spec_obj"].validate_variables(
+                        job_configuration["variables"]
+                    )
                     if validation is not None:
                         raise ValueError(f"Unable to validate variables for {job_name}\n" + validation)
 
-                # The job name doubles as the command prefix unless one is declared.
-                self.job_prefixes[job_name] = job.get("job_prefix", job_name)
-                if "default_time" in job:
-                    self.default_runtime[job_name] = int(job["default_time"])
-                if "default_mem" in job:
-                    self.default_memory[job_name] = int(job["default_mem"])
+                self.job_prefixes[job_name] = job_configuration.get("job_prefix", job_name)
+
+    def _get_corrector(self, resource: str, job_name: str) -> ResourceCorrector:
+        return ResourceCorrector.from_config(
+            resource, self._global_resource_configs[resource], self.job_configurations[job_name].get(resource)
+        )
+
+    def get_runtime_corrector(self, job_name: str) -> ResourceCorrector:
+        """Return the ResourceCorrector for runtime, using per-job override or global config."""
+        return self._get_corrector("runtime", job_name)
+
+    def get_memory_corrector(self, job_name: str) -> ResourceCorrector:
+        """Return the ResourceCorrector for memory, using per-job override or global config."""
+        return self._get_corrector("memory", job_name)
 
     def parse_job_cmd(
         self,
@@ -92,7 +103,7 @@ class SlurmiseConfiguration:
         """Parse a job data dataset into a JobData object."""
 
         jd = self._fill_job_name(cmd, job_name, slurm_id, step_id)
-        job_spec = self.jobs[jd.job_name]["job_spec_obj"]
+        job_spec = self.job_configurations[jd.job_name]["job_spec_obj"]
 
         return job_spec.parse_job_cmd(jd)
 
@@ -106,7 +117,7 @@ class SlurmiseConfiguration:
         """Parse a job data dataset into a JobData object."""
 
         jd = self._fill_job_name("", job_name, slurm_id, step_id)
-        job_spec = self.jobs[jd.job_name]["job_spec_obj"]
+        job_spec = self.job_configurations[jd.job_name]["job_spec_obj"]
 
         return job_spec.parse_job_from_dict(variables, jd)
 
@@ -116,7 +127,7 @@ class SlurmiseConfiguration:
         job_name: str | None = None,
     ):
         jd = self._fill_job_name(cmd, job_name)
-        job_spec = self.jobs[jd.job_name]["job_spec_obj"]
+        job_spec = self.job_configurations[jd.job_name]["job_spec_obj"]
         return job_spec.align_and_indicate_differences(jd.cmd, try_exact_match=True)
 
     def _fill_job_name(
@@ -142,7 +153,7 @@ class SlurmiseConfiguration:
             if job_prefix is not None:
                 cmd = cmd.removeprefix(job_prefix).lstrip()
 
-        if job_name not in self.jobs:
+        if job_name not in self.job_configurations:
             msg = f"Job {job_name} not found in configuration."
             raise ValueError(msg)
 
@@ -151,20 +162,14 @@ class SlurmiseConfiguration:
         return job_data.JobData(job_name=job_name, slurm_id=slurm_id, cmd=cmd)
 
     def add_defaults(self, job_data: job_data.JobData) -> job_data.JobData:
-        """Add default values to a job data object."""
-        job_data.memory = self.default_memory[job_data.job_name]
-        job_data.runtime = self.default_runtime[job_data.job_name]
-        return job_data
-
-    def correct_minimum(self, job_data: job_data.JobData) -> job_data.JobData:
-        """Ensure predicted values are larger than set minimum."""
-        job_data.memory = max(job_data.memory, self.minimum_memory)
-        job_data.runtime = max(job_data.runtime, self.minimum_runtime)
+        """Set default resource values on a JobData object before prediction."""
+        job_data.memory = self.get_memory_corrector(job_data.job_name).default
+        job_data.runtime = self.get_runtime_corrector(job_data.job_name).default
         return job_data
 
     def get_model_class(self, job_name: str):
         """Returns the model class a job is using."""
-        model_config = self.jobs[job_name].get("model", {})
+        model_config = self.job_configurations[job_name].get("model", {})
         model_name = model_config.get("model", "poly")
 
         from slurmise.fit import model_factory
@@ -172,7 +177,7 @@ class SlurmiseConfiguration:
         return model_factory(model_name)
 
     def get_sources(self, job_name: str) -> dict:
-        return self.jobs[job_name]["job_spec_obj"].get_sources()
+        return self.job_configurations[job_name]["job_spec_obj"].get_sources()
 
 
 def find_config_file() -> Path:

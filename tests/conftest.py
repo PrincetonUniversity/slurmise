@@ -126,6 +126,12 @@ def nupack_toml(tmp_path):
     base_dir = "{d / "slurmise_dir"}"
     db_filename = "nupack2.h5"
 
+    [slurmise.runtime]
+    maximum = 1440
+
+    [slurmise.memory]
+    maximum = 100000
+
     [slurmise.job.nupack]
     job_spec = "monomer -c {{cpus}} -S {{sequences}}"
     [slurmise.job.nupack.variables]
@@ -156,8 +162,10 @@ def nupackdefaults_toml(tmp_path):
 
     [slurmise.job.nupack]
     job_spec = "monomer -c {{cpus}} -S {{sequences}}"
-    default_mem = 3000
-    default_time = 80
+    [slurmise.job.nupack.runtime]
+    default = 80
+    [slurmise.job.nupack.memory]
+    default = 3000
     [slurmise.job.nupack.variables]
     cpus = {{type = "numeric"}}
     sequences = {{type = "numeric"}}
