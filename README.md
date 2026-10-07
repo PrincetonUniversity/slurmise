@@ -1,9 +1,21 @@
+<table>
+  <tr>
+    <td>
+      <img src="https://raw.githubusercontent.com/PrincetonUniversity/slurmise/main/docs/assets/logo.svg" alt="slurmise logo" width="140">
+    </td>
+    <td>
+
 # slurmise
 
 [![PyPI - Version](https://img.shields.io/pypi/v/slurmise.svg)](https://pypi.org/project/slurmise)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/slurmise.svg)](https://pypi.org/project/slurmise)
 ![CI workflow](https://github.com/princetonuniversity/slurmise/actions/workflows/test.yaml/badge.svg)
 [![Coverage Status](https://coveralls.io/repos/github/PrincetonUniversity/slurmise/badge.svg?branch=main)](https://coveralls.io/github/PrincetonUniversity/slurmise?branch=main)
+
+</td>
+</tr>
+</table>
+
 -----
 
 ## Table of Contents
