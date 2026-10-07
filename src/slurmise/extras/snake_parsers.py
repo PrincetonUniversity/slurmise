@@ -5,11 +5,8 @@ import json
 import shutil
 from abc import ABC
 from contextlib import contextmanager
-from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
-
-import numpy as np
 
 from slurmise.api import Slurmise
 from slurmise.job_data import JobData
@@ -402,47 +399,3 @@ def _correct_threads(slurmise_data, benchmark_data):
             result[key][name] = value
 
     return result
-
-
-@dataclass()
-class ThreadScaler:
-    memory_per_thread: float
-    runtime_overhead: float = 1
-    memory_overhead: float = 1
-    thread_range: tuple[int, int] = (1, 20)
-
-    def __post_init__(self):
-        self.runtime_overhead = max(self.runtime_overhead, 1)
-        self.memory_overhead = max(self.memory_overhead, 1)
-
-    def update_job_data(self, job_data: JobData, current_threads: int) -> tuple[JobData, int]:
-        """Update the provided job data to reflect scaling threads.
-
-        :arguments:
-            :job_data: The job to update.
-            :current_threads: The current request for threads for this job.
-
-        :returns:
-            The job data memory and time will be updated to reflect any change
-            in the number of threads. If overheads are equal to 1, this is a
-            simple linear scaling based on the memory_per_thread.  Otherwise,
-            the overhead is factored in as well.  The returned thread value is
-            clipped to the range of the scaler object.
-        """
-        # get single thread estimates
-        memory = job_data.memory
-        runtime = job_data.runtime * current_threads
-
-        threads = np.ceil(np.clip(memory / self.memory_per_thread, *self.thread_range))
-
-        if self.runtime_overhead >= 2:  # take as an offset
-            runtime = int(runtime / threads + (threads - 1) * self.runtime_overhead)
-        else:  # a fractional scale, e.g. 1.2 is 20% more per thread
-            runtime = int(runtime / threads * self.runtime_overhead ** (threads - 1))
-
-        if self.runtime_overhead >= 2:  # take as an offset
-            memory = int(memory + (threads - 1) * self.memory_overhead)
-        else:  # a fractional scale
-            memory = int(memory * self.memory_overhead ** (threads - 1))
-
-        return replace(job_data, runtime=runtime, memory=memory), int(threads)

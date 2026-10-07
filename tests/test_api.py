@@ -7,6 +7,7 @@ import pytest
 from slurmise import job_database
 from slurmise.api import Slurmise
 from slurmise.job_data import JobData
+from slurmise.resource_corrector import ResourceCorrector
 from tests.conftest import TomlReturn
 
 
@@ -285,3 +286,43 @@ def test_update_model_clears_the_stale_warning(two_categories_toml):
 
     _, warnings = slurmise.predict("monomer -c 5 -M fast -C simple", "nupack")
     assert warnings == []
+
+
+def test_predict_returns_whole_numbers_when_fit(two_categories_toml):
+    """A fitted prediction is rounded up to an int, never down."""
+    slurmise = Slurmise(two_categories_toml.toml)
+    slurmise.update_model(None, "nupack")
+
+    predicted, _ = slurmise.predict("monomer -c 5 -M fast -C simple", "nupack")
+
+    assert isinstance(predicted.runtime, int)
+    assert isinstance(predicted.memory, int)
+
+
+def test_raw_predict_ceils_fractional_prediction(two_categories_toml, monkeypatch):
+    slurmise = Slurmise(two_categories_toml.toml)
+    slurmise.update_model(None, "nupack")
+
+    def fractional_predict(self, job, runtime_corrector, memory_corrector, attempt=1):
+        job.runtime, job.memory = 10.2, 500.0000001
+        return job, []
+
+    monkeypatch.setattr("slurmise.fit.resource_fit.ResourceFit.predict", fractional_predict)
+
+    predicted, _ = slurmise.predict("monomer -c 5 -M fast -C simple", "nupack")
+
+    assert (predicted.runtime, predicted.memory) == (11, 501)
+
+
+def test_predict_ceils_default_values_without_model(two_categories_toml, monkeypatch):
+    """The no-model path returns the configured defaults, which may be fractional."""
+    slurmise = Slurmise(two_categories_toml.toml)
+    corrector = ResourceCorrector(resource="runtime", default=7.5)
+    monkeypatch.setattr(slurmise.configuration, "get_runtime_corrector", lambda job_name: corrector)
+
+    predicted, warnings = slurmise.predict("monomer -c 5 -M fast -C simple", "nupack")
+
+    assert "No model has been fit for job nupack. Returning default values." in warnings
+    assert predicted.runtime == 8
+    assert isinstance(predicted.runtime, int)
+    assert isinstance(predicted.memory, int)

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import math
+
 import numpy as np
 
 from slurmise import job_database, slurm
@@ -94,6 +96,10 @@ class Slurmise:
 
         if query_warns:
             query_warns.append(f"Run: slurmise update-model --job-name {query_jd.job_name}")
+
+        # Slurm requests are whole numbers; round up so a fractional prediction never under-requests.
+        query_jd.runtime = math.ceil(query_jd.runtime)
+        query_jd.memory = math.ceil(query_jd.memory)
 
         return query_jd, query_warns
 

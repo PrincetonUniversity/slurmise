@@ -1,7 +1,6 @@
 from pathlib import Path
 from unittest import mock
 
-import numpy as np
 import pytest
 from click.testing import CliRunner
 
@@ -545,9 +544,9 @@ def test_update_predict(nupack_toml):
     predicted_runtime = tmp_stdout[0].split(":")
     predicted_memory = tmp_stdout[1].split(":")
     assert predicted_runtime[0] == "Predicted runtime"
-    np.testing.assert_allclose(float(predicted_runtime[1]), 9.29, rtol=0.01)
+    assert predicted_runtime[1].strip() == "10"  # 9.29 rounded up
     assert predicted_memory[0] == "Predicted memory"
-    np.testing.assert_allclose(float(predicted_memory[1]), 10168.72, rtol=0.01)
+    assert predicted_memory[1].strip() == "10169"  # 10168.72 rounded up
 
     result = runner.invoke(
         main,
@@ -566,9 +565,9 @@ def test_update_predict(nupack_toml):
     predicted_runtime = tmp_stdout[0].split(":")
     predicted_memory = tmp_stdout[1].split(":")
     assert predicted_runtime[0] == "Predicted runtime"
-    np.testing.assert_allclose(float(predicted_runtime[1]), 9.29, rtol=0.01)
+    assert predicted_runtime[1].strip() == "10"  # 9.29 rounded up
     assert predicted_memory[0] == "Predicted memory"
-    np.testing.assert_allclose(float(predicted_memory[1]), 10168.72, rtol=0.01)
+    assert predicted_memory[1].strip() == "10169"  # 10168.72 rounded up
 
     # Test that predictions above the configured maximums are clamped to those maximums.
     result = runner.invoke(
@@ -706,9 +705,9 @@ def test_update_all_predict(nupack_toml):
     predicted_runtime = tmp_stdout[0].split(":")
     predicted_memory = tmp_stdout[1].split(":")
     assert predicted_runtime[0] == "Predicted runtime"
-    np.testing.assert_allclose(float(predicted_runtime[1]), 9.29, rtol=0.01)
+    assert predicted_runtime[1].strip() == "10"  # 9.29 rounded up
     assert predicted_memory[0] == "Predicted memory"
-    np.testing.assert_allclose(float(predicted_memory[1]), 10168.72, rtol=0.01)
+    assert predicted_memory[1].strip() == "10169"  # 10168.72 rounded up
 
 
 def test_predict_nomodel(nupackdefaults_toml):
