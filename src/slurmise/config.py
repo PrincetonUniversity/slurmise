@@ -8,6 +8,8 @@ from slurmise.job_parse import file_parsers
 from slurmise.job_parse.job_specification import JobSpec
 from slurmise.resource_corrector import ResourceCorrector
 
+_RESOURCES = ("runtime", "memory")
+
 
 class SlurmiseConfiguration:
     """SlurmiseConfiguration class parses and stores TOML configuration files for slurmise."""
@@ -39,8 +41,9 @@ class SlurmiseConfiguration:
                         script_is_file,
                     )
 
-            self._global_runtime_config: dict = toml_data["slurmise"].get("runtime", {})
-            self._global_memory_config: dict = toml_data["slurmise"].get("memory", {})
+            self._global_resource_configs: dict[str, dict] = {
+                resource: toml_data["slurmise"].get(resource, {}) for resource in _RESOURCES
+            }
 
             # Fraction of the training set size that may accumulate before predict
             # warns that the model should be refit.
@@ -55,9 +58,6 @@ class SlurmiseConfiguration:
 
             self.job_configurations = toml_data["slurmise"].get("job", {})
             self.job_prefixes: dict[str, str] = {}
-
-            self._runtime_correctors: dict[str, ResourceCorrector] = {}
-            self._memory_correctors: dict[str, ResourceCorrector] = {}
 
             for job_name, job_configuration in self.job_configurations.items():
                 if "variables" not in job_configuration:
@@ -80,26 +80,18 @@ class SlurmiseConfiguration:
 
                 self.job_prefixes[job_name] = job_configuration.get("job_prefix", job_name)
 
-                if "runtime" in job_configuration:
-                    self._runtime_correctors[job_name] = ResourceCorrector.from_config(
-                        "runtime", self._global_runtime_config, job_configuration["runtime"]
-                    )
-                if "memory" in job_configuration:
-                    self._memory_correctors[job_name] = ResourceCorrector.from_config(
-                        "memory", self._global_memory_config, job_configuration["memory"]
-                    )
+    def _get_corrector(self, resource: str, job_name: str) -> ResourceCorrector:
+        return ResourceCorrector.from_config(
+            resource, self._global_resource_configs[resource], self.job_configurations[job_name].get(resource)
+        )
 
     def get_runtime_corrector(self, job_name: str) -> ResourceCorrector:
         """Return the ResourceCorrector for runtime, using per-job override or global config."""
-        if job_name in self._runtime_correctors:
-            return self._runtime_correctors[job_name]
-        return ResourceCorrector.from_config("runtime", self._global_runtime_config)
+        return self._get_corrector("runtime", job_name)
 
     def get_memory_corrector(self, job_name: str) -> ResourceCorrector:
         """Return the ResourceCorrector for memory, using per-job override or global config."""
-        if job_name in self._memory_correctors:
-            return self._memory_correctors[job_name]
-        return ResourceCorrector.from_config("memory", self._global_memory_config)
+        return self._get_corrector("memory", job_name)
 
     def parse_job_cmd(
         self,
