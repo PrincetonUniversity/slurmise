@@ -319,6 +319,29 @@ give a non-zero exit status.  Warnings are legal but probably unintended, such
 as a job prefix hidden by an earlier job, or a `file_parsers` section ignored because
 it has no `awk_script`.
 
+#### Building a configuration with an AI assistant
+The [`skills/slurmise-config`](skills/slurmise-config) directory holds an
+[Agent Skill](https://agentskills.io) that helps an AI coding assistant such as
+Claude Code write or edit a `slurmise.toml`.  It asks for a few real example commands,
+asks the modelling questions only you can answer (is a value numeric or a category,
+which file feature matters, what the runtime and memory limits are), drafts the
+TOML, and checks it with `slurmise validate` before reporting back.  It never
+touches the job database.
+
+To install it, copy the skill into your skills directory, either for one project or
+for all of your projects:
+```bash
+# this project only
+mkdir -p .claude/skills && cp -r skills/slurmise-config .claude/skills/
+# every project
+mkdir -p ~/.claude/skills && cp -r skills/slurmise-config ~/.claude/skills/
+```
+Then ask your assistant for what you need, for example
+"set up slurmise for `nupack monomer -T 4 -C high`", or invoke it directly with
+`/slurmise-config`.  Give it two or three real commands with different values, and make
+sure `slurmise` is installed so it can run `validate`.  Always review the generated
+file; the `parsed` output from `validate` shows exactly what was extracted from each command.
+
 ## License
 
 `slurmise` is distributed under the terms of the [MIT](https://spdx.org/licenses/MIT.html) license.
