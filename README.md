@@ -50,6 +50,9 @@ more complex information from a file.
 # base directory to store database and optimized models
 base_dir = "slurmise_dir"
 
+# name of the job database inside base_dir.  Default is "slurmise.h5".
+db_filename = "slurmise.h5"
+
 # how much the database may grow past the records a model was fit on before
 # `predict` warns that the model should be refit, as a fraction of those records.
 # Default is 0.2, so a model fit on 20 jobs warns once the database holds 25.
@@ -172,6 +175,8 @@ the categories will be matched to particular, independent model.
 - `gzip_file`: An input file in gzip format.  During processing, the file will
 be decompressed to read it's contents, note this can incur memory and cpu drain.
 - `file_list`: An input file that contains a list of files to process in turn.
+- `ignore`: A value that is matched but not recorded.  Useful with a `pattern` to
+absorb a variable number of arguments, see below.
 
 When a `job_spec` is provided, its placeholders reference the variable names:
 ```
@@ -242,7 +247,7 @@ awk_script = "/^network type:/ {print $3}"
 [slurmise.file_parsers.fasta_length]
 type = "numeric"
 awk_script = "/path/to/awk/file.awk"
-script_is_file = True
+script_is_file = true
 
 # contents of file.awk
 # /^>/ {if (seq) print seq; seq=0}
@@ -273,6 +278,30 @@ will be an independent variable.  In practice, matching md5 will ensure the same
 of lines which doesn't provide additional information to the model.  The fasta file
 returns the file size in bytes and the number of nucleotides in each fasta entry.
 
+#### Choosing a model
+By default each job is fit with a degree 2 polynomial regression.  To use a
+different model, add a `model` section to the job:
+```toml
+[slurmise.job.job_name.model]
+model = "knn"
+```
+The available models are:
+- `poly`: polynomial regression (default).  Good when resource usage scales
+smoothly with the numeric variables.
+- `knn`: k-nearest neighbors regression.  Better when usage does not follow a
+simple curve, but it can only predict from jobs it has already seen.
+
+Model hyperparameters (polynomial degree, number of neighbors) are not currently
+configurable.  Models are stored separately for each model type, so after changing
+the model run `slurmise update-model --job-name job_name` to fit the new one.
+
+#### Snakemake integration
+When snakemake is installed, slurmise can estimate resources, record completed jobs
+and refit models automatically during a workflow.  Variables for these jobs take
+a `source` key (e.g. `input`, `params`, `wildcards`, `threads`) to say where
+in the rule to find their value, and behavior is tuned in a
+`[slurmise.extras.snakemake]` section.  See the
+[extras README](src/slurmise/extras/README.md) for a complete example and options.
 
 ## License
 
