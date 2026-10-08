@@ -8,8 +8,8 @@ logo: ""
 
 # Only build what the table of contents names. `lessons/` holds the files each lesson
 # operates on as well as its prose -- the `slurmise.toml`, the `.sbatch` and mock
-# scripts, the toy programs in `bin/`, and the placeholder directories. Without this,
-# Sphinx picks up the markdown among them and warns that it is not in any toctree.
+# scripts, and the toy programs in `bin/`. Without this, Sphinx picks up the README
+# among them and warns that it is not in any toctree.
 only_build_toc_files: true
 
 exclude_patterns:
