@@ -15,8 +15,12 @@ _PARSER_TYPES = ("numeric", "category")
 class SlurmiseConfiguration:
     """SlurmiseConfiguration class parses and stores TOML configuration files for slurmise."""
 
-    def __init__(self, toml_file: Path):
-        """Parse a configuration TOML file"""
+    def __init__(self, toml_file: Path, create_dirs: bool = True):
+        """Parse a configuration TOML file.
+
+        create_dirs: create the base directory if it is missing.  Disable to load a
+        configuration without touching the filesystem, e.g. to validate it.
+        """
         self.file_parsers = {
             "file_size": file_parsers.FileSizeParser(),
             "file_lines": file_parsers.FileLinesParser(),
@@ -27,9 +31,13 @@ class SlurmiseConfiguration:
             toml_data = tomllib.load(f)
 
             self.slurmise_base_dir = toml_data["slurmise"]["base_dir"]
-            Path(self.slurmise_base_dir).mkdir(parents=True, exist_ok=True)
+            if create_dirs:
+                Path(self.slurmise_base_dir).mkdir(parents=True, exist_ok=True)
             self.db_filename = Path(self.slurmise_base_dir) / toml_data["slurmise"].get("db_filename", "slurmise.h5")
             parsers = toml_data["slurmise"].get("file_parsers", {})
+            # recorded so `slurmise validate` can warn about them; neither is an error
+            self.ignored_file_parsers: list[str] = []
+            self.overridden_file_parsers: list[str] = []
 
             for parser_name, config in parsers.items():
                 return_type = config.get("type", "category")
@@ -38,12 +46,16 @@ class SlurmiseConfiguration:
                         msg = f"Unknown type {return_type!r} for file parser {parser_name}. Must be one of {_PARSER_TYPES}."
                         raise ValueError(msg)
                     script_is_file = config.get("script_is_file", False)
+                    if parser_name in self.file_parsers:
+                        self.overridden_file_parsers.append(parser_name)
                     self.file_parsers[parser_name] = file_parsers.AwkParser(
                         parser_name,
                         return_type,
                         config["awk_script"],
                         script_is_file,
                     )
+                else:
+                    self.ignored_file_parsers.append(parser_name)
 
             self._global_resource_configs: dict[str, dict] = {
                 resource: toml_data["slurmise"].get(resource, {}) for resource in _RESOURCES

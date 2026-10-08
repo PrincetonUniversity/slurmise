@@ -303,6 +303,22 @@ in the rule to find their value, and behavior is tuned in a
 `[slurmise.extras.snakemake]` section.  See the
 [extras README](src/slurmise/extras/README.md) for a complete example and options.
 
+#### Validating a configuration
+`slurmise validate` checks a configuration file without touching the database
+or creating any directories.  Give it example commands to confirm each parses the
+way you expect, including any file parsers (so the files they reference must exist):
+```bash
+slurmise --toml slurmise.toml validate "nupack monomer -T 4 -C high"
+# explicit job name, with the prefix left off the command
+slurmise validate --job-name nupack "monomer -T 4 -C high"
+# machine readable report
+slurmise validate --json "nupack monomer -T 4 -C high"
+```
+Errors, such as an invalid section or a command that does not match its `job_spec`,
+give a non-zero exit status.  Warnings are legal but probably unintended, such
+as a job prefix hidden by an earlier job, or a `file_parsers` section ignored because
+it has no `awk_script`.
+
 ## License
 
 `slurmise` is distributed under the terms of the [MIT](https://spdx.org/licenses/MIT.html) license.
