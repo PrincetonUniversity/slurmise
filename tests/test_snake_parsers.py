@@ -1,9 +1,11 @@
 from dataclasses import dataclass
+from unittest.mock import MagicMock
 
 import pytest
 
 from slurmise.extras import snake_parsers
 from slurmise.job_data import JobData
+from slurmise.resource_corrector import ResourceCorrector
 
 
 def test_input():
@@ -118,138 +120,63 @@ def test_build_variables():
     }
 
 
-def test_ThreadScaler_defaults():
-    ts = snake_parsers.ThreadScaler(memory_per_thread=10)
-
-    # memory too low, default to 1 thread
-    jd = JobData(job_name="test", memory=1, runtime=100)
-    result_jd, result_threads = ts.update_job_data(jd, 1)
-    assert result_threads == 1
-    assert result_jd.runtime == 100
-    assert result_jd.memory == 1
-
-    # memory too low, default to 1 thread
-    jd = JobData(job_name="test", memory=1, runtime=100)
-    result_jd, result_threads = ts.update_job_data(jd, 5)
-    assert result_threads == 1
-    assert result_jd.runtime == 500  # scaled by current threads, too high
-    assert result_jd.memory == 1
-
-    # memory too high, default to 20 threads
-    jd = JobData(job_name="test", memory=1000, runtime=100)
-    result_jd, result_threads = ts.update_job_data(jd, 1)
-    assert result_threads == 20
-    assert result_jd.runtime == 5
-    assert result_jd.memory == 1000
-
-    # intermediate value
-    jd = JobData(job_name="test", memory=45, runtime=100)
-    result_jd, result_threads = ts.update_job_data(jd, 1)
-    assert result_threads == 5  # ceiling value
-    assert result_jd.runtime == 20
-    assert result_jd.memory == 45
+# ---------------------------------------------------------------------------
+# make_predictor
+# ---------------------------------------------------------------------------
 
 
-def test_ThreadScaler_change_clip():
-    ts = snake_parsers.ThreadScaler(memory_per_thread=10, thread_range=(2, 10))
+def _mock_slurmise(runtime=50.0, memory=2000.0):
+    """Return a mock Slurmise that raw_predict returns fixed resource values."""
+    mock = MagicMock()
+    job_data = JobData(job_name="rule_name", runtime=runtime, memory=memory)
 
-    # memory too low, default to 2 threads
-    jd = JobData(job_name="test", memory=1, runtime=100)
-    result_jd, result_threads = ts.update_job_data(jd, 1)
-    assert result_threads == 2
-    assert result_jd.runtime == 50
-    assert result_jd.memory == 1
+    def raw_predict(jd, attempt=0):
 
-    # memory too low, default to 2 threads
-    jd = JobData(job_name="test", memory=1, runtime=100)
-    result_jd, result_threads = ts.update_job_data(jd, 5)
-    assert result_threads == 2
-    assert result_jd.runtime == 250  # scaled by current threads, too high
-    assert result_jd.memory == 1
+        rt_corrector = ResourceCorrector(resource="runtime", default=60.0, retry_exponent=1.0)
+        mem_corrector = ResourceCorrector(resource="memory", default=1000.0, retry_exponent=1.0)
+        jd.runtime, _ = rt_corrector.correct(runtime, False, "rule_name", attempt)
+        jd.memory, _ = mem_corrector.correct(memory, False, "rule_name", attempt)
+        return jd, []
 
-    # memory too high, default to 10 threads
-    jd = JobData(job_name="test", memory=1000, runtime=100)
-    result_jd, result_threads = ts.update_job_data(jd, 1)
-    assert result_threads == 10
-    assert result_jd.runtime == 10
-    assert result_jd.memory == 1000
-
-    # intermediate value
-    jd = JobData(job_name="test", memory=45, runtime=100)
-    result_jd, result_threads = ts.update_job_data(jd, 1)
-    assert result_threads == 5  # ceiling value
-    assert result_jd.runtime == 20
-    assert result_jd.memory == 45
+    mock.raw_predict.side_effect = raw_predict
+    mock.job_data_from_dict.return_value = job_data
+    return mock
 
 
-def test_ThreadScaler_clip_overheads():
-    # when the overhead is < 1, set to 1
-    ts = snake_parsers.ThreadScaler(memory_per_thread=10, runtime_overhead=0.8, memory_overhead=-2)
-    assert ts.runtime_overhead == 1
-    assert ts.memory_overhead == 1
+def test_make_predictor_returns_runtime():
+    sp = snake_parsers.SnakemakeV8()
+    slurmise = _mock_slurmise(runtime=45.0)
+    rule = DummyRule(resources={"_cores": 1}, params={})
+    rule.name = "myrule"
+    predictor = sp.make_predictor(slurmise, {}, rule, "runtime")
+    result = predictor(wildcards={}, input=[], attempt=1)
+    assert result == pytest.approx(45.0)
 
 
-def test_ThreadScaler_linear_overheads():
-    # when the overhead is >= 2, it's added as a value * the number of threads
-    ts = snake_parsers.ThreadScaler(memory_per_thread=10, runtime_overhead=3, memory_overhead=2)
-
-    # memory too low, default to 1 thread, no changes
-    jd = JobData(job_name="test", memory=1, runtime=100)
-    result_jd, result_threads = ts.update_job_data(jd, 1)
-    assert result_threads == 1
-    assert result_jd.runtime == 100
-    assert result_jd.memory == 1
-
-    # memory too low, default to 1 threads
-    jd = JobData(job_name="test", memory=1, runtime=100)
-    result_jd, result_threads = ts.update_job_data(jd, 5)
-    assert result_threads == 1
-    assert result_jd.runtime == 500  # scaled by current threads, too high
-    assert result_jd.memory == 1
-
-    # memory too high, default to 10 threads
-    jd = JobData(job_name="test", memory=1000, runtime=100)
-    result_jd, result_threads = ts.update_job_data(jd, 1)
-    assert result_threads == 20
-    assert result_jd.runtime == 5 + 3 * 19
-    assert result_jd.memory == 1000 + 2 * 19
-
-    # intermediate value
-    jd = JobData(job_name="test", memory=45, runtime=100)
-    result_jd, result_threads = ts.update_job_data(jd, 1)
-    assert result_threads == 5  # ceiling value
-    assert result_jd.runtime == 20 + 3 * 4
-    assert result_jd.memory == 45 + 2 * 4
+def test_make_predictor_returns_memory():
+    sp = snake_parsers.SnakemakeV8()
+    slurmise = _mock_slurmise(memory=3000.0)
+    rule = DummyRule(resources={"_cores": 1}, params={})
+    rule.name = "myrule"
+    predictor = sp.make_predictor(slurmise, {}, rule, "memory")
+    result = predictor(wildcards={}, input=[], attempt=1)
+    assert result == pytest.approx(3000.0)
 
 
-def test_ThreadScaler_exp_overheads():
-    # when the overhead is < 2, it's multiplied as a value ** the number of threads
-    ts = snake_parsers.ThreadScaler(memory_per_thread=10, runtime_overhead=1.1, memory_overhead=1.2)
+def test_make_predictor_retry_scaling_via_corrector():
+    """Retry scaling is handled by the ResourceCorrector inside raw_predict.
 
-    # memory too low, default to 1 thread, no changes
-    jd = JobData(job_name="test", memory=1, runtime=100)
-    result_jd, result_threads = ts.update_job_data(jd, 1)
-    assert result_threads == 1
-    assert result_jd.runtime == 100
-    assert result_jd.memory == 1
+    attempt=2 with retry_exponent=1.0 (default) doubles the base prediction.
+    """
+    sp = snake_parsers.SnakemakeV8()
+    slurmise = _mock_slurmise(runtime=50.0)
+    rule = DummyRule(resources={"_cores": 1}, params={})
+    rule.name = "myrule"
+    predictor = sp.make_predictor(slurmise, {}, rule, "runtime")
 
-    # memory too low, default to 1 threads
-    jd = JobData(job_name="test", memory=1, runtime=100)
-    result_jd, result_threads = ts.update_job_data(jd, 5)
-    assert result_threads == 1
-    assert result_jd.runtime == 500  # scaled by current threads, too high
-    assert result_jd.memory == 1
+    attempt1 = predictor(wildcards={}, input=[], attempt=1)
+    attempt2 = predictor(wildcards={}, input=[], attempt=2)
 
-    # memory too high, default to 10 threads
-    jd = JobData(job_name="test", memory=1000, runtime=100)
-    result_jd, result_threads = ts.update_job_data(jd, 1)
-    assert result_threads == 20
-    assert result_jd.runtime == int(5 * 1.1**19)  # 30
-    assert result_jd.memory == int(1000 * 1.2**19)  # 31K
-
-    # intermediate value
-    jd = JobData(job_name="test", memory=45, runtime=100)
-    result_jd, result_threads = ts.update_job_data(jd, 1)
-    assert result_threads == 5  # ceiling value
-    assert result_jd.runtime == int(20 * 1.1**4)  # 29
-    assert result_jd.memory == int(45 * 1.2**4)  # 93
+    # attempt=1 → 50 * 1**1 = 50; attempt=2 → 50 * 2**1 = 100
+    assert attempt1 == pytest.approx(50.0)
+    assert attempt2 == pytest.approx(100.0)

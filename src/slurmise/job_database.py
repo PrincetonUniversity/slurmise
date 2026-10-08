@@ -141,6 +141,15 @@ class JobDatabase:
 
         return result
 
+    def count_records(self, job_data: JobData) -> int:
+        """
+        Count the jobs stored for a job name and category combination.
+
+        `is_slurm_job` only inspects a group's first key, so no dataset is read.
+        """
+        job_group = self.db.get(JobDatabase.get_group_name(job_data), default={})
+        return sum(1 for slurm_data in job_group.values() if JobDatabase.is_slurm_job(slurm_data))
+
     def delete(self, job_data: JobData, delete_all_children: bool = False) -> None:
         """
         Delete jobs with matching job name and categories.

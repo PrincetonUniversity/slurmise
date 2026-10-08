@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import math
+
 import numpy as np
 
 from slurmise import job_database, slurm
@@ -77,14 +79,45 @@ class Slurmise:
 
         return self.raw_predict(query_jd)
 
-    def raw_predict(self, query_jd):
+    def raw_predict(self, query_jd, attempt: int = 1):
         query_jd = self.configuration.add_defaults(query_jd)
         model = self.configuration.get_model_class(query_jd.job_name)
         model_path = model._make_model_path(query_jd, base_path=self.configuration.slurmise_base_dir)
-        query_model = model.load(query=query_jd, path=model_path)
-        query_jd, query_warns = query_model.predict(query_jd)
-        query_jd = self.configuration.correct_minimum(query_jd)
+
+        # save() creates the directory, so a missing one means the model was never fit.
+        if not model_path.exists():
+            query_warns = [f"No model has been fit for job {query_jd.job_name}. Returning default values."]
+        else:
+            query_model = model.load(query=query_jd, path=model_path)
+            runtime_corrector = self.configuration.get_runtime_corrector(query_jd.job_name)
+            memory_corrector = self.configuration.get_memory_corrector(query_jd.job_name)
+            query_jd, query_warns = query_model.predict(query_jd, runtime_corrector, memory_corrector, attempt=attempt)
+            query_warns += self._stale_model_warning(query_jd, query_model=query_model)
+
+        if query_warns:
+            query_warns.append(f"Run: slurmise update-model --job-name {query_jd.job_name}")
+
+        # Slurm requests are whole numbers; round up so a fractional prediction never under-requests.
+        query_jd.runtime = math.ceil(query_jd.runtime)
+        query_jd.memory = math.ceil(query_jd.memory)
+
         return query_jd, query_warns
+
+    def _stale_model_warning(self, query_jd, query_model) -> list[str]:
+        """Warn when enough jobs were recorded since the fit to justify retraining."""
+        with job_database.JobDatabase.get_database(self.configuration.db_filename) as database:
+            current = database.count_records(query_jd)
+
+        trained_records = query_model.last_fit_records
+        if (
+            not trained_records
+            or current - trained_records <= self.configuration.retrain_warning_threshold * trained_records
+        ):
+            return []
+
+        return [
+            f"The model for job {query_jd.job_name} was fit on {trained_records} jobs, the database holds {current}."
+        ]
 
     def update_model(self, cmd, job_name):
         with job_database.JobDatabase.get_database(self.configuration.db_filename) as database:

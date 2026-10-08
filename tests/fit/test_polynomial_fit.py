@@ -7,6 +7,10 @@ from slurmise.fit.poly_fit import PolynomialFit
 from slurmise.fit.resource_fit import ResourceFit
 from slurmise.job_data import JobData
 from slurmise.job_database import JobDatabase
+from slurmise.resource_corrector import ResourceCorrector
+
+_RT_CORRECTOR = ResourceCorrector(resource="runtime", default=60.0)
+_MEM_CORRECTOR = ResourceCorrector(resource="memory", default=1000.0)
 
 
 @pytest.fixture(autouse=True)
@@ -76,7 +80,7 @@ def test_fit_and_predict(nupack_data, model, kwargs, expected_metrics):
     # Predict the runtime and memory of a job
     job = jobs[0]
 
-    predicted_job, _ = poly_fit.predict(job)
+    predicted_job, _ = poly_fit.predict(job, _RT_CORRECTOR, _MEM_CORRECTOR)
 
     assert poly_fit.last_fit_dsize == int(len(jobs) * 0.8)
 
@@ -87,7 +91,7 @@ def test_fit_and_predict(nupack_data, model, kwargs, expected_metrics):
     poly_fit_loaded = PolynomialFit.load(query=query)
     assert isinstance(poly_fit_loaded, PolynomialFit)
     assert poly_fit_loaded.last_fit_dsize == int(len(jobs) * 0.8)
-    predicted_job2, _ = poly_fit_loaded.predict(job)
+    predicted_job2, _ = poly_fit_loaded.predict(job, _RT_CORRECTOR, _MEM_CORRECTOR)
     assert predicted_job.runtime == predicted_job2.runtime
     assert predicted_job.memory == predicted_job2.memory
 
