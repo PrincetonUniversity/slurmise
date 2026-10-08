@@ -9,13 +9,18 @@ from slurmise.job_parse.job_specification import JobSpec
 from slurmise.resource_corrector import ResourceCorrector
 
 _RESOURCES = ("runtime", "memory")
+_PARSER_TYPES = ("numeric", "category")
 
 
 class SlurmiseConfiguration:
     """SlurmiseConfiguration class parses and stores TOML configuration files for slurmise."""
 
-    def __init__(self, toml_file: Path):
-        """Parse a configuration TOML file"""
+    def __init__(self, toml_file: Path, create_dirs: bool = True):
+        """Parse a configuration TOML file.
+
+        create_dirs: create the base directory if it is missing.  Disable to load a
+        configuration without touching the filesystem, e.g. to validate it.
+        """
         self.file_parsers = {
             "file_size": file_parsers.FileSizeParser(),
             "file_lines": file_parsers.FileLinesParser(),
@@ -26,20 +31,31 @@ class SlurmiseConfiguration:
             toml_data = tomllib.load(f)
 
             self.slurmise_base_dir = toml_data["slurmise"]["base_dir"]
-            Path(self.slurmise_base_dir).mkdir(parents=True, exist_ok=True)
+            if create_dirs:
+                Path(self.slurmise_base_dir).mkdir(parents=True, exist_ok=True)
             self.db_filename = Path(self.slurmise_base_dir) / toml_data["slurmise"].get("db_filename", "slurmise.h5")
             parsers = toml_data["slurmise"].get("file_parsers", {})
+            # recorded so `slurmise validate` can warn about them; neither is an error
+            self.ignored_file_parsers: list[str] = []
+            self.overridden_file_parsers: list[str] = []
 
             for parser_name, config in parsers.items():
                 return_type = config.get("type", "category")
                 if "awk_script" in config:
+                    if str(return_type).lower() not in _PARSER_TYPES:
+                        msg = f"Unknown type {return_type!r} for file parser {parser_name}. Must be one of {_PARSER_TYPES}."
+                        raise ValueError(msg)
                     script_is_file = config.get("script_is_file", False)
+                    if parser_name in self.file_parsers:
+                        self.overridden_file_parsers.append(parser_name)
                     self.file_parsers[parser_name] = file_parsers.AwkParser(
                         parser_name,
                         return_type,
                         config["awk_script"],
                         script_is_file,
                     )
+                else:
+                    self.ignored_file_parsers.append(parser_name)
 
             self._global_resource_configs: dict[str, dict] = {
                 resource: toml_data["slurmise"].get(resource, {}) for resource in _RESOURCES
@@ -53,6 +69,10 @@ class SlurmiseConfiguration:
                 if self.retrain_warning_enable
                 else float("inf")
             )
+
+            # ResourceCorrector validates on construction, so build one now rather than at predict time.
+            for resource in _RESOURCES:
+                self._validate_resource(resource, "global", self._global_resource_configs[resource])
 
             self.extras = toml_data["slurmise"].get("extras", {})
 
@@ -79,6 +99,20 @@ class SlurmiseConfiguration:
                         raise ValueError(f"Unable to validate variables for {job_name}\n" + validation)
 
                 self.job_prefixes[job_name] = job_configuration.get("job_prefix", job_name)
+
+                for resource in _RESOURCES:
+                    self._validate_resource(
+                        resource, f"job {job_name}", self._global_resource_configs[resource], job_configuration
+                    )
+
+    @staticmethod
+    def _validate_resource(resource: str, where: str, global_config: dict, job_configuration: dict | None = None):
+        job_config = None if job_configuration is None else job_configuration.get(resource)
+        try:
+            ResourceCorrector.from_config(resource, global_config, job_config)
+        except ValueError as e:
+            msg = f"Invalid {resource} configuration for {where}: {e}"
+            raise ValueError(msg) from e
 
     def _get_corrector(self, resource: str, job_name: str) -> ResourceCorrector:
         return ResourceCorrector.from_config(
