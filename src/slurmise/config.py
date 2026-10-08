@@ -9,6 +9,7 @@ from slurmise.job_parse.job_specification import JobSpec
 from slurmise.resource_corrector import ResourceCorrector
 
 _RESOURCES = ("runtime", "memory")
+_PARSER_TYPES = ("numeric", "category")
 
 
 class SlurmiseConfiguration:
@@ -33,6 +34,9 @@ class SlurmiseConfiguration:
             for parser_name, config in parsers.items():
                 return_type = config.get("type", "category")
                 if "awk_script" in config:
+                    if str(return_type).lower() not in _PARSER_TYPES:
+                        msg = f"Unknown type {return_type!r} for file parser {parser_name}. Must be one of {_PARSER_TYPES}."
+                        raise ValueError(msg)
                     script_is_file = config.get("script_is_file", False)
                     self.file_parsers[parser_name] = file_parsers.AwkParser(
                         parser_name,
@@ -53,6 +57,10 @@ class SlurmiseConfiguration:
                 if self.retrain_warning_enable
                 else float("inf")
             )
+
+            # ResourceCorrector validates on construction, so build one now rather than at predict time.
+            for resource in _RESOURCES:
+                self._validate_resource(resource, "global", self._global_resource_configs[resource])
 
             self.extras = toml_data["slurmise"].get("extras", {})
 
@@ -79,6 +87,20 @@ class SlurmiseConfiguration:
                         raise ValueError(f"Unable to validate variables for {job_name}\n" + validation)
 
                 self.job_prefixes[job_name] = job_configuration.get("job_prefix", job_name)
+
+                for resource in _RESOURCES:
+                    self._validate_resource(
+                        resource, f"job {job_name}", self._global_resource_configs[resource], job_configuration
+                    )
+
+    @staticmethod
+    def _validate_resource(resource: str, where: str, global_config: dict, job_configuration: dict | None = None):
+        job_config = None if job_configuration is None else job_configuration.get(resource)
+        try:
+            ResourceCorrector.from_config(resource, global_config, job_config)
+        except ValueError as e:
+            msg = f"Invalid {resource} configuration for {where}: {e}"
+            raise ValueError(msg) from e
 
     def _get_corrector(self, resource: str, job_name: str) -> ResourceCorrector:
         return ResourceCorrector.from_config(
