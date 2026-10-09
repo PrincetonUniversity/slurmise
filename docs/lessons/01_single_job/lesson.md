@@ -13,10 +13,11 @@ kernelspec:
 ```{code-cell}
 :tags: [remove-cell]
 
-# Start from nothing. The last section of this lesson only holds on an empty
-# database -- with records left over, `predict` would have enough data to fit a
-# model and the warning the lesson is built around would never appear.
-rm -f slurmise.h5 fits.json *.pkl
+# Start from nothing. The last section of this lesson only holds with no fitted
+# model -- with one left over from a previous pass, `predict` would answer from it
+# and the warning the lesson is built around would never appear.
+rm -f slurmise.h5
+rm -rf PolynomialFit
 rm -f out_slurm_logs/*.out
 mkdir -p out_slurm_logs
 ```
@@ -37,8 +38,8 @@ is good for a tutorial, since we know ahead of time how much time and memory the
 job needs.
 
 `slurmise.toml` is the config. `job_spec` tells slurmise how to parse the command
-into features, and `default_time` / `default_mem` are the guesses slurmise falls
-back on until a model has been trained:
+into features, and the `default` under `[slurmise.job.perfectScaler.runtime]` is
+the guess slurmise falls back on until a model has been trained:
 
 ```{code-cell}
 ---
@@ -148,15 +149,16 @@ slurmise --toml slurmise.toml predict "perfectScaler --intensity 4000 --duration
 ```{code-cell}
 :tags: [remove-cell]
 slurmise --toml slurmise.toml predict "perfectScaler --intensity 4000 --duration 10" 2>&1 \
-    | grep -q 'Not enough fitting data points'
+    | grep -q 'No model has been fit'
 ```
 
-Unfortunately, a warning about not enough data points.
+Unfortunately, a warning that no model has been fit.
 
-slurmise needs many records per job before it will fit a model, and with one it
-falls back to the defaults. So `234` is `default_time` straight out of
-`slurmise.toml` — no model was consulted at all. `default_mem` isn't specified
-there, so the memory figure is slurmise's own built-in default of 1 GB.
+slurmise only predicts from a model once one has been fit, and fitting needs many
+records per job — with one there is nothing to fit, so it falls back to the
+defaults. So `234` is the runtime `default` straight out of `slurmise.toml` — no
+model was consulted at all. No memory default is set there, so the memory figure
+is slurmise's own built-in default of 1 GB.
 
 Those job-agnostic built-in defaults of 60 minutes and 1 GB are arbitrary. It is
 good practice to set both defaults in your toml so the fallback guess is at least

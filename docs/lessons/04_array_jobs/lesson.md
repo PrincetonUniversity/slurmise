@@ -206,7 +206,7 @@ slurmise --toml slurmise.toml predict "categoricalScaler --intensity 20 --durati
 ```{code-cell}
 :tags: [remove-cell]
 slurmise --toml slurmise.toml predict "categoricalScaler --intensity 20 --duration 10 --scaling linear" 2>&1 \
-    | grep -qE 'Predicted memory: [1-9][0-9]?\.[0-9]'
+    | grep -qE 'Predicted memory: [1-9][0-9]$'
 ```
 
 About 20 MB — `--scaling linear` means intensity to the first power. Now the same

@@ -75,7 +75,7 @@ cat slurmise.toml
 
 ```{code-cell}
 :tags: [remove-cell]
-cat slurmise.toml | grep -q default_mem
+cat slurmise.toml | grep -qF '[slurmise.job.perfectScaler.memory]'
 ```
 
 ## Submit it
@@ -153,7 +153,7 @@ slurmise --toml slurmise.toml predict "perfectScaler --intensity 2750 --duration
 ```
 
 Memory comes back in the low thousands — from the model now, not from
-`default_mem = 5000` and `default_time = 30` in the toml. Compare that with lesson
+the toml's defaults of 5000 MB and 30 minutes. Compare that with lesson
 01, where the same command returned the toml's numbers unchanged whatever you
 asked for.
 
