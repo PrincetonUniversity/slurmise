@@ -1,0 +1,31 @@
+#!/usr/bin/env python3
+"""Allocates <intensity> MB of memory and holds it for <duration> seconds."""
+
+import argparse
+import time
+
+parser = argparse.ArgumentParser(
+    description="Allocate memory and hold it for a fixed duration.",
+)
+
+parser.add_argument(
+    "--intensity",
+    type=int,
+    default=100,
+    help="megabytes of memory to allocate",
+)
+
+parser.add_argument(
+    "--duration",
+    type=int,
+    default=1,
+    help="seconds to hold the allocation",
+)
+
+args = parser.parse_args()
+
+# Create a bytearray of the specified size in megabytes
+_ = bytearray(args.intensity * 1024 * 1024)
+
+# Wait for specified seconds
+time.sleep(args.duration)

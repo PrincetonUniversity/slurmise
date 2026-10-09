@@ -1,11 +1,31 @@
 from __future__ import annotations
 
+import math
 from dataclasses import asdict
 
 import numpy as np
 import pandas as pd
 
 from .job_data import JobData
+
+
+def ceil_with_tolerance(value: float) -> int:
+    """
+    Round up a float only if it is more than float noise larger than the nearest int.
+    ceil_with_tolerance(1.1) returns 2, but ceil_with_tolerance(1+1e-13) returns 1.
+
+    :param value: A value
+    :type value: float
+    :return: math.ceil or the nearest int
+    :rtype: int
+
+    """
+
+    nearest = round(value)
+    if math.isclose(value, nearest, rel_tol=1e-12):
+        return int(nearest)
+
+    return math.ceil(value)
 
 
 def jobs_to_pandas(jobs: list[JobData]):
