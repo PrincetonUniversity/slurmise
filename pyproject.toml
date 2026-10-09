@@ -84,7 +84,12 @@ fmt-check = {shell = "ruff format --check . && ruff check ."}
 #
 # The bash kernel has to be registered before myst-nb can find it, and
 # `--sys-prefix` puts it in this project's virtualenv rather than the user's home.
-docs = {shell = "uv run --group docs python -m bash_kernel.install --sys-prefix && uv run --group docs jupyter-book build docs", help = "Build the docs, executing and checking every tutorial lesson"}
+#
+# `--all` because Sphinx otherwise skips any page whose source is unchanged since the
+# last build, and `execute_notebooks: force` only applies to pages it does read. The
+# lessons' output depends on src/slurmise/, which Sphinx doesn't track, so without it
+# a local build after a code change re-runs nothing and passes regardless.
+docs = {shell = "uv run --group docs python -m bash_kernel.install --sys-prefix && uv run --group docs jupyter-book build --all docs", help = "Build the docs, executing and checking every tutorial lesson"}
 docs-clean = {shell = "uv run --group docs jupyter-book clean docs", help = "Delete the built docs"}
 
 [tool.poe.tasks.smk-test-v7]
