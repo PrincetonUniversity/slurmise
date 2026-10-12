@@ -95,17 +95,17 @@ slurmise keeps one fitted model per `base_dir`, so fit the job you're about to a
 about:
 
 ```{code-cell}
-slurmise --toml slurmise.toml update-model --job-name perfectScaler
+slurmise update-model --job-name perfectScaler
 grep -o '"job_name": "[^"]*"' PolynomialFit/*/fits.json
 ```
 
 ```{code-cell}
-slurmise --toml slurmise.toml predict "perfectScaler --intensity 2750 --duration 10"
+slurmise predict "perfectScaler --intensity 2750 --duration 10"
 ```
 
 ```{code-cell}
 :tags: [remove-cell]
-slurmise --toml slurmise.toml predict "perfectScaler --intensity 2750 --duration 10" 2>&1 \
+slurmise predict "perfectScaler --intensity 2750 --duration 10" 2>&1 \
     | grep -q 'Predicted memory'
 ```
 
@@ -115,13 +115,13 @@ prediction should land near it anyway. Every task here ran with the same
 is the interesting one.
 
 ```{code-cell}
-slurmise --toml slurmise.toml update-model --job-name complexMemScaler
-slurmise --toml slurmise.toml predict "complexMemScaler --intensity 2750 --duration 10"
+slurmise update-model --job-name complexMemScaler
+slurmise predict "complexMemScaler --intensity 2750 --duration 10"
 ```
 
 ```{code-cell}
 :tags: [remove-cell]
-slurmise --toml slurmise.toml predict "complexMemScaler --intensity 2750 --duration 10" 2>&1 \
+slurmise predict "complexMemScaler --intensity 2750 --duration 10" 2>&1 \
     | grep -q 'Predicted memory'
 ```
 
@@ -199,13 +199,13 @@ history the other three have.
 So fit and ask one category at a time:
 
 ```{code-cell}
-slurmise --toml slurmise.toml update-model --job-name categoricalScaler
-slurmise --toml slurmise.toml predict "categoricalScaler --intensity 20 --duration 10 --scaling linear"
+slurmise update-model --job-name categoricalScaler
+slurmise predict "categoricalScaler --intensity 20 --duration 10 --scaling linear"
 ```
 
 ```{code-cell}
 :tags: [remove-cell]
-slurmise --toml slurmise.toml predict "categoricalScaler --intensity 20 --duration 10 --scaling linear" 2>&1 \
+slurmise predict "categoricalScaler --intensity 20 --duration 10 --scaling linear" 2>&1 \
     | grep -qE 'Predicted memory: [1-9][0-9]$'
 ```
 
@@ -213,12 +213,12 @@ About 20 MB — `--scaling linear` means intensity to the first power. Now the s
 question at the other end of the scale:
 
 ```{code-cell}
-slurmise --toml slurmise.toml predict "categoricalScaler --intensity 20 --duration 10 --scaling cubic"
+slurmise predict "categoricalScaler --intensity 20 --duration 10 --scaling cubic"
 ```
 
 ```{code-cell}
 :tags: [remove-cell]
-slurmise --toml slurmise.toml predict "categoricalScaler --intensity 20 --duration 10 --scaling cubic" 2>&1 \
+slurmise predict "categoricalScaler --intensity 20 --duration 10 --scaling cubic" 2>&1 \
     | grep -qE 'Predicted memory: [0-9][0-9][0-9][0-9]'
 ```
 

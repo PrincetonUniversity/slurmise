@@ -1,39 +1,28 @@
-# Why slurmise, and how this tutorial works
+# Setting up the tutorial
 
-## The problem
+These lessons walk through slurmise on a few toy jobs, from recording a single run
+to predicting resources across an array. You'll need slurmise installed first —
+see {doc}`../../install` — and {doc}`../../how-it-works` covers why slurmise exists
+and the record / update / predict loop the lessons are built around.
 
-Knowing how much time and memory to assign a job is very difficult. Even if
-you're just running the same command a thousand times, the runtime might vary
-depending on what parameters are used.
+## Getting the tutorial files
 
-For example, you might be a biologist who has a script that predicts the protein
-structure of a gene and you want to run that script on all ~20,000 genes. You
-could submit an ARRAY job, but how much time and memory should you provide? Some
-genes are small, others are huge.
+The tutorial provides multiple self-contained lessons with important files such
+as a `slurmise.toml` config and a couple of toy programs that can be configured
+to use a known amount of time and memory. Those files ship as a tarball attached
+to each release:
 
-Or maybe you're an astrophysicist interested in estimating the number of black
-holes across different regions of space.
+```bash
+wget -qO- https://github.com/PrincetonUniversity/slurmise/releases/latest/download/slurmise-tutorial.tar.gz | tar -xz
+cd slurmise-tutorial
+```
 
-slurmise aims to help you request an efficient amount of time and memory when
-you submit jobs to the SLURM scheduler.
-
-To accomplish this task, slurmise records how much time and memory was used for
-a job, as well as whatever parameters you think might be important. It then
-attempts to learn from these prior runs.
-
-slurmise might be a good fit if you need to run the same code thousands of times
-with different parameters or inputs. It won't be helpful if you just need to run
-a script twice, because it won't see enough examples to make a helpful
-prediction.
-
-Why should you care about being efficient with SLURM resources? The less
-resources you ask for, the shorter your queue times.
+That gives you one directory per lesson.
 
 ## How the lessons work
 
-Each lesson in this book corresponds to a directory in the tutorial tarball —
-see {doc}`../../install` for how to get it. Take the lessons in order; each
-builds on the one before.
+Each lesson in this book corresponds to a directory in the tutorial tarball. Take
+the lessons in order; each builds on the one before.
 
 To follow along, open a shell, `cd` into the lesson's directory, and type the
 commands as you meet them. Every command block has a copy button in its top
@@ -45,16 +34,48 @@ actually printed. If a lesson's commands stopped working, or stopped printing
 what the surrounding prose claims, the documentation would fail to build rather
 than quietly telling you something untrue.
 
-Two consequences worth knowing:
+Your numbers will not match the page exactly. Measured memory and runtime vary
+from run to run, and on the mock path they are asserted rather than measured. The
+parsed parameters — intensity, duration — will match, because those come straight
+out of the command.
 
-- The pages take the **mock** path wherever a lesson would submit a job, because
-  the machine building this book has no scheduler. Each lesson also shows the
-  `sbatch` command the mock stands in for.
-- Your numbers will not match the page exactly. Measured memory and runtime vary
-  from run to run, and on the mock path they are asserted rather than measured.
-  The parsed parameters — intensity, duration — will match, because those come
-  straight out of the command.
+## Running the lessons without a cluster
 
-{doc}`../../how-it-works` covers the record / update / predict loop and the
-`--account` flags your cluster may need. Start with
-{doc}`../01_single_job/lesson` when you're ready.
+Every lesson that submits a job offers two ways to do it:
+
+- **cluster** — a real `sbatch`, which is what you would do in earnest.
+- **mock** — a stand-in that calls `slurmise raw-record` to assert what the job
+  *would* have used, so nothing is submitted and nothing is queued.
+
+The lesson pages in this book show the mock path, because that is the path that
+runs when the documentation is built — there is no scheduler in CI. Each lesson
+also shows the `sbatch` command it stands in for, so you can run the real thing.
+Mocking is a convenience for learning; in actual use you always want the
+`sbatch` path.
+
+Your SLURM setup may require extra flags such as `--account` when submitting the
+included `.sbatch` files. `sbatch` honors `SBATCH_ACCOUNT`, `SBATCH_PARTITION`
+and `SBATCH_QOS` from your environment, which is the easiest way to supply them
+without editing every file:
+
+```bash
+export SBATCH_ACCOUNT=myaccount
+```
+
+## A note on the tutorial's numbers
+
+The lessons use short sleep durations so every job finishes quickly. slurmise
+records runtime in whole minutes, so when you run them on a cluster, a job that
+sleeps for seconds is stored as `0` and every fitted runtime comes out flat.
+slurmise notices that the fit is degenerate rather than trusting it, and says so:
+
+```text
+Warnings:
+  Predicted runtime for job perfectScaler is zero or negative (0).
+```
+
+The prediction then falls back to the runtime `default` from the toml. That is
+worth seeing once — it is the same guard that protects you from a bad fit on real
+jobs — but it does mean these lessons teach predicting **memory**.
+
+Start with {doc}`../01_single_job/lesson` when you're ready.

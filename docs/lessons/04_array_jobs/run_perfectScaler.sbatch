@@ -16,5 +16,5 @@ intensity=${intensities[$idx]}
 
 srun ../bin/perfectScaler --intensity "$intensity" --duration "$duration"
 
-slurmise --toml slurmise.toml record \
+slurmise record \
     "perfectScaler --intensity $intensity --duration $duration"

@@ -28,7 +28,7 @@ for i in "${!intensities[@]}"; do
         noise=$(( (RANDOM % 41) - 20 ))
         memory=$(( intensity + intensity * noise / 100 + 1000 ))
 
-        slurmise --toml slurmise.toml raw-record \
+        slurmise raw-record \
             --job-name complexMemScaler \
             --slurm-id 23456 --step-id "$step" \
             --numerics "\"intensity\":$intensity,\"duration\":$duration" \

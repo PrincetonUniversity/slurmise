@@ -5,7 +5,7 @@
 #
 # We're lying to slurmise here so we don't have to wait for the queue!
 
-slurmise --toml slurmise.toml raw-record \
+slurmise raw-record \
     --job-name perfectScaler \
     --slurm-id 12345 \
     --numerics '"intensity":5000,"duration":10' \

@@ -27,7 +27,7 @@ for i in "${!intensities[@]}"; do
         srun ../bin/perfectScaler --intensity "$intensity" --duration "$duration"
 
         # record the results keeping track of the --step-id
-        slurmise --toml slurmise.toml record \
+        slurmise record \
             --step-id "$step" \
             "perfectScaler --intensity $intensity --duration $duration"
 

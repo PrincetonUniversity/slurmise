@@ -16,7 +16,7 @@ for task in $(seq 0 25); do
 
     # ../bin/perfectScaler allocates --intensity MB and sleeps --duration
     # seconds, so a real run measures a little over both.
-    slurmise --toml slurmise.toml raw-record \
+    slurmise raw-record \
         --job-name perfectScaler \
         --slurm-id "$((31000 + task))" \
         --numerics "\"intensity\":$intensity,\"duration\":$duration" \

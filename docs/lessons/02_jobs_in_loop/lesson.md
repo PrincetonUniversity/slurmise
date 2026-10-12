@@ -55,7 +55,7 @@ them apart, slurmise would file all 39 recordings under the same key and each
 would overwrite the last. The `step` counter supplies that:
 
 ```bash
-slurmise --toml slurmise.toml record \
+slurmise record \
     --step-id "$step" \
     "perfectScaler --intensity $intensity --duration $duration"
 ```
@@ -116,7 +116,7 @@ in the step after the dot, which is `--step-id` doing its work.
 ## Train
 
 ```{code-cell}
-slurmise --toml slurmise.toml update-all
+slurmise update-all
 ```
 
 `update-all` fits a model for every job in the database — here, just the one. We
@@ -143,12 +143,12 @@ Ask for an `(intensity, duration)` pair that was never run — 2750 sits between
 2500 and 3000 in the list, and no run used a duration of 7:
 
 ```{code-cell}
-slurmise --toml slurmise.toml predict "perfectScaler --intensity 2750 --duration 7"
+slurmise predict "perfectScaler --intensity 2750 --duration 7"
 ```
 
 ```{code-cell}
 :tags: [remove-cell]
-slurmise --toml slurmise.toml predict "perfectScaler --intensity 2750 --duration 7" 2>&1 \
+slurmise predict "perfectScaler --intensity 2750 --duration 7" 2>&1 \
     | grep -qE 'Predicted memory: [1-4][0-9][0-9][0-9]'
 ```
 

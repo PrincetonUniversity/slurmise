@@ -72,7 +72,6 @@ test-parsing = "pytest -s tests/test_parsing.py"
 fmt-check = {shell = "ruff format --check . && ruff check ."}
 
 docs = {shell = "uv run --group docs python -m bash_kernel.install --sys-prefix && uv run --group docs jupyter-book build --all docs", help = "Build the docs, executing and checking every tutorial lesson"}
-docs-clean = {shell = "uv run --group docs jupyter-book clean docs", help = "Delete the built docs"}
 
 [tool.poe.tasks.smk-test-v7]
 cmd = "pytest"

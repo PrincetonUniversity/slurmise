@@ -23,7 +23,7 @@ for task in $(seq 0 59); do
 
     # --scaling is a category, so it goes in --categories rather than
     # --numerics. That is the one thing this job does differently.
-    slurmise --toml slurmise.toml raw-record \
+    slurmise raw-record \
         --job-name categoricalScaler \
         --slurm-id "$((33000 + task))" \
         --numerics '"intensity":20,"duration":10' \

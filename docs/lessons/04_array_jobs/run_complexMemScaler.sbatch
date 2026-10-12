@@ -16,5 +16,5 @@ intensity=${intensities[$idx]}
 
 srun ../bin/complexMemScaler --intensity "$intensity" --duration "$duration"
 
-slurmise --toml slurmise.toml record \
+slurmise record \
     "complexMemScaler --intensity $intensity --duration $duration"

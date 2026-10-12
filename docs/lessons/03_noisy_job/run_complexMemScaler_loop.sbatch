@@ -27,7 +27,7 @@ for i in "${!intensities[@]}"; do
         srun ../bin/complexMemScaler --intensity "$intensity" --duration "$duration"
 
         # record the results keeping track of the --step-id
-        slurmise --toml slurmise.toml record \
+        slurmise record \
             --step-id "$step" \
             "complexMemScaler --intensity $intensity --duration $duration"
 

@@ -1,5 +1,32 @@
 # How slurmise works
 
+## Why slurmise
+
+Knowing how much time and memory to assign a job is very difficult. Even if
+you're just running the same command a thousand times, the runtime might vary
+depending on what parameters are used.
+
+For example, you might be a biologist who has a script that predicts the protein
+structure of a gene and you want to run that script on all ~20,000 genes. You
+could submit an ARRAY job, but how much time and memory should you provide? Some
+genes are small, others are huge.
+
+Or maybe you're an astrophysicist interested in estimating the number of black
+holes across different regions of space.
+
+slurmise aims to help you request an efficient amount of time and memory when
+you submit jobs to the SLURM scheduler.
+
+slurmise might be a good fit if you need to run the same code thousands of times
+with different parameters or inputs. It won't be helpful if you just need to run
+a script twice, because it won't see enough examples to make a helpful
+prediction.
+
+Why should you care about being efficient with SLURM resources? The less
+resources you ask for, the shorter your queue times.
+
+## The record / update / predict loop
+
 slurmise predicts the time and memory a SLURM job will need by learning from
 jobs you have already run. The workflow is a loop:
 
@@ -18,53 +45,15 @@ jobs you have already run. The workflow is a loop:
 
 A few things that shape what you will see in the tutorial:
 
-- **Configuration lives in a toml file.** Every command takes `--toml`; there is
-  no auto-discovery. The toml declares each job's `job_spec` and any default
-  time and memory values.
+- **Configuration lives in a toml file.** Pass it with `--toml` (or `-t`).
+  Without it, slurmise looks for `slurmise.toml` in the current directory, then
+  for `~/.slurmise/slurmise.toml`. The toml declares each job's `job_spec` and
+  any default time and memory values.
 - **Parameters can be numeric or categorical.** Numeric parameters let the model
   interpolate across nearby values. Categorical parameters partition the
   database into a separate model per category combination, so each combination
   needs its own data.
-- **A model needs enough data before it will fit.** Until a job has accumulated
-  enough records, `predict` falls back to the defaults from your toml rather
-  than guessing from too few points.
-
-## A note on the tutorial's numbers
-
-The lessons use short sleep durations so every job finishes quickly. slurmise
-records runtime in whole minutes, so a job that sleeps for seconds is stored as
-`0` and every fitted runtime comes out flat. slurmise notices that the fit is
-degenerate rather than trusting it, and says so:
-
-```text
-Warnings:
-  Predicted runtime for job perfectScaler is zero or negative: 0.0
-  Returning default runtime value.
-```
-
-The prediction then falls back to `default_time` from the toml. That is worth
-seeing once — it is the same guard that protects you from a bad fit on real
-jobs — but it does mean these lessons teach predicting **memory**.
-
-## Running the lessons without a cluster
-
-Every lesson that submits a job offers two ways to do it:
-
-- **cluster** — a real `sbatch`, which is what you would do in earnest.
-- **mock** — a stand-in that calls `slurmise raw-record` to assert what the job
-  *would* have used, so nothing is submitted and nothing is queued.
-
-The lesson pages in this book show the mock path, because that is the path that
-runs when the documentation is built — there is no scheduler in CI. Each lesson
-also shows the `sbatch` command it stands in for, so you can run the real thing.
-Mocking is a convenience for learning; in actual use you always want the
-`sbatch` path.
-
-Your SLURM setup may require extra flags such as `--account` when submitting the
-included `.sbatch` files. `sbatch` honours `SBATCH_ACCOUNT`, `SBATCH_PARTITION`
-and `SBATCH_QOS` from your environment, which is the easiest way to supply them
-without editing every file:
-
-```bash
-export SBATCH_ACCOUNT=myaccount
-```
+- **Until a model is fit, `predict` returns your defaults.** `predict` only
+  answers from a model once `update-all` or `update-model` has fit one, and
+  fitting needs enough records for that job. Until then it returns the defaults
+  from your toml rather than guessing from too few points.

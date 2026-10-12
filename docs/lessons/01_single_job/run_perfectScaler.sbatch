@@ -9,5 +9,5 @@
 
 srun ../bin/perfectScaler --intensity 5000 --duration 10
 
-slurmise --toml slurmise.toml record \
+slurmise record \
     "perfectScaler --intensity 5000 --duration 10"

@@ -102,16 +102,16 @@ near-identical; here they scatter.
 ## Train, and predict
 
 ```{code-cell}
-slurmise --toml slurmise.toml update-all
+slurmise update-all
 ```
 
 ```{code-cell}
-slurmise --toml slurmise.toml predict "complexMemScaler --intensity 2750 --duration 7"
+slurmise predict "complexMemScaler --intensity 2750 --duration 7"
 ```
 
 ```{code-cell}
 :tags: [remove-cell]
-slurmise --toml slurmise.toml predict "complexMemScaler --intensity 2750 --duration 7" 2>&1 \
+slurmise predict "complexMemScaler --intensity 2750 --duration 7" 2>&1 \
     | grep -q 'Predicted memory'
 ```
 

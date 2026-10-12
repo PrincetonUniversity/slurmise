@@ -16,7 +16,7 @@ for i in "${!intensities[@]}"; do
 
     for (( j=0; j<replicates; j++ )); do
 
-        slurmise --toml slurmise.toml raw-record \
+        slurmise raw-record \
             --job-name perfectScaler \
             --slurm-id 12345 --step-id "$step" \
             --numerics "\"intensity\":$intensity,\"duration\":$duration" \

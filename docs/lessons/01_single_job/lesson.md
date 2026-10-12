@@ -71,7 +71,7 @@ cat run_perfectScaler.sbatch
 
 ```{code-cell}
 :tags: [remove-cell]
-cat run_perfectScaler.sbatch | grep -q 'slurmise --toml slurmise.toml record'
+cat run_perfectScaler.sbatch | grep -q 'slurmise record'
 ```
 
 Notice that `slurmise record` is called **inside the job**, after the `srun`
@@ -106,7 +106,7 @@ submitting anything, the mock tells slurmise directly what the job would have
 used, with `raw-record`:
 
 ```{code-cell}
-slurmise --toml slurmise.toml raw-record \
+slurmise raw-record \
     --job-name perfectScaler \
     --slurm-id 12345 \
     --numerics '"intensity":5000,"duration":10' \
@@ -143,12 +143,12 @@ and `duration` values will: they were parsed straight out of the command by the
 Now ask slurmise what it would predict for a *different* intensity:
 
 ```{code-cell}
-slurmise --toml slurmise.toml predict "perfectScaler --intensity 4000 --duration 10"
+slurmise predict "perfectScaler --intensity 4000 --duration 10"
 ```
 
 ```{code-cell}
 :tags: [remove-cell]
-slurmise --toml slurmise.toml predict "perfectScaler --intensity 4000 --duration 10" 2>&1 \
+slurmise predict "perfectScaler --intensity 4000 --duration 10" 2>&1 \
     | grep -q 'No model has been fit'
 ```
 
@@ -163,6 +163,27 @@ is slurmise's own built-in default of 1 GB.
 Those job-agnostic built-in defaults of 60 minutes and 1 GB are arbitrary. It is
 good practice to set both defaults in your toml so the fallback guess is at least
 in the right range for your job.
+
+## Pointing at the config
+
+Apart from `print`, none of the commands above said which config to use. slurmise
+looks for `slurmise.toml` in the current directory, and failing that for
+`~/.slurmise/slurmise.toml`. `--toml` (or `-t`) names one explicitly, which you'll
+want when the config lives somewhere else. Here it gives the same answer:
+
+```{code-cell}
+slurmise --toml slurmise.toml predict "perfectScaler --intensity 4000 --duration 10"
+```
+
+```{code-cell}
+:tags: [remove-cell]
+diff <(slurmise predict "perfectScaler --intensity 4000 --duration 10" 2>&1) \
+     <(slurmise --toml slurmise.toml predict "perfectScaler --intensity 4000 --duration 10" 2>&1)
+```
+
+`print` is the exception. It can also read a database file directly
+(`slurmise print slurmise.h5`), so without `--toml` it doesn't go looking for a
+config — which is why it's the one command in these lessons that always names it.
 
 Next: {doc}`../02_jobs_in_loop/lesson`, where we generate enough records to train
 a model and get good predictions.

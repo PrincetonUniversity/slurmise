@@ -3,8 +3,8 @@ root: index
 parts:
   - caption: Getting Started
     chapters:
-      - file: install
       - file: how-it-works
+      - file: install
   - caption: Tutorial
     chapters:
       - file: lessons/00_introduction/lesson

@@ -15,5 +15,5 @@ scaling=${scaling_categories[$idx]}
 
 srun ../bin/categoricalScaler --intensity 20 --duration 10 --scaling $scaling
 
-slurmise --toml slurmise.toml record \
+slurmise record \
     "categoricalScaler --intensity 20 --duration 10 --scaling $scaling"
