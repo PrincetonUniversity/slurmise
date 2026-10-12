@@ -4,7 +4,7 @@
 title: slurmise
 author: Troy Comi, David Turner, Giannis Paraskevakos, Rob Bierman
 copyright: "2024"
-logo: ""
+logo: assets/logo.svg
 
 # Only build what the table of contents names. `lessons/` holds the files each lesson
 # operates on as well as its prose -- the `slurmise.toml`, the `.sbatch` and mock
