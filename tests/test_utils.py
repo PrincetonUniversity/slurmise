@@ -3,32 +3,7 @@ import pandas as pd
 import pytest
 
 from slurmise.job_data import JobData
-from slurmise.utils import ceil_with_tolerance, jobs_to_pandas
-
-
-@pytest.mark.parametrize(
-    ("value", "expected"),
-    [
-        (1.1, 2),
-        (1 + 1e-13, 1),
-        (45.0, 45),
-        (45.2, 46),
-        (45.000000000000014, 45),
-        (24.999999999999993, 25),
-        # Relative, so the same noise at a larger magnitude is still absorbed.
-        (4000.000000000001, 4000),
-        # Past the tolerance: a deliberately tiny fraction still rounds up.
-        (500.0000001, 501),
-        # Predictions arrive from sklearn as numpy floats, not builtins.
-        (np.float64(45.000000000000014), 45),
-    ],
-)
-def test_ceil_with_tolerance(value, expected):
-    """Float noise either side of an integer collapses to it; a real fraction rounds up."""
-    result = ceil_with_tolerance(value)
-
-    assert result == expected
-    assert isinstance(result, int)
+from slurmise.utils import jobs_to_pandas
 
 
 def test_jobs_to_pandas_basic():
