@@ -169,10 +169,16 @@ def test_update_model_without_cmd_then_predict(two_categories_toml):
 
     for mode, complexity, _, slope in CATEGORIES:
         predicted, warnings = slurmise.predict(f"monomer -c 5 -M {mode} -C {complexity}", "nupack")
+        expected_runtime = slope * 5 + 10
+        expected_memory = 100 * slope * 5 + 500
 
         assert "Not enough fitting data points in the fits." not in warnings
-        assert predicted.runtime == pytest.approx(slope * 5 + 10, rel=0.01)
-        assert predicted.memory == pytest.approx(100 * slope * 5 + 500, rel=0.01)
+        assert isinstance(predicted.runtime, int)
+        assert isinstance(predicted.memory, int)
+
+        # Float noise plus ceil can put a prediction up to 1 above the expected value.
+        assert 0 <= predicted.runtime - expected_runtime <= 1
+        assert 0 <= predicted.memory - expected_memory <= 1
 
 
 def test_raw_record_uses_env_slurm_id(simple_toml, monkeypatch, no_slurm_env, sacct_mock):
