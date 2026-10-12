@@ -21,7 +21,7 @@ rm -f out_slurm_logs/*.out
 mkdir -p out_slurm_logs
 ```
 
-# Enough runs in a loop to fit a model
+# Recording jobs in a loop
 
 In {doc}`../01_single_job/lesson` one recording wasn't enough to fit a model.
 Here we record 39 runs of the same job in a single allocation, train on them, and
