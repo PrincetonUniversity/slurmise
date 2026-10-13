@@ -20,9 +20,9 @@ mkdir -p out_slurm_logs
 
 # A job whose memory doesn't sit still
 
-{doc}`../02_jobs_in_loop/lesson` fitted a model to `perfectScaler`, which tries to use
+{doc}`../02_multiple_jobs/lesson` fitted a model to `perfectScaler`, which tries to use
 exactly the memory you ask it for. Real jobs aren't that obliging. This lesson
-runs the same 39-run loop against `complexMemScaler`, whose memory moves from run
+runs a 39-run loop against `complexMemScaler`, whose memory moves from run
 to run, and looks at what slurmise does when the fit isn't good enough to trust.
 
 On a cluster **this lesson takes about 10 minutes**, nearly all of it the job
@@ -31,12 +31,13 @@ sleeping. To follow along, `cd` into `03_noisy_job/`.
 ## The noisy job
 
 `../bin/complexMemScaler` takes the same `--intensity` and `--duration` as
-`perfectScaler`, and the sbatch walks the same 13 pairs × 3 replicates. What
+`perfectScaler`, and the sbatch walks lesson 02's 13 pairs, 3 replicates each. What
 differs is inside the script: it allocates the intensity you asked for, jitters it
 by ±20%, **and adds a flat 1000 MB on top**.
 
 ```{literalinclude} run_complexMemScaler_loop.sbatch
 :language: bash
+:caption:
 ```
 
 ```{code-cell}
@@ -54,6 +55,7 @@ The toml is lesson 02's with the job name changed:
 
 ```{literalinclude} slurmise.toml
 :language: toml
+:caption:
 ```
 
 ```{code-cell}
@@ -63,16 +65,25 @@ cat slurmise.toml | grep -q complexMemScaler
 
 ## Submit it
 
-On a cluster:
-
+::::{tab-set}
+:::{tab-item} On a cluster
+:sync: cluster
 ```bash
 mkdir -p out_slurm_logs
 sbatch --wait run_complexMemScaler_loop.sbatch
 ```
+:::
 
-Mocked here:
+:::{tab-item} Mocked
+:sync: mock
+```bash
+bash mock_complexMemScaler_loop.sh
+```
+:::
+::::
 
 ```{code-cell}
+:tags: [remove-cell]
 bash mock_complexMemScaler_loop.sh
 ```
 
@@ -87,9 +98,9 @@ slurmise --toml slurmise.toml print | head -30
 slurmise --toml slurmise.toml print | grep -q complexMemScaler
 ```
 
-39 records again, sharing one job id and separated by `--step-id`. Look down the
-`memory` values for the replicates of a single intensity — in lesson 02 those were
-near-identical; here they scatter.
+39 records, sharing one job id and separated by `--step-id`. Look down the
+`memory` values for the replicates of a single intensity — `perfectScaler` would
+have used the same memory each time; here they scatter.
 
 ## Train, and predict
 
@@ -108,7 +119,7 @@ slurmise predict "complexMemScaler --intensity 2750 --duration 7" 2>&1 \
 ```
 
 You'll get one of two things here, and which one depends on how the noise fell in
-the 39 runs — including on this page, which is rebuilt from scratch each time.
+the 39 runs.
 Either a model-based number, noticeably larger than lesson 02's answer to the same
 question, which is the flat 1000 MB showing up. Or this:
 

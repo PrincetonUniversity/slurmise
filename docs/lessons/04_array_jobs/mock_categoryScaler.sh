@@ -6,7 +6,7 @@
 # We're lying to slurmise here for the sake of the tutorial!
 #
 # Each task gets its own slurmid because each array task is a job in its own
-# right -- which is why, unlike 02_jobs_in_loop/, there is no --step-id here.
+# right -- which is why, unlike 02_multiple_jobs/, there is no --step-id here.
 
 scaling_categories=(linear quadratic cubic)
 

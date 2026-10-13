@@ -9,7 +9,7 @@ parts:
     chapters:
       - file: tutorial
       - file: lessons/01_single_job/lesson
-      - file: lessons/02_jobs_in_loop/lesson
+      - file: lessons/02_multiple_jobs/lesson
       - file: lessons/03_noisy_job/lesson
       - file: lessons/04_array_jobs/lesson
   - caption: Reference

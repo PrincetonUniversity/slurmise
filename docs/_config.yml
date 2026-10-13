@@ -41,6 +41,11 @@ html:
   # "slurmise" entry above the Getting Started caption.
   home_page_in_navbar: false
 
+latex:
+  # Only needed for PDF output, which this book doesn't build. Its config hook also
+  # forces numfig back on for every builder, overriding `numfig: false` below.
+  use_jupyterbook_latex: false
+
 sphinx:
   extra_extensions:
     - sphinx.ext.autodoc
@@ -57,5 +62,8 @@ sphinx:
     # myst-nb would otherwise render as a separate code block -- a 30-line `print`
     # became 30 stacked blocks. This coalesces them back into one block per cell.
     nb_merge_streams: true
+    # Numbering would prefix every literalinclude caption with "Listing N". The
+    # captions are filenames and nothing cites them by number.
+    numfig: false
     autodoc_typehints: description
     autodoc_member_order: bysource

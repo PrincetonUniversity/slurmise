@@ -19,16 +19,14 @@ rm -rf out_slurm_logs
 
 # Arrays for parallel recording, and a categorical feature
 
-{doc}`../02_jobs_in_loop/lesson` collected its runs one after another inside a
+{doc}`../02_multiple_jobs/lesson` collected its runs one after another inside a
 single allocation. Here we collect them in parallel with a SLURM array, and then
 look at what changes when a job's feature isn't a number.
 
-**This lesson always uses the mock scripts**, unlike the others, which offer a
-choice. Its three arrays come to 112 tasks, and each `sbatch --wait` waits for
-every task in its array — on a small or busy cluster that is a long wait for a
-lesson whose subject is what the *records* look like afterwards, not what SLURM
-does to produce them. The `.sbatch` files are here all the same, and each section
-shows the submission it stands in for.
+Its three arrays come to 112 tasks, and each `sbatch --wait` waits for every task
+in its array. On a small or busy cluster that is a long wait for a lesson whose
+subject is what the *records* look like afterwards, so the mocked option is a
+reasonable choice here even if you ran the earlier lessons for real.
 
 To follow along, `cd` into `04_array_jobs/`.
 
@@ -36,6 +34,7 @@ To follow along, `cd` into `04_array_jobs/`.
 
 ```{literalinclude} run_perfectScaler.sbatch
 :language: bash
+:caption:
 ```
 
 ```{code-cell}
@@ -47,7 +46,7 @@ cat run_perfectScaler.sbatch | grep -q 'SBATCH --array'
 its own `$SLURM_ARRAY_TASK_ID`, runs `perfectScaler` once, and records it. Only 8
 intensities are on offer, so the modulo means each gets run three or four times.
 
-Notice what's *not* there: no `--step-id`. In lesson 02 all 39 runs were steps of
+Notice what's *not* there: no `--step-id`. In lesson 02 all 13 runs were steps of
 one job and shared a `$SLURM_JOB_ID`, so slurmise needed the step counter to keep
 the records apart. An array task is a job in its own right, with its own id, so
 there is nothing to disambiguate.
@@ -57,18 +56,29 @@ That's the trade. The loop needs one allocation and runs serially; the array nee
 
 ## The numeric arrays
 
-To run these for real, submit the `.sbatch` files the mocks stand in for —
-`--wait` on an array waits for the whole array, not just the first task:
-
+::::{tab-set}
+:::{tab-item} On a cluster
+:sync: cluster
 ```bash
 mkdir -p out_slurm_logs
 sbatch --wait run_perfectScaler.sbatch
 sbatch --wait run_complexMemScaler.sbatch
 ```
 
-Mocked:
+`--wait` on an array waits for the whole array, not just the first task.
+:::
+
+:::{tab-item} Mocked
+:sync: mock
+```bash
+bash mock_perfectScaler.sh
+bash mock_complexMemScaler.sh
+```
+:::
+::::
 
 ```{code-cell}
+:tags: [remove-cell]
 bash mock_perfectScaler.sh
 bash mock_complexMemScaler.sh
 ```
@@ -137,6 +147,7 @@ The toml declares that word as a category:
 
 ```{literalinclude} slurmise.toml
 :language: toml
+:caption:
 ```
 
 ```{code-cell}
@@ -149,11 +160,24 @@ cat slurmise.toml | grep -qE 'scaling.*category'
 stores the job's history, as the next command shows. The array runs 60 tasks, 20 at
 each of the three `--scaling` values:
 
+::::{tab-set}
+:::{tab-item} On a cluster
+:sync: cluster
 ```bash
 sbatch --wait run_categoryScaler.sbatch
 ```
+:::
+
+:::{tab-item} Mocked
+:sync: mock
+```bash
+bash mock_categoryScaler.sh
+```
+:::
+::::
 
 ```{code-cell}
+:tags: [remove-cell]
 bash mock_categoryScaler.sh
 ```
 
@@ -178,7 +202,7 @@ categoricalScaler
 ```
 
 **A category splits the job's history into separate piles**, and each pile is
-fitted separately. That's the substantive difference from a numeric feature. A
+fit separately. That's the substantive difference from a numeric feature. A
 model can interpolate `--intensity 2750` from runs at 2500 and 3000; there is no
 such thing as halfway between `linear` and `cubic`, so slurmise doesn't try — it
 keeps a model per category instead.

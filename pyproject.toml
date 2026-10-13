@@ -48,6 +48,7 @@ dev = [
 docs = [
   "jupyter-book<2", #JB1 uses sphinx which we use for autodoc
   "bash_kernel", #Needed for running code-cell blocks in lessons
+  "matplotlib", #Needed for plotting records in lessons
 ]
 
 snakemake = [
@@ -115,6 +116,8 @@ exclude_lines = [
 [tool.ruff]
 line-length = 120
 exclude = ["__about__.py"]
+# Respect the excludes even for files pre-commit passes by name.
+force-exclude = true
 
 [tool.ruff.lint]
 ignore = ["ANN001",
@@ -143,6 +146,8 @@ ignore = ["ANN001",
 [tool.ruff.format]
 docstring-code-format = true
 docstring-code-line-length = 80
+# Lesson scripts submitted with sbatch need "#SBATCH", which the formatter would rewrite as "# SBATCH".
+exclude = ["docs/lessons/**/run_*.py"]
 
 [tool.ruff.lint.per-file-ignores]
 "**/scripts/*" = [

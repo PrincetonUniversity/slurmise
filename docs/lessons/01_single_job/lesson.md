@@ -37,12 +37,25 @@ that simulates using a certain amount of time and memory, controlled by the
 is good for a tutorial, since we know ahead of time how much time and memory the
 job needs.
 
+```{literalinclude} ../bin/perfectScaler
+:language: python
+:caption: ../bin/perfectScaler
+```
+
+It stands in for real work and does none. `bytearray` allocates `--intensity`
+megabytes and holds on to them, and `time.sleep` makes the job last `--duration`
+seconds. Nothing is computed, but to SLURM it looks like any other job: its
+accounting sees a process that used that much memory for that long, which is all
+slurmise ever reads. Measured memory comes out a little above `--intensity`,
+because the Python interpreter itself needs some memory on top.
+
 `slurmise.toml` is the config. `job_spec` tells slurmise how to parse the command
 into features, and the `default` under `[slurmise.job.perfectScaler.runtime]` is
 the guess slurmise falls back on until a model has been trained:
 
 ```{literalinclude} slurmise.toml
 :language: toml
+:caption:
 ```
 
 ```{code-cell}
@@ -59,6 +72,7 @@ created.
 
 ```{literalinclude} run_perfectScaler.sbatch
 :language: bash
+:caption:
 ```
 
 ```{code-cell}
@@ -85,25 +99,37 @@ without writing anything, and the reason only shows up in the `slurmd` log. A
 
 ## Run it
 
-On a cluster, submit it. `--wait` blocks until the job finishes, so there's no
-polling loop to write — the command simply doesn't return for about ten seconds:
-
+::::{tab-set}
+:::{tab-item} On a cluster
+:sync: cluster
 ```bash
 mkdir -p out_slurm_logs
 sbatch --wait run_perfectScaler.sbatch
 ```
 
-This page has no scheduler, so it takes the mock path instead. Rather than
-submitting anything, the mock tells slurmise directly what the job would have
-used, with `raw-record`:
+`--wait` blocks until the job finishes, so there's no polling loop to write — the
+command simply doesn't return for about ten seconds.
+:::
+
+:::{tab-item} Mocked
+:sync: mock
+```bash
+bash mock_perfectScaler.sh
+```
+
+Nothing is submitted. The mock calls `slurmise raw-record`, which tells slurmise
+directly what the job would have used:
+
+```{literalinclude} mock_perfectScaler.sh
+:language: bash
+:caption:
+```
+:::
+::::
 
 ```{code-cell}
-slurmise raw-record \
-    --job-name perfectScaler \
-    --slurm-id 12345 \
-    --numerics '"intensity":5000,"duration":10' \
-    --used-minutes 12 \
-    --used-mbs 5020
+:tags: [remove-cell]
+bash mock_perfectScaler.sh
 ```
 
 Neither `perfectScaler` nor `slurmise record` prints anything, so on the cluster
@@ -146,9 +172,9 @@ slurmise predict "perfectScaler --intensity 4000 --duration 10" 2>&1 \
 
 Unfortunately, a warning that no model has been fit.
 
-slurmise only predicts from a model once one has been fit, and fitting needs many
-records per job — with one there is nothing to fit, so it falls back to the
-defaults. So `234` is the runtime `default` straight out of `slurmise.toml` — no
+slurmise only predicts from a model once it has been fit, and fitting needs many
+records per job (at least 11 jobs currently), so slurmise falls back to the
+defaults. The `234` is the runtime `default` straight out of `slurmise.toml` — no
 model was consulted at all. No memory default is set there, so the memory figure
 is slurmise's own built-in default of 1 GB.
 
@@ -177,5 +203,5 @@ diff <(slurmise predict "perfectScaler --intensity 4000 --duration 10" 2>&1) \
 (`slurmise print slurmise.h5`), so without `--toml` it doesn't go looking for a
 config — which is why it's the one command in these lessons that always names it.
 
-Next: {doc}`../02_jobs_in_loop/lesson`, where we generate enough records to train
+Next: {doc}`../02_multiple_jobs/lesson`, where we generate enough records to train
 a model and get good predictions.
