@@ -32,12 +32,8 @@ To follow along, `cd` into `02_jobs_in_loop/`.
 
 ## The loop, and why `--step-id`
 
-```{code-cell}
----
-mystnb:
-  text_lexer: bash
----
-cat run_perfectScaler_loop.sbatch
+```{literalinclude} run_perfectScaler_loop.sbatch
+:language: bash
 ```
 
 ```{code-cell}
@@ -65,12 +61,8 @@ slurmise record \
 
 The toml is lesson 01's with defaults filled in for both resources:
 
-```{code-cell}
----
-mystnb:
-  text_lexer: toml
----
-cat slurmise.toml
+```{literalinclude} slurmise.toml
+:language: toml
 ```
 
 ```{code-cell}

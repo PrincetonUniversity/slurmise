@@ -3,11 +3,11 @@ root: index
 parts:
   - caption: Getting Started
     chapters:
-      - file: how-it-works
       - file: install
+      - file: overview
   - caption: Tutorial
     chapters:
-      - file: lessons/00_introduction/lesson
+      - file: tutorial
       - file: lessons/01_single_job/lesson
       - file: lessons/02_jobs_in_loop/lesson
       - file: lessons/03_noisy_job/lesson

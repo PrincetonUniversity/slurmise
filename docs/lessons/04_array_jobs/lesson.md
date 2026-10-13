@@ -34,12 +34,8 @@ To follow along, `cd` into `04_array_jobs/`.
 
 ## Arrays, and why no `--step-id`
 
-```{code-cell}
----
-mystnb:
-  text_lexer: bash
----
-cat run_perfectScaler.sbatch
+```{literalinclude} run_perfectScaler.sbatch
+:language: bash
 ```
 
 ```{code-cell}
@@ -139,12 +135,8 @@ on a *word*, not a number.
 
 The toml declares that word as a category:
 
-```{code-cell}
----
-mystnb:
-  text_lexer: toml
----
-cat slurmise.toml
+```{literalinclude} slurmise.toml
+:language: toml
 ```
 
 ```{code-cell}

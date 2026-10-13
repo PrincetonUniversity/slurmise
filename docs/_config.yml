@@ -37,6 +37,9 @@ repository:
 html:
   use_issues_button: true
   use_repository_button: true
+  # The logo already links home; without this the sidebar starts with a lone
+  # "slurmise" entry above the Getting Started caption.
+  home_page_in_navbar: false
 
 sphinx:
   extra_extensions:

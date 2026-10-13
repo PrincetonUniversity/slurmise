@@ -41,12 +41,8 @@ job needs.
 into features, and the `default` under `[slurmise.job.perfectScaler.runtime]` is
 the guess slurmise falls back on until a model has been trained:
 
-```{code-cell}
----
-mystnb:
-  text_lexer: toml
----
-cat slurmise.toml
+```{literalinclude} slurmise.toml
+:language: toml
 ```
 
 ```{code-cell}
@@ -61,12 +57,8 @@ created.
 
 `run_perfectScaler.sbatch` runs `perfectScaler` once:
 
-```{code-cell}
----
-mystnb:
-  text_lexer: bash
----
-cat run_perfectScaler.sbatch
+```{literalinclude} run_perfectScaler.sbatch
+:language: bash
 ```
 
 ```{code-cell}

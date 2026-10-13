@@ -20,7 +20,7 @@ mkdir -p out_slurm_logs
 
 # A job whose memory doesn't sit still
 
-{doc}`../02_jobs_in_loop/lesson` fitted a model to `perfectScaler`, which uses
+{doc}`../02_jobs_in_loop/lesson` fitted a model to `perfectScaler`, which tries to use
 exactly the memory you ask it for. Real jobs aren't that obliging. This lesson
 runs the same 39-run loop against `complexMemScaler`, whose memory moves from run
 to run, and looks at what slurmise does when the fit isn't good enough to trust.
@@ -35,12 +35,8 @@ sleeping. To follow along, `cd` into `03_noisy_job/`.
 differs is inside the script: it allocates the intensity you asked for, jitters it
 by ±20%, **and adds a flat 1000 MB on top**.
 
-```{code-cell}
----
-mystnb:
-  text_lexer: bash
----
-cat run_complexMemScaler_loop.sbatch
+```{literalinclude} run_complexMemScaler_loop.sbatch
+:language: bash
 ```
 
 ```{code-cell}
@@ -56,12 +52,8 @@ middle and be wrong by up to a fifth either way.
 
 The toml is lesson 02's with the job name changed:
 
-```{code-cell}
----
-mystnb:
-  text_lexer: toml
----
-cat slurmise.toml
+```{literalinclude} slurmise.toml
+:language: toml
 ```
 
 ```{code-cell}

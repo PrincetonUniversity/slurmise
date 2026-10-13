@@ -1,0 +1,16 @@
+/* In the .sbatch listings every #SBATCH directive is a bash comment, so the
+   theme's muted grey made the most important lines the hardest to read.
+   Scoped by data-theme to outrank the theme's own pygments.css rules. */
+html[data-theme="light"] .highlight-bash .highlight .c,
+html[data-theme="light"] .highlight-bash .highlight .c1,
+html[data-theme="light"] .highlight-bash .highlight .ch,
+html[data-theme="light"] .highlight-bash .highlight .cm {
+  color: #1f5fbf;
+}
+
+html[data-theme="dark"] .highlight-bash .highlight .c,
+html[data-theme="dark"] .highlight-bash .highlight .c1,
+html[data-theme="dark"] .highlight-bash .highlight .ch,
+html[data-theme="dark"] .highlight-bash .highlight .cm {
+  color: #79b8ff;
+}

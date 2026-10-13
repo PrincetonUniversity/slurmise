@@ -36,6 +36,3 @@ uv add slurmise
 slurmise needs Python 3.11 or newer. It talks to SLURM by running `sacct`, so it
 has to be installed somewhere that SLURM's accounting commands are on the
 `PATH` — normally a login or compute node of the cluster itself.
-
-To work through the tutorial, {doc}`lessons/00_introduction/lesson` covers
-getting its files.

@@ -2,15 +2,13 @@
 
 These lessons walk through slurmise on a few toy jobs, from recording a single run
 to predicting resources across an array. You'll need slurmise installed first —
-see {doc}`../../install` — and {doc}`../../how-it-works` covers why slurmise exists
-and the record / update / predict loop the lessons are built around.
+see {doc}`install`.
 
 ## Getting the tutorial files
 
-The tutorial provides multiple self-contained lessons with important files such
-as a `slurmise.toml` config and a couple of toy programs that can be configured
-to use a known amount of time and memory. Those files ship as a tarball attached
-to each release:
+The tutorial provides self-contained lessons with important files such as a
+`slurmise.toml` config and a couple of toy programs that use a known amount of
+time and memory. Those files ship as a tarball attached to each release:
 
 ```bash
 wget -qO- https://github.com/PrincetonUniversity/slurmise/releases/latest/download/slurmise-tutorial.tar.gz | tar -xz
@@ -19,7 +17,7 @@ cd slurmise-tutorial
 
 That gives you one directory per lesson.
 
-## How the lessons work
+## Lessons
 
 Each lesson in this book corresponds to a directory in the tutorial tarball. Take
 the lessons in order; each builds on the one before.
@@ -78,4 +76,4 @@ The prediction then falls back to the runtime `default` from the toml. That is
 worth seeing once — it is the same guard that protects you from a bad fit on real
 jobs — but it does mean these lessons teach predicting **memory**.
 
-Start with {doc}`../01_single_job/lesson` when you're ready.
+Start with {doc}`lessons/01_single_job/lesson` when you're ready.
