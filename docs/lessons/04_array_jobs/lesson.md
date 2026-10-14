@@ -106,28 +106,28 @@ grep -o '"job_name": "[^"]*"' PolynomialFit/*/fits.json
 ```
 
 ```{code-cell}
-slurmise predict "perfectScaler --intensity 2750 --duration 10"
+slurmise predict "perfectScaler --intensity 2750"
 ```
 
 ```{code-cell}
 :tags: [remove-cell]
-slurmise predict "perfectScaler --intensity 2750 --duration 10" 2>&1 \
+slurmise predict "perfectScaler --intensity 2750" 2>&1 \
     | grep -q 'Predicted memory'
 ```
 
 2750 was never run — it sits between the 2500 and 3000 that were — and the memory
-prediction should land near it anyway. Every task here ran with the same
-`--duration 10`, so there's no variation for a runtime model to learn from; memory
+prediction should land near it anyway. Every task here took about a second,
+recorded as `0` minutes, so runtime falls back to a default with a warning; memory
 is the interesting one.
 
 ```{code-cell}
 slurmise update-model --job-name complexMemScaler
-slurmise predict "complexMemScaler --intensity 2750 --duration 10"
+slurmise predict "complexMemScaler --intensity 2750"
 ```
 
 ```{code-cell}
 :tags: [remove-cell]
-slurmise predict "complexMemScaler --intensity 2750 --duration 10" 2>&1 \
+slurmise predict "complexMemScaler --intensity 2750" 2>&1 \
     | grep -q 'Predicted memory'
 ```
 
@@ -155,8 +155,8 @@ The toml declares that word as a category:
 cat slurmise.toml | grep -qE 'scaling.*category'
 ```
 
-`{scaling:category}` is the only new thing here — `{intensity:numeric}` and
-`{duration:numeric}` are the same as ever. That one word changes how slurmise
+`{scaling:category}` is the only new thing here — `{intensity:numeric}` is the
+same as ever. That one word changes how slurmise
 stores the job's history, as the next command shows. The array runs 60 tasks, 20 at
 each of the three `--scaling` values:
 
@@ -216,12 +216,12 @@ So fit and ask one category at a time:
 
 ```{code-cell}
 slurmise update-model --job-name categoricalScaler
-slurmise predict "categoricalScaler --intensity 20 --duration 10 --scaling linear"
+slurmise predict "categoricalScaler --intensity 20 --scaling linear"
 ```
 
 ```{code-cell}
 :tags: [remove-cell]
-slurmise predict "categoricalScaler --intensity 20 --duration 10 --scaling linear" 2>&1 \
+slurmise predict "categoricalScaler --intensity 20 --scaling linear" 2>&1 \
     | grep -qE 'Predicted memory: [1-9][0-9]$'
 ```
 
@@ -229,12 +229,12 @@ About 20 MB — `--scaling linear` means intensity to the first power. Now the s
 question at the other end of the scale:
 
 ```{code-cell}
-slurmise predict "categoricalScaler --intensity 20 --duration 10 --scaling cubic"
+slurmise predict "categoricalScaler --intensity 20 --scaling cubic"
 ```
 
 ```{code-cell}
 :tags: [remove-cell]
-slurmise predict "categoricalScaler --intensity 20 --duration 10 --scaling cubic" 2>&1 \
+slurmise predict "categoricalScaler --intensity 20 --scaling cubic" 2>&1 \
     | grep -qE 'Predicted memory: [0-9][0-9][0-9][0-9]'
 ```
 

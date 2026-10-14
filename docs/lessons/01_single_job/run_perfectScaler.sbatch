@@ -7,7 +7,7 @@
 #SBATCH --job-name=perfectScaler
 #SBATCH --output=out_slurm_logs/slurm-%x-%j.out
 
-srun ../bin/perfectScaler --intensity 5000 --duration 10
+srun ../bin/perfectScaler --intensity 5000
 
 slurmise record \
-    "perfectScaler --intensity 5000 --duration 10"
+    "perfectScaler --intensity 5000"

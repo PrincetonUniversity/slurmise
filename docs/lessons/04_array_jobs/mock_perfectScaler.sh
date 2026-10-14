@@ -9,17 +9,16 @@
 # right -- which is why, unlike 02_multiple_jobs/, there is no --step-id here.
 
 intensities=(500 1000 1500 2000 2500 3000 3500 4000)
-duration=10
 
 for task in $(seq 0 25); do
     intensity=${intensities[$((task % 8))]}
 
-    # ../bin/perfectScaler allocates --intensity MB and sleeps --duration
-    # seconds, so a real run measures a little over both.
+    # ../bin/perfectScaler allocates --intensity MB for one second, so a real run
+    # measures a little over that memory, and 0 minutes.
     slurmise raw-record \
         --job-name perfectScaler \
         --slurm-id "$((31000 + task))" \
-        --numerics "\"intensity\":$intensity,\"duration\":$duration" \
-        --used-minutes "$((duration + 2))" \
+        --numerics "\"intensity\":$intensity" \
+        --used-minutes 0 \
         --used-mbs "$((intensity + 20))"
 done

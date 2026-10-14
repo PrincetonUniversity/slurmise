@@ -9,12 +9,11 @@
 #SBATCH --output=out_slurm_logs/slurm-%x-%j.out
 
 intensities=(500 1000 1500 2000 2500 3000 3500 4000)
-duration=10
 
 idx=$((SLURM_ARRAY_TASK_ID % 8))
 intensity=${intensities[$idx]}
 
-srun ../bin/complexMemScaler --intensity "$intensity" --duration "$duration"
+srun ../bin/complexMemScaler --intensity "$intensity"
 
 slurmise record \
-    "complexMemScaler --intensity $intensity --duration $duration"
+    "complexMemScaler --intensity $intensity"

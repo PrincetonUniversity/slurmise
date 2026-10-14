@@ -2,7 +2,7 @@
 base_dir = "."
 
 [slurmise.job.complexMemScaler]
-job_spec = "--intensity {intensity} --duration {duration}"
+job_spec = "--intensity {intensity}"
 
 [slurmise.job.complexMemScaler.runtime]
 default = 30
@@ -12,4 +12,3 @@ default = 5000
 
 [slurmise.job.complexMemScaler.variables]
 intensity = {type = "numeric"}
-duration = {type = "numeric"}

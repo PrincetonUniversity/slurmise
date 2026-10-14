@@ -2,11 +2,10 @@
 base_dir = "."
 
 [slurmise.job.perfectScaler]
-job_spec = "--intensity {intensity} --duration {duration}"
+job_spec = "--intensity {intensity}"
 
-[slurmise.job.perfectScaler.runtime]
-default = 234
+[slurmise.job.perfectScaler.memory]
+default = 2000
 
 [slurmise.job.perfectScaler.variables]
 intensity = {type = "numeric"}
-duration = {type = "numeric"}

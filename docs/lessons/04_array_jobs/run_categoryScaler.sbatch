@@ -13,7 +13,7 @@ scaling_categories=(linear quadratic cubic)
 idx=$((SLURM_ARRAY_TASK_ID % 3))
 scaling=${scaling_categories[$idx]}
 
-srun ../bin/categoricalScaler --intensity 20 --duration 10 --scaling $scaling
+srun ../bin/categoricalScaler --intensity 20 --scaling $scaling
 
 slurmise record \
-    "categoricalScaler --intensity 20 --duration 10 --scaling $scaling"
+    "categoricalScaler --intensity 20 --scaling $scaling"

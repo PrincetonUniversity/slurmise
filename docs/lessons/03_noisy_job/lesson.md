@@ -25,13 +25,13 @@ exactly the memory you ask it for. Real jobs aren't that obliging. This lesson
 runs a 39-run loop against `complexMemScaler`, whose memory moves from run
 to run, and looks at what slurmise does when the fit isn't good enough to trust.
 
-On a cluster **this lesson takes about 10 minutes**, nearly all of it the job
-sleeping. To follow along, `cd` into `03_noisy_job/`.
+On a cluster **this lesson takes a few minutes**, mostly SLURM starting 39 job
+steps. To follow along, `cd` into `03_noisy_job/`.
 
 ## The noisy job
 
-`../bin/complexMemScaler` takes the same `--intensity` and `--duration` as
-`perfectScaler`, and the sbatch walks lesson 02's 13 pairs, 3 replicates each. What
+`../bin/complexMemScaler` takes the same `--intensity` as `perfectScaler`, and the
+sbatch walks lesson 02's 13 intensities, 3 replicates each. What
 differs is inside the script: it allocates the intensity you asked for, jitters it
 by ±20%, **and adds a flat 1000 MB on top**.
 
@@ -109,12 +109,12 @@ slurmise update-all
 ```
 
 ```{code-cell}
-slurmise predict "complexMemScaler --intensity 2750 --duration 7"
+slurmise predict "complexMemScaler --intensity 2750"
 ```
 
 ```{code-cell}
 :tags: [remove-cell]
-slurmise predict "complexMemScaler --intensity 2750 --duration 7" 2>&1 \
+slurmise predict "complexMemScaler --intensity 2750" 2>&1 \
     | grep -q 'Predicted memory'
 ```
 

@@ -16,12 +16,8 @@ from slurmise.api import Slurmise
 
 slurmise = Slurmise()
 
-runs = [
-    (500, 2), (1000, 4), (1500, 8), (2000, 8), (2500, 4), (3000, 10), (3500, 12),
-    (4000, 14), (4500, 2), (5000, 13), (5500, 19), (6000, 5), (6500, 9),
-]  # fmt: skip
+intensities = [500, 1000, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000, 5500, 6000, 6500]
 
-for step, (intensity, duration) in enumerate(runs):
-    args = f"--intensity {intensity} --duration {duration}"
-    subprocess.run(["srun", "../bin/perfectScaler", *args.split()], check=True)
-    slurmise.record(f"perfectScaler {args}", step_id=str(step))
+for step, intensity in enumerate(intensities):
+    subprocess.run(["srun", "../bin/perfectScaler", "--intensity", str(intensity)], check=True)
+    slurmise.record(f"perfectScaler --intensity {intensity}", step_id=str(step))

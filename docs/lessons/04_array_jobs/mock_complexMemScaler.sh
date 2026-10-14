@@ -9,7 +9,6 @@
 # right -- which is why, unlike 02_multiple_jobs/, there is no --step-id here.
 
 intensities=(500 1000 1500 2000 2500 3000 3500 4000)
-duration=10
 
 for task in $(seq 0 25); do
     intensity=${intensities[$((task % 8))]}
@@ -22,7 +21,7 @@ for task in $(seq 0 25); do
     slurmise raw-record \
         --job-name complexMemScaler \
         --slurm-id "$((32000 + task))" \
-        --numerics "\"intensity\":$intensity,\"duration\":$duration" \
-        --used-minutes "$((duration + 2))" \
+        --numerics "\"intensity\":$intensity" \
+        --used-minutes 0 \
         --used-mbs "$memory"
 done

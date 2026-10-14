@@ -47,8 +47,7 @@ dev = [
 ]
 docs = [
   "jupyter-book<2", #JB1 uses sphinx which we use for autodoc
-  "bash_kernel", #Needed for running code-cell blocks in lessons
-  "matplotlib", #Needed for plotting records in lessons
+  "bash_kernel", #Needed for running code-cell blocks in lessons when building docs
 ]
 
 snakemake = [

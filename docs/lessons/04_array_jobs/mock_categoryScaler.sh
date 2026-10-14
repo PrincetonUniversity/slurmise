@@ -26,8 +26,8 @@ for task in $(seq 0 59); do
     slurmise raw-record \
         --job-name categoricalScaler \
         --slurm-id "$((33000 + task))" \
-        --numerics '"intensity":20,"duration":10' \
+        --numerics '"intensity":20' \
         --categories "\"scaling\":\"$scaling\"" \
-        --used-minutes "$(( 10 + (RANDOM % 5) - 2 ))" \
+        --used-minutes 0 \
         --used-mbs "$memory"
 done

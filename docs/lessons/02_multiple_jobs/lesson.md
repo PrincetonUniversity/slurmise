@@ -23,18 +23,19 @@ mkdir -p out_slurm_logs
 
 # Recording multiple jobs
 
-In {doc}`../01_single_job/lesson` one recording wasn't enough to fit a model.
-Here we record 13 runs of the same job in a single allocation, train on them, and
-finally get a prediction that comes from the data instead of from the toml's
-defaults.
+In {doc}`../01_single_job/lesson` we saw that one recording wasn't enough to fit a model.
+Here we record 13 runs of the same command in a single job, train on them, and
+get a prediction of how much memory would be required for a future run of this command.
+
+We're still using the `perfectScaler` command from the last lesson.
 
 To follow along, `cd` into `02_multiple_jobs/`.
 
 ## Many runs in one job, and why `--step-id`
 
-`run_perfectScaler_loop.sbatch` runs `perfectScaler` 13 times, each with a
-different `--intensity` and `--duration`, and records each run straight after it
-finishes. Here are the first three:
+The `run_perfectScaler_loop.sbatch` file runs `perfectScaler` 13 times, each with a
+different `--intensity`, and records each run straight after it
+finishes. Here is the head of this repetitive file:
 
 ```{literalinclude} run_perfectScaler_loop.sbatch
 :language: bash
@@ -47,8 +48,7 @@ finishes. Here are the first three:
 cat run_perfectScaler_loop.sbatch | grep -q -- --step-id
 ```
 
-The other ten follow the same pattern, through `--intensity 6500`.
-
+#RB NOTE
 All 13 `srun` calls share one `$SLURM_JOB_ID`, because they are steps of the same
 job. Without something to tell them apart, slurmise would file all 13 recordings
 under the same key and each would overwrite the last. `--step-id` gives each
@@ -77,7 +77,7 @@ sbatch --wait run_perfectScaler_loop.sbatch
 ```
 
 `--wait` doesn't return until the job finishes, which here means all 13 steps —
-about two minutes.
+a minute or so. There's also the wait time of the job queueing and starting.
 :::
 
 :::{tab-item} Mocked
@@ -87,7 +87,8 @@ bash mock_perfectScaler_loop.sh
 ```
 
 Nothing is submitted. The mock makes the same 13 recordings with `slurmise
-raw-record`, each with its own `--step-id`. The first three:
+raw-record`, each with its own `--step-id`. Again, this is a mock for the sake
+of the tutorial. In practice you would use `srun` with `slurmise record`.
 
 ```{literalinclude} mock_perfectScaler_loop.sh
 :language: bash
@@ -104,8 +105,11 @@ bash mock_perfectScaler_loop.sh
 
 ## Inspect
 
+After your job, or mock, runs of the `perfectScaler` command finish, each
+one should be recorded in the `slurmise.h5` database:
+
 ```{code-cell}
-slurmise --toml slurmise.toml print | head -30
+slurmise print slurmise.h5 | head -30
 ```
 
 ```{code-cell}
@@ -113,35 +117,30 @@ slurmise --toml slurmise.toml print | head -30
 slurmise --toml slurmise.toml print | grep -q perfectScaler
 ```
 
-13 records, each with the `intensity` and `duration` it was given plus the memory
-and runtime it used. Note the record ids: all 13 share one job id and differ only
-in the step after the dot, which is `--step-id` doing its work.
+13 records, each with the `intensity` parameter it was given as well as the
+memory and runtime it used. Note the record ids: all 13 share one job id and
+differ only in the step after the dot, which is `--step-id` doing its work.
 
-The same records are easier to take in as a picture. `plot_records.py` reads them
-back out of `slurmise.h5` with slurmise's Python API and plots memory against
-`--intensity`. It needs `matplotlib` installed alongside slurmise.
-
-It leaves runtime out on purpose. These jobs are unrealistically short — seconds,
-not minutes — and slurmise records runtime in whole minutes, so on a cluster every
-one of them is stored as `0` (see {doc}`../../tutorial`). The lessons are only
-trying to fit memory:
-
-```{literalinclude} plot_records.py
-:language: python
-:caption:
-```
-
-```{code-cell}
-python plot_records.py
-```
+Here are the same records as a table, ordered by intensity.
 
 ```{code-cell}
 :tags: [remove-input]
-display < records.png && rm records.png
+{ echo "record intensity memory"
+  slurmise --toml slurmise.toml print \
+    | awk '/^\|--- / {id = $2} /intensity:/ {i = $NF} /memory:/ {print id, i, $NF}' \
+    | sort -n -k2
+} | column -t
 ```
 
-Memory lies on a straight line through intensity. That clean line is what the
-model is about to learn.
+Again, the table leaves runtime out on purpose since this command is unrealistically short
+and we're just focusing on fitting memory in this tutorial.
+
+```{code-cell}
+:tags: [remove-cell]
+slurmise --toml slurmise.toml print \
+    | awk '/^\|--- / {id = $2} /intensity:/ {i = $NF} /memory:/ {print id, i, $NF}' \
+    | wc -l | grep -q 13
+```
 
 ## Train
 
@@ -149,16 +148,21 @@ model is about to learn.
 slurmise update-all
 ```
 
-`update-all` fits a model for every job in the database — here, just the one. We
-skipped this in lesson 01 because it had nothing to fit: slurmise holds back 20%
-of the runs to test the model against and wants at least 10 runs left to train on,
-so it takes 13 completed runs before a prediction stops being the toml's
-defaults — exactly what we have.
+Now that we have enough measurments, we can train a model to understand the
+resource requirements of the `perfectScaler` command.
+
+`update-all` fits a model for every command in the database — here, just `perfectScaler`.
+
+How this is working under the hood is that slurmise splits the recordings into
+test and train datasets and by default fits a 2nd order polynomial model on the training set.
+It then uses the held-out testing data to estimate the model accuracy.
 
 The fitted model lands in a sub-directory as `fits.json` and a couple of `.pkl`
-files. A polynomial model is the current default:
+files. Since a polynomial model is the current default then `PolynomialFit/`
+folder is created.
 
 ```{code-cell}
+:tags: [remove-cell]
 grep -o '"job_name": "[^"]*"' PolynomialFit/*/fits.json
 ```
 
@@ -169,23 +173,26 @@ grep -o '"job_name": "[^"]*"' PolynomialFit/*/fits.json | grep -q perfectScaler
 
 ## Predict
 
-Ask for an `(intensity, duration)` pair that was never run — 2750 sits between the
-2500 and 3000 in the list, and no run used a duration of 7:
+Ask for an intensity that was never run — 2750 sits between the 2500 and 3000 in
+the list:
 
 ```{code-cell}
-slurmise predict "perfectScaler --intensity 2750 --duration 7"
+slurmise predict "perfectScaler --intensity 2750"
 ```
 
 ```{code-cell}
 :tags: [remove-cell]
-slurmise predict "perfectScaler --intensity 2750 --duration 7" 2>&1 \
+slurmise predict "perfectScaler --intensity 2750" 2>&1 \
     | grep -qE 'Predicted memory: [1-4][0-9][0-9][0-9]'
 ```
 
-Memory comes back in the low thousands — from the model now, not from
-the toml's defaults of 5000 MB and 30 minutes. Compare that with lesson
-01, where the same command returned the toml's numbers unchanged whatever you
-asked for.
+Memory comes back at about 2750 MB — from the model now, not from the toml's
+default of 5000. Compare that with lesson 01, where the same command returned the
+toml's numbers unchanged whatever you asked for.
+
+Runtime is still the toml's default of 30 minutes, with a warning. Every record
+says `0` minutes, so the runtime model predicts `0`, and slurmise falls back to the
+default rather than suggest a job that takes no time at all.
 
 ## Using bash loops
 
@@ -195,15 +202,13 @@ counter as the `--step-id`:
 
 ```bash
 intensities=(500 1000 1500 2000 2500 3000 3500 4000 4500 5000 5500 6000 6500)
-durations=(    2    4    8    8    4   10   12   14    2   13   19    5    9)
 
 for step in "${!intensities[@]}"; do
     intensity=${intensities[$step]}
-    duration=${durations[$step]}
 
-    srun ../bin/perfectScaler --intensity "$intensity" --duration "$duration"
+    srun ../bin/perfectScaler --intensity "$intensity"
     slurmise record --step-id "$step" \
-        "perfectScaler --intensity $intensity --duration $duration"
+        "perfectScaler --intensity $intensity"
 done
 ```
 

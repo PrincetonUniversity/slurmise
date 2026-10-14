@@ -8,6 +8,6 @@
 slurmise raw-record \
     --job-name perfectScaler \
     --slurm-id 12345 \
-    --numerics '"intensity":5000,"duration":10' \
-    --used-minutes 12 \
+    --numerics '"intensity":5000' \
+    --used-minutes 0 \
     --used-mbs 5020

@@ -10,14 +10,12 @@
 
 #       Runs:  1   2     3    4    5    6    7    8    9   10   11   12   13
 intensities=(500 1000 1500 2000 2500 3000 3500 4000 4500 5000 5500 6000 6500)
-durations=(    2    4    8    8    4   10   12   14    2   13   19    5    9)
 
 replicates=3
 
 step=0
 for i in "${!intensities[@]}"; do
     intensity=${intensities[$i]}
-    duration=${durations[$i]}
 
     for (( j=0; j<replicates; j++ )); do
         # Keep this in step with ../bin/complexMemScaler: it jitters --intensity
@@ -31,8 +29,8 @@ for i in "${!intensities[@]}"; do
         slurmise raw-record \
             --job-name complexMemScaler \
             --slurm-id 23456 --step-id "$step" \
-            --numerics "\"intensity\":$intensity,\"duration\":$duration" \
-            --used-minutes "$((duration + 2))" \
+            --numerics "\"intensity\":$intensity" \
+            --used-minutes 0 \
             --used-mbs "$memory"
 
         step=$((step + 1))

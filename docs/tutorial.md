@@ -15,51 +15,62 @@ wget -qO- https://github.com/PrincetonUniversity/slurmise/releases/latest/downlo
 cd slurmise-tutorial
 ```
 
-That gives you one directory per lesson.
+## A note on the tutorial's example commands
 
-## A note on the tutorial's numbers
+The example commands we've provided, such as `perfectScaler`, are toy examples
+that only run for about a second so you don't
+have to twiddle your thumbs waiting for results as you work through the tutorial.
+This is not representative of normal SLURM jobs that often
+run for hours or even days. In fact, if you're frequently submitting SLURM jobs that finish
+in a few seconds, your HPC admin might have a few choice words for you.
 
-The lessons use short sleep durations so every job finishes quickly. slurmise
-records runtime in whole minutes, so when you run them on a cluster, a job that
-sleeps for seconds is stored as `0` and every fitted runtime comes out flat.
-slurmise notices that the fit is degenerate rather than trusting it, and says so:
+These short runtimes cause a tutorial-specific problem that all slurmise
+predicted runtimes are going to be `0` minutes and you'll get warnings like:
 
 ```text
 Warnings:
   Predicted runtime for job perfectScaler is zero or negative (0).
 ```
 
-The prediction then falls back to the runtime `default` from the toml. That is
-worth seeing once — it is the same guard that protects you from a bad fit on real
-jobs — but it does mean these lessons teach predicting **memory**.
+**Therefore, the lessons in the tutorial focus exclusively on using slurmise
+to predict memory requirements of the commands.**
+
+In real slurmise usage you'll be able to predict both time and memory requirements.
 
 ## Lessons
 
-Each lesson in this book corresponds to a directory in the tutorial tarball. Take
-the lessons in order; each builds on the one before.
+Each lesson in this book corresponds to a directory in the tutorial tarball.
+We recommend taking the lessons in order as each builds on the one before.
 
 To follow along, open a shell, `cd` into the lesson's directory, and type/copy the
 commands as you need them.
 
-Your numbers might not match the page exactly as measured memory and runtime vary
-from run to run.
+Your numbers might not match the page exactly as measured memory varies from run to run.
 
 ## Running the lessons without a cluster
 
-Every lesson that submits a job offers two ways to do it, as a pair of tabs.
-Picking one switches every pair on the page:
+You can follow along with this tutorial on your local laptop.
+Every lesson that submits a job offers two ways to do so:
 
 - **cluster** — a real `sbatch`, which is what you would do in earnest.
-- **mock** — a stand-in that calls `slurmise raw-record` to assert what the job
+- **mock** — a stand-in that calls `slurmise raw-record` which asserts what the job
   *would* have used instead of actually submitting.
 
-Your SLURM setup may require extra flags such as `--account` when submitting the
-included `.sbatch` files. `sbatch` honors `SBATCH_ACCOUNT`, `SBATCH_PARTITION`
-and `SBATCH_QOS` from your environment, which is the easiest way to supply them
-without editing every file:
+Both approaches result in the slurmise database recording similar information.
+
+## Running the lessons with a cluster
+
+Even if you choose to follow the tutorial on a SLURM-enabled HPC, you may still
+want to opt for the **mock** approach to skip waiting for the queue to schedule
+the jobs.
+
+If you do want to submit jobs, your SLURM setup may require extra flags such as
+`--account` when submitting the included `.sbatch` files. `sbatch` honors
+`SBATCH_ACCOUNT`, `SBATCH_PARTITION` and `SBATCH_QOS` from your environment,
+which is the easiest way to supply them without editing every file:
 
 ```bash
 export SBATCH_ACCOUNT=myaccount
 ```
 
-Start with {doc}`lessons/01_single_job/lesson` when you're ready.
+Now start with {doc}`lessons/01_single_job/lesson` when you're ready.

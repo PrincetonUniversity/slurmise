@@ -13,7 +13,7 @@ could submit an ARRAY job, but how much time and memory should you provide? Some
 genes are small, others are huge.
 
 Or maybe you're an astrophysicist interested in estimating the number of black
-holes across different regions of space.
+holes across heterogenous regions of space.
 
 ## Workflow when using slurmise
 
