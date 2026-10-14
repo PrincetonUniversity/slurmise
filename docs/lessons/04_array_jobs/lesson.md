@@ -155,9 +155,9 @@ The toml declares that word as a category:
 cat slurmise.toml | grep -qE 'scaling.*category'
 ```
 
-`{scaling:category}` is the only new thing here — `{intensity:numeric}` is the
-same as ever. That one word changes how slurmise
-stores the job's history, as the next command shows. The array runs 60 tasks, 20 at
+`scaling = {type = "category"}` is the only new thing here — `intensity` is
+`numeric` as ever. That one word changes how slurmise stores the job's history, as
+the next command shows. The array runs 60 tasks, 20 at
 each of the three `--scaling` values:
 
 ::::{tab-set}
