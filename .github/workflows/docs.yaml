@@ -33,12 +33,13 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v7
 
+      # This executes every tutorial lesson as part of the build, so a broken lesson
+      # fails the docs just as it fails test.yaml.
       - name: Build documentation
-        # When docs are mature, switch to: uv run poe docs
-        run: uv run poe docs-dev
+        run: uv run poe docs
 
       - name: Check for broken links
-        run: uv run --group docs sphinx-build -b linkcheck docs docs/_build/linkcheck
+        run: uv run --group docs jupyter-book build docs --builder linkcheck
         continue-on-error: true  # Don't fail build on broken external links
 
       # Not main, upload docs for review

@@ -19,11 +19,13 @@ def get_current_job_id() -> str | None:
 def resolve_job_id(slurm_id: str | int | None = None, step_id: str | None = None) -> str:
     """
     Resolve a job ID, falling back to the current SLURM job's environment.
+
     Parameters:
         slurm_id (str | int | None): The SLURM job ID. If None, the ID is read from the
             SLURM_JOB_ID environment variable.
         step_id (str | None): The SLURM step ID. If provided, it is appended to the job ID
             as "<slurm_id>.<step_id>".
+
     Returns:
         str: The resolved job ID, with the step ID appended if provided.
     """
@@ -52,11 +54,13 @@ def split_job_id(slurm_id: str) -> tuple[str, str | None]:
 def parse_slurm_job_metadata(slurm_id: str | None = None, step_id: str | None = None) -> dict:
     """
     Return a dictionary of metadata for the current SLURM job.
+
     Parameters:
         slurm_id (str | None): The SLURM job ID. If None, the function will attempt to retrieve
             the job ID from the SLURM_JOB_ID environment variable.
         step_id (str | None): The SLURM step ID. If None, the function defaults to the last step
             of the job. If provided, it specifies which step's metadata to return.
+
     Returns:
         dict: A dictionary containing metadata for the specified SLURM job and step.
     """
