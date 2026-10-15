@@ -7,6 +7,7 @@ import click
 
 from slurmise import job_data, slurm
 from slurmise.api import Slurmise
+from slurmise.validate import validate_config
 
 
 def _parse_json_options(
@@ -62,6 +63,10 @@ class _SlurmiseGroup(click.Group):
 @click.pass_context
 def main(ctx, toml):
     ctx.ensure_object(dict)
+    ctx.obj["toml"] = toml
+    # `validate` loads the configuration itself so that an invalid one is reported, not raised.
+    if ctx.invoked_subcommand == "validate":
+        return
     # `print` can operate on a bare .h5 path and does not require a toml config.
     if toml is None and ctx.invoked_subcommand == "print":
         return
@@ -84,6 +89,27 @@ def record(ctx, cmd, job_name, slurm_id, step_id):
     For example: `slurmise record "-o 2 -i 3 -m fast"`
     """
     ctx.obj["slurmise"].record(cmd, job_name, slurm_id, step_id)
+
+
+@main.command()
+@click.argument("commands", nargs=-1)
+@click.option("--job-name", type=str, help="Name of the job all COMMANDS belong to, otherwise inferred")
+@click.option("--json", "as_json", is_flag=True, help="Print the report as JSON")
+@click.pass_context
+def validate(ctx, commands, job_name, as_json):
+    """Check a configuration file and, optionally, example commands against it.
+
+    Loads the configuration, then parses each COMMAND the way `record` would,
+    including running file parsers, so files they reference must exist.
+    Exits with status 1 if there are any errors; warnings do not change it.
+    For example: `slurmise validate "nupack monomer -T 2 -C simple"`
+    """
+    report = validate_config(ctx.obj["toml"], commands, job_name)
+    if as_json:
+        click.echo(json.dumps(report.to_dict(), indent=2, default=str))
+    else:
+        click.echo(report.format())
+    sys.exit(0 if report.ok else 1)
 
 
 @main.command()

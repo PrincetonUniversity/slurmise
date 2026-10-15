@@ -86,6 +86,12 @@ class JobSpec:
         self.job_spec_str = job_spec
         self.job_regex = self.build_regex()
 
+        # A declared variable that is never captured makes every parse fail with "Dict missing variable".
+        used = {m.group("name") for m in JOB_SPEC_REGEX.finditer(job_spec) if m.group("name")}
+        if unused := sorted(set(self.token_kinds) - used):
+            job = f"Job {self.name!r}" if self.name else "Job"
+            raise ValueError(f"{job} defines variables not used in its job_spec: {', '.join(unused)}")
+
     def build_regex(self, named_ignore=False):
         job_spec = self.job_spec_str
         ignore_ind = 0
