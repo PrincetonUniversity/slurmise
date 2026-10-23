@@ -35,7 +35,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Build the tutorial tarball
         # `HEAD:docs/lessons` archives that directory as the root, so the lessons
