@@ -38,7 +38,7 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 html_theme = "sphinx_rtd_theme"
 html_static_path = ["_static"]
 html_logo = "assets/logo.svg"
-html_favicon = "assets/logo.svg"
+html_favicon = "assets/favicon.png"
 templates_path = ["_templates"]
 
 # Development banner — set DOCS_DEV_BANNER=1 to display a notice at the top of every page.
