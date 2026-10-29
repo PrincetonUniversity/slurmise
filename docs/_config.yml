@@ -35,6 +35,7 @@ repository:
   path_to_book: docs
 
 html:
+  favicon: assets/favicon.png
   use_issues_button: true
   use_repository_button: true
   # The logo already links home; without this the sidebar starts with a lone
