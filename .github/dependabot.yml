@@ -4,6 +4,10 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    ignore:
+      # Jupytebook2 (JB2) drops Sphinx, which the docs need for autodoc. Stay on JB1 for now
+      - dependency-name: "jupyter-book"
+        versions: [">=2"]
     groups:
       all-deps:
         patterns: ["*"]

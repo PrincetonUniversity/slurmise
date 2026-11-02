@@ -1,0 +1,15 @@
+#!/usr/bin/env python3
+"""Allocates <intensity> MB of memory and holds it for one second."""
+
+import argparse
+import time
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--intensity", type=int)
+args = parser.parse_args()
+
+# Create a bytearray of the specified size in megabytes
+_ = bytearray(args.intensity * 1024 * 1024)
+
+# Hold it briefly so SLURM's accounting sees the job's memory
+time.sleep(1)

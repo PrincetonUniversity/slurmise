@@ -1,0 +1,43 @@
+#!/usr/bin/env python3
+"""Takes --intensity as well as --scaling which is a categorical of
+either "linear", "quadratic", or "cubic" which adjusts how much memory
+is actually used. Holds it for one second.
+
+Also "jiggles" the intensity with some slight noise
+
+Demonstrates slurmise handling categorical (non-numeric-scaling) parameters.
+"""
+
+import argparse
+import random
+import time
+
+scaling_to_exponent = {"linear": 1, "quadratic": 2, "cubic": 3}
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Allocate memory based on category labels.")
+    parser.add_argument("--intensity", type=int, default=1000, help="megabytes of memory to allocate")
+    parser.add_argument(
+        "--scaling",
+        type=str,
+        choices=("linear", "quadratic", "cubic"),
+        default="linear",
+        help="resource scaling factor",
+    )
+    args = parser.parse_args()
+
+    exponent = scaling_to_exponent[args.scaling]
+    intensity_noise = random.uniform(0.8, 1.2)
+
+    intensity = int(args.intensity**exponent)
+    intensity = int(intensity * intensity_noise)
+
+    # bytearray zero-fills the buffer, forcing every page resident so the
+    # allocation shows up in SLURM's MaxRSS rather than being lazily reserved.
+    _ = bytearray(intensity * 1024 * 1024)
+    time.sleep(1)
+
+
+if __name__ == "__main__":
+    main()
