@@ -5,6 +5,10 @@ parts:
     chapters:
       - file: install
       - file: overview
+  - caption: Guides
+    chapters:
+      - file: configuration
+      - file: config-skill
   - caption: Tutorial
     chapters:
       - file: tutorial

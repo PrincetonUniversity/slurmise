@@ -44,6 +44,11 @@ example is the input file size important or number of lines?  In addition to
 some built-in file parsers, you have the option of utilizing `awk` to extract
 more complex information from a file.
 
+For a step-by-step walkthrough that builds a configuration from scratch and
+checks it with `slurmise validate`, see the
+[configuration guide](https://princetonuniversity.github.io/slurmise/configuration.html).
+The sections below are the full reference.
+
 #### Example toml
 ```toml
 [slurmise]
@@ -112,17 +117,18 @@ starts with the job name, the job name will be detected and removed from the com
 ```toml
 # slurmise.toml
 [slurmise.job.git]
-job_spec = "checkout {branch}"
+job_spec = "checkout {branch} -j {jobs}"
 
 [slurmise.job.git.variables]
 branch = {type = "category"}
+jobs = {type = "numeric"}
 ```
-This job specification will match any of the following with the branch set to `my_branch`
+This job specification will match any of the following with the branch set to `my_branch` and `jobs` set to 4
 ```bash
 # infer from command
-slurmise record "git checkout my_branch"
+slurmise record "git checkout my_branch -j 4"
 # tell explicitly
-slurmise record --job-name git "checkout my_branch"
+slurmise record --job-name git "checkout my_branch -j 4"
 ```
 
 Since the job name cannot have spaces and some commands have several subcommands,
@@ -131,24 +137,26 @@ you can set unique prefixes for certain jobs.
 # slurmise.toml
 [slurmise.job.git_checkout]
 job_prefix = "git checkout"
-job_spec = "{branch}"
+job_spec = "{branch} -j {jobs}"
 
 [slurmise.job.git_checkout.variables]
 branch = {type = "category"}
+jobs = {type = "numeric"}
 
 [slurmise.job.git_merge]
 job_prefix = "git merge"
-job_spec = "{branch}"
+job_spec = "{branch} -j {jobs}"
 
 [slurmise.job.git_merge.variables]
 branch = {type = "category"}
+jobs = {type = "numeric"}
 ```
 With a job prefix, slurmise will use the prefix instead of job name to infer
 job names.
 ```bash
-slurmise record "git checkout my_branch"
+slurmise record "git checkout my_branch -j 4"
 # explicit job name
-slurmise record -j git_checkout "my_branch"
+slurmise record -j git_checkout "my_branch -j 4"
 ```
 Note that the job name and prefix should not be included in the job specification.
 When a job name is explicitly given to slurmise, the corresponding command should
@@ -329,7 +337,8 @@ TOML, and checks it with `slurmise validate` before reporting back.  It never
 touches the job database.
 
 To install it, copy the skill into your skills directory, either for one project or
-for all of your projects:
+for all of your projects.  The skill is not part of the pip package, so from a clone
+of this repository (`git clone --depth 1 https://github.com/PrincetonUniversity/slurmise.git`):
 ```bash
 # this project only
 mkdir -p .claude/skills && cp -r skills/slurmise-config .claude/skills/
@@ -341,6 +350,9 @@ Then ask your assistant for what you need, for example
 `/slurmise-config`.  Give it two or three real commands with different values, and make
 sure `slurmise` is installed so it can run `validate`.  Always review the generated
 file; the `parsed` output from `validate` shows exactly what was extracted from each command.
+
+See the [skill guide](https://princetonuniversity.github.io/slurmise/config-skill.html)
+in the docs for more detail.
 
 ## License
 
