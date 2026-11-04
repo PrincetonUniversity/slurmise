@@ -127,6 +127,97 @@ def test_default_resources_no_setting(tmpdir):
     assert job_data.runtime == 60
 
 
+def test_unused_variable(tmpdir):
+    """A declared variable that the job spec never captures would make every parse fail."""
+    toml_str = """
+    [slurmise]
+    base_dir = "slurmise_dir"
+
+    [slurmise.job.nupack]
+    job_spec = "monomer -T {threads}"
+    [slurmise.job.nupack.variables]
+    threads = {type = "numeric"}
+    complexity = {type = "category"}
+    """
+    toml = write_toml(tmpdir, toml_str)
+
+    with pytest.raises(ValueError, match="'nupack' defines variables not used in its job_spec: complexity"):
+        SlurmiseConfiguration(toml)
+
+
+def test_ignore_placeholder_needs_no_variable(tmpdir):
+    """{ignore} is matched but never declared, so it must not trip the unused variable check."""
+    toml_str = """
+    [slurmise]
+    base_dir = "slurmise_dir"
+
+    [slurmise.job.nupack]
+    job_spec = "monomer -T {threads} {ignore}"
+    [slurmise.job.nupack.variables]
+    threads = {type = "numeric"}
+    """
+    toml = write_toml(tmpdir, toml_str)
+
+    assert "nupack" in SlurmiseConfiguration(toml).job_configurations
+
+
+@pytest.mark.parametrize(
+    ("resource_toml", "match"),
+    [
+        ("[slurmise.runtime]\n    minimum = -1", "Invalid runtime configuration for global: minimum must be >= 0"),
+        ("[slurmise.memory]\n    multiply_prediction_by = 0", "Invalid memory configuration for global"),
+        (
+            '[slurmise.memory]\n    on_high_uncertainty_return = "max"',
+            "Invalid memory configuration for global: on_high_uncertainty_return='max' requires a finite maximum",
+        ),
+        (
+            "[slurmise.job.myjob.runtime]\n    minimum = 10\n    maximum = 5",
+            "Invalid runtime configuration for job myjob: maximum",
+        ),
+        (
+            '[slurmise.job.myjob.memory]\n    on_high_uncertainty_return = "sometimes"',
+            "Invalid memory configuration for job myjob: on_high_uncertainty_return must be one of",
+        ),
+    ],
+)
+def test_invalid_resource_config_fails_at_load(tmpdir, resource_toml, match):
+    """Resource settings are validated when the config loads, not on the first prediction."""
+    toml_str = f"""
+    [slurmise]
+    base_dir = "slurmise_dir"
+
+    {resource_toml}
+
+    [slurmise.job.myjob]
+    [slurmise.job.myjob.variables]
+    n = {{type = "numeric"}}
+    """
+    toml = write_toml(tmpdir, toml_str)
+
+    with pytest.raises(ValueError, match=match):
+        SlurmiseConfiguration(toml)
+
+
+def test_unknown_awk_parser_type(tmpdir):
+    """A misspelled parser type would otherwise silently become a category."""
+    toml_str = """
+    [slurmise]
+    base_dir = "slurmise_dir"
+
+    [slurmise.file_parsers.get_epochs]
+    type = "numerc"
+    awk_script = "/^epochs:/ {print $2}"
+
+    [slurmise.job.myjob]
+    [slurmise.job.myjob.variables]
+    n = {type = "numeric"}
+    """
+    toml = write_toml(tmpdir, toml_str)
+
+    with pytest.raises(ValueError, match="Unknown type 'numerc' for file parser get_epochs"):
+        SlurmiseConfiguration(toml)
+
+
 def test_init_SlurmiseConfiguration_missing_file(tmpdir):
     toml_str = """
     [slurmise]

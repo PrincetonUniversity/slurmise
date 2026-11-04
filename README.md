@@ -50,6 +50,9 @@ more complex information from a file.
 # base directory to store database and optimized models
 base_dir = "slurmise_dir"
 
+# name of the job database inside base_dir.  Default is "slurmise.h5".
+db_filename = "slurmise.h5"
+
 # how much the database may grow past the records a model was fit on before
 # `predict` warns that the model should be refit, as a fraction of those records.
 # Default is 0.2, so a model fit on 20 jobs warns once the database holds 25.
@@ -172,6 +175,8 @@ the categories will be matched to particular, independent model.
 - `gzip_file`: An input file in gzip format.  During processing, the file will
 be decompressed to read it's contents, note this can incur memory and cpu drain.
 - `file_list`: An input file that contains a list of files to process in turn.
+- `ignore`: A value that is matched but not recorded.  Useful with a `pattern` to
+absorb a variable number of arguments, see below.
 
 When a `job_spec` is provided, its placeholders reference the variable names:
 ```
@@ -242,7 +247,7 @@ awk_script = "/^network type:/ {print $3}"
 [slurmise.file_parsers.fasta_length]
 type = "numeric"
 awk_script = "/path/to/awk/file.awk"
-script_is_file = True
+script_is_file = true
 
 # contents of file.awk
 # /^>/ {if (seq) print seq; seq=0}
@@ -273,6 +278,69 @@ will be an independent variable.  In practice, matching md5 will ensure the same
 of lines which doesn't provide additional information to the model.  The fasta file
 returns the file size in bytes and the number of nucleotides in each fasta entry.
 
+#### Choosing a model
+By default each job is fit with a degree 2 polynomial regression.  To use a
+different model, add a `model` section to the job:
+```toml
+[slurmise.job.job_name.model]
+model = "knn"
+```
+The available models are:
+- `poly`: polynomial regression (default).  Good when resource usage scales
+smoothly with the numeric variables.
+- `knn`: k-nearest neighbors regression.  Better when usage does not follow a
+simple curve, but it can only predict from jobs it has already seen.
+
+Model hyperparameters (polynomial degree, number of neighbors) are not currently
+configurable.  Models are stored separately for each model type, so after changing
+the model run `slurmise update-model --job-name job_name` to fit the new one.
+
+#### Snakemake integration
+When snakemake is installed, slurmise can estimate resources, record completed jobs
+and refit models automatically during a workflow.  Variables for these jobs take
+a `source` key (e.g. `input`, `params`, `wildcards`, `threads`) to say where
+in the rule to find their value, and behavior is tuned in a
+`[slurmise.extras.snakemake]` section.  See the
+[extras README](src/slurmise/extras/README.md) for a complete example and options.
+
+#### Validating a configuration
+`slurmise validate` checks a configuration file without touching the database
+or creating any directories.  Give it example commands to confirm each parses the
+way you expect, including any file parsers (so the files they reference must exist):
+```bash
+slurmise --toml slurmise.toml validate "nupack monomer -T 4 -C high"
+# explicit job name, with the prefix left off the command
+slurmise validate --job-name nupack "monomer -T 4 -C high"
+# machine readable report
+slurmise validate --json "nupack monomer -T 4 -C high"
+```
+Errors, such as an invalid section or a command that does not match its `job_spec`,
+give a non-zero exit status.  Warnings are legal but probably unintended, such
+as a job prefix hidden by an earlier job, or a `file_parsers` section ignored because
+it has no `awk_script`.
+
+#### Building a configuration with an AI assistant
+The [`skills/slurmise-config`](skills/slurmise-config) directory holds an
+[Agent Skill](https://agentskills.io) that helps an AI coding assistant such as
+Claude Code write or edit a `slurmise.toml`.  It asks for a few real example commands,
+asks the modelling questions only you can answer (is a value numeric or a category,
+which file feature matters, what the runtime and memory limits are), drafts the
+TOML, and checks it with `slurmise validate` before reporting back.  It never
+touches the job database.
+
+To install it, copy the skill into your skills directory, either for one project or
+for all of your projects:
+```bash
+# this project only
+mkdir -p .claude/skills && cp -r skills/slurmise-config .claude/skills/
+# every project
+mkdir -p ~/.claude/skills && cp -r skills/slurmise-config ~/.claude/skills/
+```
+Then ask your assistant for what you need, for example
+"set up slurmise for `nupack monomer -T 4 -C high`", or invoke it directly with
+`/slurmise-config`.  Give it two or three real commands with different values, and make
+sure `slurmise` is installed so it can run `validate`.  Always review the generated
+file; the `parsed` output from `validate` shows exactly what was extracted from each command.
 
 ## License
 
