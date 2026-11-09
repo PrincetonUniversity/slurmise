@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import pathlib
 from dataclasses import InitVar, dataclass
-from typing import ClassVar
+from typing import Any, ClassVar, Self
 
 import joblib
 from sklearn.linear_model import LinearRegression
@@ -30,8 +31,10 @@ class PolynomialFit(ResourceFit):
         super().save()
 
     @classmethod
-    def load(cls, query: JobData | None = None, path: str | None = None) -> PolynomialFit:
-        fit_obj = super().load(query=query, path=path, degree=2)
+    def load(cls, query: JobData | None = None, path: str | pathlib.Path | None = None, **kwargs: Any) -> Self:
+        kwargs.setdefault("degree", 2)
+        fit_obj = super().load(query=query, path=path, **kwargs)
+        assert fit_obj.path is not None
 
         runtime_model = fit_obj.path / PolynomialFit._runtime_model_name
         fit_obj.runtime_model = joblib.load(str(runtime_model)) if runtime_model.exists() else None

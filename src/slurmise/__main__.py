@@ -16,13 +16,13 @@ def _parse_json_options(
     cmd: str,
     slurm_id: str | None = None,
 ) -> job_data.JobData:
-    categories = json.loads("{" + categories + "}") if categories else {}
-    numerics = json.loads("{" + numerics + "}") if numerics else {}
+    categories_dict = json.loads("{" + categories + "}") if categories else {}
+    numerics_dict = json.loads("{" + numerics + "}") if numerics else {}
 
     return job_data.JobData(
         job_name=job_name,
-        numerics=numerics,
-        categories=categories,
+        numerics=numerics_dict,
+        categories=categories_dict,
         cmd=cmd,
         slurm_id=slurm_id,
     )
@@ -33,7 +33,7 @@ def _report_prediction(query_jd: job_data.JobData, query_warns: list[str]) -> No
     click.echo(f"Predicted runtime: {query_jd.runtime}")
     click.echo(f"Predicted memory: {query_jd.memory}")
     if query_warns:
-        click.echo(click.style("Warnings:", fg="yellow"), err=True, color="red")
+        click.echo(click.style("Warnings:", fg="yellow"), err=True)
         for warn in query_warns:
             click.echo(f"  {warn}", err=True)
 

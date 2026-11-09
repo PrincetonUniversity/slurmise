@@ -49,7 +49,7 @@ class JobDatabase:
 
     @staticmethod
     @contextlib.contextmanager
-    def get_database(db_file: str, max_retries: int = 10) -> JobDatabase:  # type: ignore
+    def get_database(db_file: str, max_retries: int = 10) -> Generator[JobDatabase]:
         """
         Use in context manager to automatically open and close db file.
 
@@ -193,6 +193,7 @@ class JobDatabase:
         updated_jobs = []
         for job in jobs:
             if job.memory is None or job.runtime is None:
+                assert job.slurm_id is not None
                 slurm_id, step_id = slurm.split_job_id(job.slurm_id)
                 job_info = slurm.parse_slurm_job_metadata(slurm_id=slurm_id, step_id=step_id)
 
@@ -270,8 +271,8 @@ class JobDatabase:
 
         for name in job_names:
             entry = self.db[name]
-            for categories, jobs in JobDatabase.iterate_jobs(entry):
-                categories = dict(cat.split("=") for cat in categories)
+            for category_items, job_groups in JobDatabase.iterate_jobs(entry):
+                categories = dict(cat.split("=") for cat in category_items)
                 query = JobData(job_name=name, categories=categories)
                 jobs = [
                     JobData.from_dataset(
@@ -280,7 +281,7 @@ class JobDatabase:
                         categories=categories,
                         dataset=slurm_data,
                     )
-                    for slurm_id, slurm_data in jobs.items()
+                    for slurm_id, slurm_data in job_groups.items()
                 ]
                 if update_missing:
                     jobs = self.update_missing_data(jobs)
