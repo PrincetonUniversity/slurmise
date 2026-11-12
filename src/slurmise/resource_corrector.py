@@ -120,3 +120,14 @@ class ResourceCorrector:
 
         result = max(scaled, self.minimum)
         return result, warnings
+
+    def scale_std(
+        self, std: float | None, predicted: float, is_high_uncertainty: bool, attempt: int = 1
+    ) -> float | None:
+        """Scale a model std the same way correct() scales the prediction; None when a fallback replaces it."""
+        if std is None or predicted <= 0:
+            return None
+        if is_high_uncertainty and self.on_high_uncertainty_return != "prediction":
+            return None
+        factor = attempt**self.retry_exponent if attempt > 1 else 1.0
+        return std * factor * self.multiply_prediction_by

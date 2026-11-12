@@ -544,9 +544,9 @@ def test_update_predict(nupack_toml):
     predicted_runtime = tmp_stdout[0].split(":")
     predicted_memory = tmp_stdout[1].split(":")
     assert predicted_runtime[0] == "Predicted runtime"
-    assert predicted_runtime[1].strip() == "10"  # 9.29 rounded up
+    assert predicted_runtime[1].strip() == "10 (std 9.6)"  # 9.29 rounded up
     assert predicted_memory[0] == "Predicted memory"
-    assert predicted_memory[1].strip() == "10169"  # 10168.72 rounded up
+    assert predicted_memory[1].strip() == "10169 (std 509.5)"  # 10168.72 rounded up
 
     result = runner.invoke(
         main,
@@ -565,9 +565,9 @@ def test_update_predict(nupack_toml):
     predicted_runtime = tmp_stdout[0].split(":")
     predicted_memory = tmp_stdout[1].split(":")
     assert predicted_runtime[0] == "Predicted runtime"
-    assert predicted_runtime[1].strip() == "10"  # 9.29 rounded up
+    assert predicted_runtime[1].strip() == "10 (std 9.6)"  # 9.29 rounded up
     assert predicted_memory[0] == "Predicted memory"
-    assert predicted_memory[1].strip() == "10169"  # 10168.72 rounded up
+    assert predicted_memory[1].strip() == "10169 (std 509.5)"  # 10168.72 rounded up
 
     # Test that predictions above the configured maximums are clamped to those maximums.
     result = runner.invoke(
@@ -585,9 +585,9 @@ def test_update_predict(nupack_toml):
     predicted_runtime = tmp_stdout[0].split(":")
     predicted_memory = tmp_stdout[1].split(":")
     assert predicted_runtime[0] == "Predicted runtime"
-    assert float(predicted_runtime[1]) == 1440
+    assert predicted_runtime[1] == " 1440 (std 1192278046940.4)"
     assert predicted_memory[0] == "Predicted memory"
-    assert float(predicted_memory[1]) == 100000
+    assert predicted_memory[1] == " 100000"
     assert "Warnings:" in result.stderr
 
     # Same test through raw-predict.
@@ -608,9 +608,9 @@ def test_update_predict(nupack_toml):
     predicted_runtime = tmp_stdout[0].split(":")
     predicted_memory = tmp_stdout[1].split(":")
     assert predicted_runtime[0] == "Predicted runtime"
-    assert float(predicted_runtime[1]) == 1440
+    assert predicted_runtime[1] == " 1440 (std 1192278046940.4)"
     assert predicted_memory[0] == "Predicted memory"
-    assert float(predicted_memory[1]) == 100000
+    assert predicted_memory[1] == " 100000"
     assert "Warnings:" in result.stderr
 
 
@@ -705,9 +705,9 @@ def test_update_all_predict(nupack_toml):
     predicted_runtime = tmp_stdout[0].split(":")
     predicted_memory = tmp_stdout[1].split(":")
     assert predicted_runtime[0] == "Predicted runtime"
-    assert predicted_runtime[1].strip() == "10"  # 9.29 rounded up
+    assert predicted_runtime[1].strip() == "10 (std 9.6)"  # 9.29 rounded up
     assert predicted_memory[0] == "Predicted memory"
-    assert predicted_memory[1].strip() == "10169"  # 10168.72 rounded up
+    assert predicted_memory[1].strip() == "10169 (std 509.5)"  # 10168.72 rounded up
 
 
 def test_predict_nomodel(nupackdefaults_toml):

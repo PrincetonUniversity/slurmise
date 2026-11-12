@@ -60,6 +60,9 @@ class JobData:
     memory: float | None = None  # in MBs
     runtime: float | None = None  # in minutes
     cmd: str | None = None  # TODO: NOT STORED OR RETURNED
+    # Prediction outputs only; never recorded in the database or used as features.
+    runtime_std: float | None = None
+    memory_std: float | None = None
 
     @staticmethod
     def from_dataset(job_name: str, slurm_id: str, dataset: h5py.Dataset, categories: dict) -> JobData:
