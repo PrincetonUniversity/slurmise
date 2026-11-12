@@ -29,10 +29,26 @@ def _parse_json_options(
     )
 
 
-def _report_prediction(query_jd: job_data.JobData, query_warns: list[str]) -> None:
+_format_option = click.option(
+    "--format",
+    "output_format",
+    type=click.Choice(["text", "sbatch", "json"]),
+    default="text",
+    show_default=True,
+    help="Output format. `sbatch` prints `--time=<minutes> --mem=<MB>` for use as sbatch arguments;"
+    " `json` prints {runtime, memory}. Warnings always go to stderr.",
+)
+
+
+def _report_prediction(query_jd: job_data.JobData, query_warns: list[str], output_format: str = "text") -> None:
     """Helper function to report the prediction results."""
-    click.echo(f"Predicted runtime: {query_jd.runtime}")
-    click.echo(f"Predicted memory: {query_jd.memory}")
+    if output_format == "sbatch":
+        click.echo(f"--time={query_jd.runtime} --mem={query_jd.memory}")
+    elif output_format == "json":
+        click.echo(json.dumps({"runtime": query_jd.runtime, "memory": query_jd.memory}))
+    else:
+        click.echo(f"Predicted runtime: {query_jd.runtime}")
+        click.echo(f"Predicted memory: {query_jd.memory}")
     if query_warns:
         click.echo(click.style("Warnings:", fg="yellow"), err=True, color="red")
         for warn in query_warns:
@@ -199,10 +215,15 @@ def print(ctx, h5_path):
 @main.command()
 @click.argument("cmd", nargs=1)
 @click.option("--job-name", type=str, help="Name of the job")
+@_format_option
 @click.pass_context
-def predict(ctx, cmd, job_name):
+def predict(ctx, cmd, job_name, output_format):
+    """Predict runtime (minutes) and memory (MB) for a command.
+
+    For example: `sbatch $(slurmise predict --format sbatch "-o 2 -i 3") job.sh`
+    """
     query_jd, query_warns = ctx.obj["slurmise"].predict(cmd, job_name)
-    _report_prediction(query_jd, query_warns)
+    _report_prediction(query_jd, query_warns, output_format)
 
 
 @main.command()
@@ -218,14 +239,15 @@ def predict(ctx, cmd, job_name):
     help="Category run parameters in JSON format without outer {}",
 )
 @click.option("--cmd", type=str, help="Actual command run")
+@_format_option
 @click.pass_context
-def raw_predict(ctx, job_name, numerics, categories, cmd):
+def raw_predict(ctx, job_name, numerics, categories, cmd, output_format):
     """predict a job"""
 
     jd = _parse_json_options(categories, numerics, job_name, cmd)
 
     query_jd, query_warns = ctx.obj["slurmise"].raw_predict(jd)
-    _report_prediction(query_jd, query_warns)
+    _report_prediction(query_jd, query_warns, output_format)
 
 
 @main.command()
