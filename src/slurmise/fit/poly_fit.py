@@ -4,6 +4,7 @@ from dataclasses import InitVar, dataclass
 from typing import ClassVar
 
 import joblib
+import numpy as np
 from sklearn.linear_model import LinearRegression
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import PolynomialFeatures
@@ -48,3 +49,25 @@ class PolynomialFit(ResourceFit):
         model = LinearRegression()
 
         return Pipeline([("preprocessor", preprocessor), ("poly", poly), ("model", model)])
+
+    def _design(self, model, X) -> np.ndarray:
+        F = model[:-1].transform(X)
+        F = F.toarray() if hasattr(F, "toarray") else np.asarray(F)
+        return np.column_stack([np.ones(len(F)), F])
+
+    def _fit_uncertainty(self, model, X_train, y_train, X_test, y_test) -> None:
+        F = self._design(model, X_train)
+        n, p = F.shape
+        if n <= p:
+            return
+        resid = np.asarray(y_train, dtype=float) - model.predict(X_train)
+        model.slurmise_s2_ = float(np.sum(np.square(resid)) / (n - p))
+        model.slurmise_xtx_inv_ = np.linalg.pinv(np.matmul(F.T, F))
+
+    def _predict_std(self, model, X) -> float | None:
+        s2 = getattr(model, "slurmise_s2_", None)
+        xtx_inv = getattr(model, "slurmise_xtx_inv_", None)
+        if s2 is None or xtx_inv is None:
+            return None
+        f0 = self._design(model, X)[0]
+        return float(np.sqrt(s2 * (1 + np.linalg.multi_dot([f0, xtx_inv, f0]))))
