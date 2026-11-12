@@ -5,6 +5,7 @@ import hashlib
 import json
 import pathlib
 from dataclasses import asdict, dataclass, field
+from typing import Any, ClassVar, Self
 
 import joblib
 import numpy as np
@@ -34,6 +35,8 @@ class ResourceFit:
     fit_timestamp: datetime.datetime = field(default_factory=datetime.datetime.now)
     model_metrics: dict = field(default_factory=dict)
     path: pathlib.Path | None = None
+    _runtime_model_name: ClassVar[str]
+    _memory_model_name: ClassVar[str]
 
     def __post_init__(self):
         if isinstance(self.path, str):
@@ -71,6 +74,9 @@ class ResourceFit:
         base_path = pathlib.Path(BASEMODELPATH if base_path is None else base_path)
         return base_path / cls.__name__ / hash_val
 
+    def _make_model(self, categories: list[str], numerics: list[str]) -> Pipeline:
+        raise NotImplementedError
+
     def save(self, model_params: dict | None = None):
         """This method saves the basic information of the model, such as its query,
         when it was last fit, the dataset size of the latest fit, and the type of
@@ -79,6 +85,8 @@ class ResourceFit:
         if model_params is None:
             model_params = {}
 
+        # __post_init__ always resolves path to a Path.
+        assert self.path is not None
         self.path.mkdir(parents=True, exist_ok=True)
         with open(str(self.path / "fits.json"), "w") as save_file:
             # This converts the dataclass to a dictionary. If it is called from a subclass,
@@ -102,7 +110,7 @@ class ResourceFit:
             joblib.dump(self.memory_model, str(modelpath))
 
     @classmethod
-    def load(cls, query: JobData | None = None, path: str | None = None, **kwargs) -> ResourceFit:
+    def load(cls, query: JobData | None = None, path: str | pathlib.Path | None = None, **kwargs: Any) -> Self:
         """
         This method loads a model from a file. The model is loaded from the path
         provided, or from the path generated from the query.
@@ -116,16 +124,15 @@ class ResourceFit:
         :rtype: ResourceFit
 
         """
-        match [path, query]:
-            case (None, None):
-                raise ValueError("Either query or path must be provided")
-            case (None, _):
-                path = cls._make_model_path(query)
-            case (str(path), _):
-                path = pathlib.Path(path)
+        if path is not None:
+            model_path = pathlib.Path(path)
+        elif query is not None:
+            model_path = cls._make_model_path(query)
+        else:
+            raise ValueError("Either query or path must be provided")
 
-        if (path / "fits.json").exists():
-            with open(str(path / "fits.json")) as load_file:
+        if (model_path / "fits.json").exists():
+            with open(str(model_path / "fits.json")) as load_file:
                 info = json.load(load_file)
 
             # Convert datetime from isoformat string to datetime object
@@ -136,7 +143,7 @@ class ResourceFit:
                 "last_fit_dsize": 0,
                 "fit_timestamp": datetime.datetime.now(tz=datetime.UTC),
                 "model_metrics": {},
-                "path": path,
+                "path": model_path,
             }
             info.update(kwargs)
 

@@ -2,11 +2,15 @@ from __future__ import annotations
 
 import tomllib
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from slurmise import job_data, slurm
 from slurmise.job_parse import file_parsers
 from slurmise.job_parse.job_specification import JobSpec
 from slurmise.resource_corrector import ResourceCorrector
+
+if TYPE_CHECKING:
+    from slurmise.fit.resource_fit import ResourceFit
 
 _RESOURCES = ("runtime", "memory")
 _PARSER_TYPES = ("numeric", "category")
@@ -201,7 +205,7 @@ class SlurmiseConfiguration:
         job_data.runtime = self.get_runtime_corrector(job_data.job_name).default
         return job_data
 
-    def get_model_class(self, job_name: str):
+    def get_model_class(self, job_name: str) -> type[ResourceFit]:
         """Returns the model class a job is using."""
         model_config = self.job_configurations[job_name].get("model", {})
         model_name = model_config.get("model", "poly")
