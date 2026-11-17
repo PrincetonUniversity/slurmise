@@ -36,8 +36,8 @@ class JobSpec:
         self.token_patterns: dict[str, str] = {}
         self.file_parsers: dict[str, list[FileParser]] = {}
         self.model = model
-        self.job_spec_str = None
-        self.job_regex = None
+        self.job_spec_str: str | None = None
+        self.job_regex: str | None = None
         self.sources = {}
         self.name = job_name
 
@@ -163,6 +163,8 @@ class JobSpec:
     def parse_job_cmd(self, job: job_data.JobData) -> job_data.JobData:
         if self.job_regex is None:
             raise ValueError(f"Job {job.job_name} has no job spec entry for parsing commands")
+        if job.cmd is None:
+            raise ValueError(f"Job {job.job_name} has no command to parse")
         match = re.match(self.job_regex, job.cmd)
         if match is None:
             result = self.align_and_indicate_differences(job.cmd)
@@ -239,9 +241,11 @@ class JobSpec:
 
         # need to handle ignore tokens differently as they have no names in the regex
         # rebuild regex to keep names if given and give default if not
+        if self.job_regex is None or self.job_spec_str is None:
+            raise ValueError("No job spec has been added")
         raw_regex = self.job_regex
         job_spec_str = self.job_spec_str
-        if "ignore}" in self.job_spec_str:
+        if "ignore}" in job_spec_str:
             raw_regex = self.build_regex(named_ignore=True)
             # add names to job spec str as well
             ignore_index = 0
@@ -290,14 +294,14 @@ class JobSpec:
 
         if match:
             spec_with_matches = simple_spec.format(**match.groupdict()).replace(_L, "{").replace(_R, "}")
-            display_spec = re.sub(r"{([^}]+)}", r"{{\1⇒{\1}}}", simple_spec)
-            display_spec = display_spec.format(**match.groupdict()).replace(_L, "{").replace(_R, "}")
+            display_str = re.sub(r"{([^}]+)}", r"{{\1⇒{\1}}}", simple_spec)
+            display_str = display_str.format(**match.groupdict()).replace(_L, "{").replace(_R, "}")
 
             # this holds indicies for mapping a position in the match string
             # to the display spec
             matches_to_display = []
             offset = 0
-            for wc in re.finditer(r"{([^⇒]+)⇒([^}]*)}", display_spec):
+            for wc in re.finditer(r"{([^⇒]+)⇒([^}]*)}", display_str):
                 matches_to_display.append(
                     (
                         wc.start() + offset,
@@ -310,7 +314,7 @@ class JobSpec:
                 offset += len(wc.group(2)) - wc.end() + wc.start()
 
             # convert to list for slicing
-            display_spec = list(display_spec)
+            display_spec = list(display_str)
         else:
             # Command is too different for fuzzy alignment; show a plain
             # character-level diff against the spec pattern without group annotation.

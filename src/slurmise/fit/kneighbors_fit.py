@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import pathlib
 from dataclasses import InitVar, dataclass
-from typing import ClassVar
+from typing import Any, ClassVar, Self
 
 import joblib
 from sklearn.neighbors import KNeighborsRegressor
@@ -26,8 +27,10 @@ class KNNFit(ResourceFit):
         super().__post_init__()
 
     @classmethod
-    def load(cls, query: JobData | None = None, path: str | None = None) -> KNNFit:
-        fit_obj = super().load(query=query, path=path, nneighbors=5)
+    def load(cls, query: JobData | None = None, path: str | pathlib.Path | None = None, **kwargs: Any) -> Self:
+        kwargs.setdefault("nneighbors", 5)
+        fit_obj = super().load(query=query, path=path, **kwargs)
+        assert fit_obj.path is not None
 
         runtime_model = fit_obj.path / KNNFit._runtime_model_name
         fit_obj.runtime_model = joblib.load(str(runtime_model)) if runtime_model.exists() else None

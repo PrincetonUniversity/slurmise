@@ -43,6 +43,8 @@ dev = [
   "pre-commit",
   "isort",
   "mypy>=1.0.0",
+  "pandas-stubs",
+  "types-regex",
   "poethepoet>=0.45",
 ]
 docs = [
@@ -64,6 +66,11 @@ slurmise = "slurmise.__main__:main"
 
 [tool.setuptools_scm]
 version_file = "src/slurmise/__about__.py"
+
+[[tool.mypy.overrides]]
+# These libraries ship no type information.
+module = ["h5py", "h5py.*", "joblib", "sklearn", "sklearn.*", "snakemake", "snakemake.*"]
+ignore_missing_imports = true
 
 [tool.poe.tasks]
 check = "mypy --install-types --non-interactive src/slurmise tests"
