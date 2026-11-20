@@ -752,3 +752,45 @@ def test_parse(simple_toml):
     assert result.exit_code == 0
 
     assert result.stdout.startswith("Able to parse")
+
+
+def _fake_prediction(*_args, **_kwargs):
+    return JobData(job_name="nupack", runtime=120, memory=4096), ["a warning"]
+
+
+@pytest.mark.parametrize(
+    ("fmt", "expected"),
+    [
+        ("text", "Predicted runtime: 120\nPredicted memory: 4096\n"),
+        ("sbatch", "--time=120 --mem=4096\n"),
+        ("json", '{"runtime": 120, "memory": 4096}\n'),
+    ],
+)
+@pytest.mark.parametrize("subcommand", ["predict", "raw-predict"])
+def test_predict_formats(simple_toml, subcommand, fmt, expected):
+    """Machine-readable formats keep stdout clean; warnings go to stderr."""
+    args = ["nupack monomer -T 2 -C simple"] if subcommand == "predict" else ["--job-name", "nupack"]
+    method = "predict" if subcommand == "predict" else "raw_predict"
+    runner = CliRunner()
+    with mock.patch.object(Slurmise, method, side_effect=_fake_prediction):
+        result = runner.invoke(main, ["--toml", simple_toml.toml, subcommand, "--format", fmt, *args])
+
+    assert result.exit_code == 0, result.output
+    assert result.stdout == expected
+    assert "a warning" in result.stderr
+
+
+def test_predict_default_format_is_text(simple_toml):
+    runner = CliRunner()
+    with mock.patch.object(Slurmise, "predict", side_effect=_fake_prediction):
+        result = runner.invoke(main, ["--toml", simple_toml.toml, "predict", "nupack monomer -T 2 -C simple"])
+
+    assert result.stdout == "Predicted runtime: 120\nPredicted memory: 4096\n"
+
+
+def test_predict_invalid_format(simple_toml):
+    runner = CliRunner()
+    result = runner.invoke(
+        main, ["--toml", simple_toml.toml, "predict", "--format", "xml", "nupack monomer -T 2 -C simple"]
+    )
+    assert result.exit_code == 2
