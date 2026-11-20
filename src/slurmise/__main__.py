@@ -31,8 +31,10 @@ def _parse_json_options(
 
 def _report_prediction(query_jd: job_data.JobData, query_warns: list[str]) -> None:
     """Helper function to report the prediction results."""
-    click.echo(f"Predicted runtime: {query_jd.runtime}")
-    click.echo(f"Predicted memory: {query_jd.memory}")
+    for resource in ("runtime", "memory"):
+        value, std = getattr(query_jd, resource), getattr(query_jd, f"{resource}_std")
+        suffix = f" (std {std:.1f})" if std is not None else ""
+        click.echo(f"Predicted {resource}: {value}{suffix}")
     if query_warns:
         click.echo(click.style("Warnings:", fg="yellow"), err=True, color="red")
         for warn in query_warns:
