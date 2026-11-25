@@ -342,6 +342,40 @@ Then ask your assistant for what you need, for example
 sure `slurmise` is installed so it can run `validate`.  Always review the generated
 file; the `parsed` output from `validate` shows exactly what was extracted from each command.
 
+### Using predictions with sbatch
+
+`slurmise predict` prints the estimated runtime (minutes) and memory (MB).  Use
+`--format sbatch` to get ready-made `--time` and `--mem` arguments; warnings are
+written to stderr so stdout is always safe to substitute:
+
+```bash
+sbatch $(slurmise predict --format sbatch "nupack monomer -c 3 -S 6543") job.sbatch
+```
+
+`$(...)` hides failures: if `slurmise predict` errors, the substitution expands to
+nothing and sbatch would submit the job with no resource flags.  If no model has been
+fit yet, the default runtime and memory are printed (with a warning on stderr).  To
+avoid writing the command twice and to stop on errors, build the command once and
+assign the arguments before submitting:
+
+```bash
+CMD="nupack monomer -c 3 -S 6543"
+ARGS=$(slurmise predict --format sbatch "$CMD") || exit 1
+sbatch $ARGS --wrap "$CMD"
+```
+
+For scripting, `--format json` prints `{"runtime": 120, "memory": 4096}`.  For example,
+to split the predicted memory across CPUs, rounding up so the request is never short:
+
+```bash
+CPUS=4
+PRED=$(slurmise predict --format json "$CMD") || exit 1
+MEM=$(jq .memory <<< "$PRED")
+sbatch --cpus-per-task=$CPUS --mem-per-cpu=$(( (MEM + CPUS - 1) / CPUS )) --wrap "$CMD"
+```
+
+`raw-predict` accepts the same `--format` option.
+
 ## License
 
 `slurmise` is distributed under the terms of the [MIT](https://spdx.org/licenses/MIT.html) license.
