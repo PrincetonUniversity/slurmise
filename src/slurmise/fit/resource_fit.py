@@ -177,6 +177,14 @@ class ResourceFit:
 
         return preprocessor
 
+    def _fit_uncertainty(self, model: Pipeline, X_train, y_train, X_test, y_test) -> None:
+        """Store on ``model`` whatever _predict_std needs; it is pickled with the pipeline."""
+        raise NotImplementedError(f"{type(self).__name__} must implement _fit_uncertainty")
+
+    def _predict_std(self, model: Pipeline, X) -> float | None:
+        """Standard deviation of the prediction for the single query row in ``X``."""
+        raise NotImplementedError(f"{type(self).__name__} must implement _predict_std")
+
     def fit(self, jobs: list[JobData], random_state: np.random.RandomState | None, **kwargs):
         X, categories, numerics = jobs_to_pandas(jobs)
 
@@ -195,7 +203,9 @@ class ResourceFit:
         self.memory_model = self._make_model(categories, numerics)
 
         self.runtime_model.fit(X_train, y_train["runtime"])
+        self._fit_uncertainty(self.runtime_model, X_train, y_train["runtime"], X_test, y_test["runtime"])
         self.memory_model.fit(X_train, y_train["memory"])
+        self._fit_uncertainty(self.memory_model, X_train, y_train["memory"], X_test, y_test["memory"])
 
         # Evaluate the model on test
         Y_pred_runtime = self.runtime_model.predict(X_test)
@@ -235,10 +245,19 @@ class ResourceFit:
         runtime_uncertain = self.model_metrics["runtime"]["mpe"] > MPE_THRESHOLD
         memory_uncertain = self.model_metrics["memory"]["mpe"] > MPE_THRESHOLD
 
+        runtime_std = runtime_corrector.scale_std(
+            self._predict_std(self.runtime_model, X), runtime_raw, runtime_uncertain, attempt
+        )
+        memory_std = memory_corrector.scale_std(
+            self._predict_std(self.memory_model, X), memory_raw, memory_uncertain, attempt
+        )
+
         job.runtime, rt_warns = runtime_corrector.correct(runtime_raw, runtime_uncertain, job.job_name, attempt)
         warnings.extend(rt_warns)
+        job.runtime_std = runtime_std
 
         job.memory, mem_warns = memory_corrector.correct(memory_raw, memory_uncertain, job.job_name, attempt)
         warnings.extend(mem_warns)
+        job.memory_std = memory_std
 
         return job, warnings

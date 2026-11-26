@@ -4,6 +4,7 @@ from dataclasses import InitVar, dataclass
 from typing import ClassVar
 
 import joblib
+import numpy as np
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.pipeline import Pipeline
 
@@ -42,3 +43,14 @@ class KNNFit(ResourceFit):
         model = KNeighborsRegressor(self.nneighbors)
 
         return Pipeline([("preprocessor", preprocessor), ("model", model)])
+
+    def _fit_uncertainty(self, model, X_train, y_train, X_test, y_test) -> None:
+        model.slurmise_y_train_ = np.asarray(y_train, dtype=float)
+
+    def _predict_std(self, model, X) -> float | None:
+        y_train = getattr(model, "slurmise_y_train_", None)
+        if y_train is None:
+            return None
+        _, idx = model[-1].kneighbors(model[:-1].transform(X))
+        neighbours = y_train[idx[0]]
+        return float(neighbours.std(ddof=1)) if len(neighbours) > 1 else None

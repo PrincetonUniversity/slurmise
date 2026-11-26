@@ -12,7 +12,7 @@ def jobs_to_pandas(jobs: list[JobData]):
     """
     Convert a list of JobData objects to a pandas DataFrame. The DataFrame will have
     columns for each category and numeric feature, and will not include the job_name,
-    slurm_id, or cmd fields since they are not features.
+    slurm_id, cmd, or prediction std fields since they are not features.
 
     :param jobs: A list of JobData objects
     :type jobs: list[JobData]
@@ -61,8 +61,8 @@ def jobs_to_pandas(jobs: list[JobData]):
 
     df.columns = [col.replace("numerics.", "") for col in df.columns]
 
-    # Drop job_name and slurm_id columns since they are not features
-    cols_to_drop = {"job_name", "slurm_id", "cmd"}.intersection(df.columns)
+    # Drop identifiers and prediction outputs since they are not features
+    cols_to_drop = {"job_name", "slurm_id", "cmd", "runtime_std", "memory_std"}.intersection(df.columns)
     df = df.drop(columns=cols_to_drop)
 
     # Sort columns to ensure consistent ordering across platforms
